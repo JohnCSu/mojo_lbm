@@ -1,0 +1,5 @@
+matplotlib>=3.10.9
+mojo==1.0.0b1
+numpy>=2.4.5
+pandas>=3.0.3
+pyvista>=0.48.4
