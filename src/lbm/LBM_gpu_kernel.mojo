@@ -8,21 +8,19 @@ from src.utils import Vector,ContextTileTensor
 def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
                 nx:Int,ny:Int,nz:Int,
-                FlayoutType:TensorLayout,BClayoutType:TensorLayout,FlaglayoutType:TensorLayout,
                 //,
                 grid: LBM_Grid[lattice_model,nx,ny,nz], 
-                Flayout:FlayoutType,
-                BClayout:BClayoutType,
-                Flaglayout:FlaglayoutType,
+                Flayout:Layout[...],
+                BClayout:Layout[...],
+                Flaglayout:Layout[...],
                 ]
                 ( 
-                f_out:TileTensor[float_dtype,FlayoutType,MutAnyOrigin],
-                f_in:TileTensor[float_dtype,FlayoutType,MutAnyOrigin],
-                bc:TileTensor[float_dtype,BClayoutType,MutAnyOrigin],
-                flags:TileTensor[DType.uint8,FlaglayoutType,MutAnyOrigin],
+                f_out:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
+                f_in:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
+                bc:TileTensor[float_dtype,type_of(BClayout),MutAnyOrigin],
+                flags:TileTensor[DType.uint8,type_of(Flaglayout),MutAnyOrigin],
                 inv_tau:Scalar[float_dtype]
                 ):
-    
     comptime assert f_in.flat_rank == 4 and f_in.flat_rank == f_out.flat_rank and f_in.static_shape[0] == Q 
     comptime assert bc.flat_rank == 4
     comptime assert flags.flat_rank == 3
@@ -36,11 +34,11 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     y = block_dim.y * block_idx.y + thread_idx.y
     z = block_dim.z * block_idx.z + thread_idx.z
     index = Vector[DType.int32,3](Int32(x),Int32(y),Int32(z))
+
+    if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
     
-    if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]: # Basic Guard
         var f_new = Vector[float_dtype,D](fill = 0.)
         var velocity = Vector[float_dtype,D]()
-        
         for q in range(Q):
             f_opp = f_in[opposite_index[q],x,y,z]
             direction = directions[q]
@@ -48,7 +46,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
             pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
             pulled_f = f_in[q,pull_index[0],pull_index[1],pull_index[2]]            
             pulled_flag = flags[pull_index[0],pull_index[1],pull_index[2]]
-            
+
             if pulled_flag == FLUID_NODE: # Stream
                 f_new[q] = pulled_f
             elif pulled_flag == SOLID_NODE: # BounceBack with moving wall BC put together (2nd term is 0 if stationary wall)
@@ -56,7 +54,6 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                     velocity[ii] = bc[pull_index[0],pull_index[1],pull_index[2],ii]
                 rho = bc[pull_index[0],pull_index[1],pull_index[2],D]
                 f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity))
-
         # Get Velocity and Density
         velocity.fill(0)
         rho = 0
@@ -64,10 +61,9 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
             rho += f_new[q]
             velocity += f_new[q]*float_directions[q]
         velocity /= rho
-
         # Collision Term
         for q in range(Q):
-            f_eq = BGK_Collision(weights[q],rho,velocity,float_directions[q])            
+            f_eq = SRT(weights[q],rho,velocity,float_directions[q])            
             f_out[q,x,y,z] = f_new[q] -  inv_tau*(f_new[q]- f_eq)
 
 
@@ -80,46 +76,7 @@ def get_adjacent_idx[D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_sha
     return adj_index
 
 
-def BGK_Collision[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],direction:Vector[dtype,D]) -> Scalar[dtype]:
+def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],direction:Vector[dtype,D]) -> Scalar[dtype]:
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
     ei_dot_u = velocity.dot(direction)
     return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*velocity.dot(velocity))
-
-
-def calculate_rho_and_velocity[  float_dtype:DType,D:Int,Q:Int,
-                                lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
-                                nx:Int,ny:Int,nz:Int,
-                                FlayoutType:TensorLayout,RhoLayoutType:TensorLayout,VelocityLayoutType:TensorLayout,
-                                //,
-                                grid: LBM_Grid[lattice_model,nx,ny,nz], 
-                                Flayout:FlayoutType,
-                                Rholayout:RhoLayoutType,
-                                Velocitylayout:VelocityLayoutType,
-                                ]
-                                (
-                                    f:TileTensor[float_dtype,FlayoutType,MutAnyOrigin],
-                                    density:TileTensor[float_dtype,RhoLayoutType,MutAnyOrigin],
-                                    velocity:TileTensor[float_dtype,VelocityLayoutType,MutAnyOrigin],
-                                ):
-    
-    comptime assert f.flat_rank == 4
-    comptime assert density.flat_rank == 3
-    comptime assert velocity.flat_rank == 4 and Velocitylayout.static_shape[0] == D
-    comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
-
-    x = block_dim.x * block_idx.x + thread_idx.x
-    y = block_dim.y * block_idx.y + thread_idx.y
-    z = block_dim.z * block_idx.z + thread_idx.z
-    index = Vector[DType.int32,3](Int32(x),Int32(y),Int32(z))
-
-    if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]: # Basic Guard
-        var u = Vector[float_dtype,D](fill = 0.)
-        var rho = Scalar[float_dtype](0)
-        for q in range(Q):
-            rho += f[q,x,y,z]
-            u += f[q,x,y,z]*lattice_model.float_directions[q]
-        u /= rho
-
-        density[x,y,z] = rho
-        comptime for i in range(D):
-            velocity[i,x,y,z] = u[i]
