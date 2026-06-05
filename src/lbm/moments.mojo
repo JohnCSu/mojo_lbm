@@ -1,29 +1,36 @@
 from std.gpu import block_dim,block_idx,thread_idx
-from layout import TileTensor
+from layout import TileTensor,LayoutTensor
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from .LBM import LatticeModel,LBM_Grid
 from src.utils import Vector,ContextTileTensor
 
-def calculate_rho_and_velocity[  float_dtype:DType,D:Int,Q:Int,
+
+def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
                                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
                                 nx:Int,ny:Int,nz:Int,
-                                FlayoutType:TensorLayout,RhoLayoutType:TensorLayout,VelocityLayoutType:TensorLayout,
                                 //,
                                 grid: LBM_Grid[lattice_model,nx,ny,nz], 
-                                Flayout:FlayoutType,
-                                Rholayout:RhoLayoutType,
-                                Velocitylayout:VelocityLayoutType,
+                                Flayout:Layout[...] where Flayout.rank == 4,
+                                RhoLayout:Layout[...] where RhoLayout.rank == 3,
+                                VelocityLayout:Layout[...] where VelocityLayout.rank == 4,
                                 ]
                                 (
-                                    f:TileTensor[float_dtype,FlayoutType,MutAnyOrigin],
-                                    density:TileTensor[float_dtype,RhoLayoutType,MutAnyOrigin],
-                                    velocity:TileTensor[float_dtype,VelocityLayoutType,MutAnyOrigin],
+                                    f:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
+                                    density:TileTensor[float_dtype,type_of(RhoLayout),MutAnyOrigin],
+                                    velocity:TileTensor[float_dtype,type_of(VelocityLayout),MutAnyOrigin],
                                 ):
+    # Run on GPU
+    '''
+    Compute the Velocity and Density from f dist. Converts to layout tensor to allow layout independent assignment. This should be run on the gpu
+    '''
     
-    comptime assert f.flat_rank == 4
-    comptime assert density.flat_rank == 3
-    comptime assert velocity.flat_rank == 4 and Velocitylayout.static_shape[0] == D
     comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
+    comptime f_as_lt = LayoutTensor[float_dtype,Flayout.to_layout(),MutAnyOrigin]
+    comptime vel_as_lt = LayoutTensor[float_dtype,VelocityLayout.to_layout(),MutAnyOrigin]
+    comptime rho_as_lt = LayoutTensor[float_dtype,RhoLayout.to_layout(),MutAnyOrigin]
+    f_lt = f_as_lt(f.ptr)
+    velocity_lt = vel_as_lt(velocity.ptr)
+    density_lt = rho_as_lt(density.ptr)
 
     x = block_dim.x * block_idx.x + thread_idx.x
     y = block_dim.y * block_idx.y + thread_idx.y
@@ -34,10 +41,10 @@ def calculate_rho_and_velocity[  float_dtype:DType,D:Int,Q:Int,
         var u = Vector[float_dtype,D](fill = 0.)
         var rho = Scalar[float_dtype](0)
         for q in range(Q):
-            rho += f[q,x,y,z]
-            u += f[q,x,y,z]*lattice_model.float_directions[q]
+            rho += f_lt[q,x,y,z][0]
+            u += f_lt[q,x,y,z][0]*lattice_model.float_directions[q]
         u /= rho
 
-        density[x,y,z] = rho
+        density_lt[x,y,z] = rho
         comptime for i in range(D):
-            velocity[i,x,y,z] = u[i]
+            velocity_lt[i,x,y,z] = u[i]
