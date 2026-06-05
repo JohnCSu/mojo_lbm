@@ -1,0 +1,225 @@
+from std.gpu import block_dim,block_idx,thread_idx,barrier
+from layout import TileTensor,LayoutTensor
+from layout.tile_tensor import stack_allocation
+from layout.tile_layout import Layout,row_major,Coord,TensorLayout
+from std.gpu.memory import AddressSpace
+from src.lbm.LBM import LatticeModel,LBM_Grid
+from src.lbm.flags import SOLID_NODE,FLUID_NODE
+from src.utils import Vector,ContextTileTensor
+
+
+def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
+                lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+                nx:Int,ny:Int,nz:Int,
+                //,
+                grid: LBM_Grid[lattice_model,nx,ny,nz], 
+                Flayout:Layout[...] where Flayout.rank == 4,  
+                BClayout:Layout[...] where BClayout.rank == 4,
+                Flaglayout:Layout[...] where Flaglayout.rank == 3,
+                *,
+                reorder_threads:Bool = True
+                ]
+                ( 
+                f_out:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
+                f_in:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
+                bc:TileTensor[float_dtype,type_of(BClayout),MutAnyOrigin],
+                flags:TileTensor[DType.uint8,type_of(Flaglayout),MutAnyOrigin],
+                inv_tau:Scalar[float_dtype]
+                ):
+    '''
+    From reorderThreads. This uses layout_tensor to abstract away the complicated nested layout
+    ''' 
+    # Convience Variable Names and constants
+    comptime weights = lattice_model.weights
+    comptime float_directions = lattice_model.float_directions
+    comptime directions = lattice_model.directions
+    comptime opposite_index = lattice_model.opposite_indices
+    comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
+
+    # Conversion to Layout Tensor as tiletensor.to_layout_tensor() does not support nested
+    comptime f_as_lt = LayoutTensor[float_dtype,Flayout.to_layout(),MutAnyOrigin]
+    comptime flag_as_lt = LayoutTensor[DType.uint8,Flaglayout.to_layout(),MutAnyOrigin]
+    comptime bc_as_lt = LayoutTensor[float_dtype,BClayout.to_layout(),MutAnyOrigin]
+    comptime assert f_as_lt.element_size == 1 and flag_as_lt.element_size == 1 and bc_as_lt.element_size == 1
+    
+    f_in_lt = f_as_lt(f_in.ptr)
+    f_out_lt = f_as_lt(f_out.ptr)
+    flags_lt = flag_as_lt(flags.ptr)
+    bc_lt = bc_as_lt(bc.ptr)
+    comptime if reorder_threads:
+        comptime if D==1: # Indexing based on Dimension of Grid
+            x = block_dim.x * block_idx.x + thread_idx.x
+            y,z = 0,0
+        elif D == 2:
+            x = block_dim.y * block_idx.y + thread_idx.y
+            y = block_dim.x * block_idx.x + thread_idx.x
+            z = 0
+        else:
+            x = block_dim.z * block_idx.z + thread_idx.z
+            y = block_dim.y * block_idx.y + thread_idx.y
+            z = block_dim.x * block_idx.x + thread_idx.x
+    else:
+        x = block_dim.x * block_idx.x + thread_idx.x
+        y = block_dim.y * block_idx.y + thread_idx.y
+        z = block_dim.z * block_idx.z + thread_idx.z
+        
+    index = Vector[DType.int32,3](Int32(x),Int32(y),Int32(z))
+
+    # Main Compute
+    if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
+        var f_new = Vector[float_dtype,D](fill = 0.)
+        var velocity = Vector[float_dtype,D]()
+        for q in range(Q):
+            f_opp = f_in_lt.load_scalar(opposite_index[q],x,y,z) # Need this as  Element Type is a Simd Vec of size 1
+            direction = directions[q]
+            
+            pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
+            pulled_f = f_in_lt.load_scalar(q,pull_index[0],pull_index[1],pull_index[2])            
+            pulled_flag = flags_lt.load_scalar(pull_index[0],pull_index[1],pull_index[2])
+
+            if pulled_flag == FLUID_NODE: # Stream
+                f_new[q] = pulled_f
+            elif pulled_flag == SOLID_NODE: # BounceBack with moving wall BC put together (2nd term is 0 if stationary wall)
+                comptime for ii in range(D):
+                    velocity[ii] = bc_lt.load_scalar(pull_index[0],pull_index[1],pull_index[2],ii)
+                rho = bc_lt.load_scalar(pull_index[0],pull_index[1],pull_index[2],D)
+                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity))
+        # Get Velocity and Density
+        velocity.fill(0)
+        rho = 0
+        for q in range(Q):
+            rho += f_new[q]
+            velocity += f_new[q]*float_directions[q]
+        velocity /= rho
+        # Collision Term
+        for q in range(Q):
+            f_eq = SRT(weights[q],rho,velocity,float_directions[q])            
+            f_out_lt[q,x,y,z] = f_new[q] -  inv_tau*(f_new[q]- f_eq)
+
+
+
+def get_adjacent_idx[D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[DType.int32,D],) -> Vector[DType.int32,3]:
+    comptime assert D <= 3 
+    adj_index = Vector[DType.int32,3]()
+    comptime for d in range(D):
+        adj_index[d] = (index[d] + shift*direction[d]) % grid_shape[d]
+    return adj_index
+
+
+def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],direction:Vector[dtype,D]) -> Scalar[dtype]:
+    comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
+    ei_dot_u = velocity.dot(direction)
+    return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*velocity.dot(velocity))
+
+
+from std.collections import Set
+
+def set_outer_walls[float_dtype:DType,
+                    # BCLayoutType:TensorLayout,
+                    # FlagLayout:TensorLayout,
+                    flag_origin:Origin[mut=True],
+                    bc_origin:Origin[mut=True],
+                    //,
+                    D:Int,
+                    nx:Int,
+                    ny:Int,
+                    nz:Int,
+                    FlagLayout:Layout[_,_],
+                    BCLayout:Layout[_,_],
+                    ]
+                    (flags:TileTensor[DType.uint8,type_of(FlagLayout),flag_origin],
+                            bc:TileTensor[float_dtype,type_of(BCLayout),bc_origin],
+                            side:String,
+                            boundary_type:Scalar[DType.uint8],
+                            velocity:List[Scalar[float_dtype]],
+                            density:Scalar[float_dtype]) raises:
+
+    comptime assert float_dtype.is_floating_point()
+    comptime assert flags.rank == 3 and bc.rank == 4
+    
+    comptime flag_as_lt = LayoutTensor[DType.uint8,FlagLayout.to_layout(),flag_origin]
+    comptime bc_as_lt = LayoutTensor[float_dtype,BCLayout.to_layout(),bc_origin]
+
+    flags_lt = flag_as_lt(flags.ptr)
+    bc_lt = bc_as_lt(bc.ptr)
+
+    axes:Dict[String,Int] = {'X':0,
+                    'Y':1,
+                    'Z':2,}
+    valid_strings:Set[String] = {'-X','+X','-Y','+Y','-Z','+Z'}
+    # (side) in valid_strings
+    assert side in valid_strings, 'Must be valid string'
+    axis = axes[String(side[byte = 1])]
+    
+    # Layout independent
+    end_values = [nx,ny,nz]
+    if side[byte = 0] == '-':
+        fixed = 0
+    else:
+        fixed = end_values[axis] - 1
+
+    if axis == 0: # X-axis, fix x and loop
+        for y in range(ny):
+            for z in range(nz):
+                flags_lt[fixed,y,z] = flags.ElementType(boundary_type)
+                comptime for i in range(D):
+                    bc_lt[fixed,y,z,i] = velocity[i]
+                bc_lt[fixed,y,z,D] = density
+    elif axis == 1:
+        for x in range(nx):
+            for z in range(nz):
+                flags_lt[x,fixed,z] = flags.ElementType(boundary_type)
+                comptime for i in range(D):
+                    bc_lt[x,fixed,z,i] = velocity[i]
+                bc_lt[x,fixed,z,D] = density
+    else: # Loop Z-face
+        for x in range(nx):
+            for y in range(ny):
+                flags_lt[x,y,fixed] = flags.ElementType(boundary_type)
+                comptime for i in range(D):
+                    bc_lt[x,y,fixed,i] = velocity[i]
+                bc_lt[x,y,fixed,D] = density
+
+
+def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
+                                lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+                                nx:Int,ny:Int,nz:Int,
+                                //,
+                                grid: LBM_Grid[lattice_model,nx,ny,nz], 
+                                Flayout:Layout[...] where Flayout.rank == 4,
+                                RhoLayout:Layout[...] where RhoLayout.rank == 3,
+                                VelocityLayout:Layout[...] where VelocityLayout.rank == 4,
+                                ]
+                                (
+                                    f:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
+                                    density:TileTensor[float_dtype,type_of(RhoLayout),MutAnyOrigin],
+                                    velocity:TileTensor[float_dtype,type_of(VelocityLayout),MutAnyOrigin],
+                                ):
+    # Run on GPU
+    '''
+    Compute the Velocity and Density from f dist. Converts to layout tensor to allow layout independent assignment
+    '''
+    comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
+    comptime f_as_lt = LayoutTensor[float_dtype,Flayout.to_layout(),MutAnyOrigin]
+    comptime vel_as_lt = LayoutTensor[float_dtype,VelocityLayout.to_layout(),MutAnyOrigin]
+    comptime rho_as_lt = LayoutTensor[float_dtype,RhoLayout.to_layout(),MutAnyOrigin]
+    f_lt = f_as_lt(f.ptr)
+    velocity_lt = vel_as_lt(velocity.ptr)
+    density_lt = rho_as_lt(density.ptr)
+
+    x = block_dim.x * block_idx.x + thread_idx.x
+    y = block_dim.y * block_idx.y + thread_idx.y
+    z = block_dim.z * block_idx.z + thread_idx.z
+    index = Vector[DType.int32,3](Int32(x),Int32(y),Int32(z))
+
+    if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]: # Basic Guard
+        var u = Vector[float_dtype,D](fill = 0.)
+        var rho = Scalar[float_dtype](0)
+        for q in range(Q):
+            rho += f_lt[q,x,y,z][0]
+            u += f_lt[q,x,y,z][0]*lattice_model.float_directions[q]
+        u /= rho
+
+        density_lt[x,y,z] = rho
+        comptime for i in range(D):
+            velocity_lt[i,x,y,z] = u[i]
