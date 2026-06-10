@@ -35,23 +35,26 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
         self.data = InlineArray[Scalar[Self.dtype],Self.size](uninitialized = True)
         for i in range(Self.size):
             self.data[i] = numbers[i]
-
+            
+    @always_inline
     def __len__(self) -> Int:
         return Self.size
 
+    @always_inline
     def __getitem__(self,idx:Int) -> Scalar[Self.dtype]:
         return self.data[idx]
-
+    @always_inline
     def __setitem__(mut self,idx:Int,value:Scalar[Self.dtype]):
         # self.data[idx] = 
         self.data[idx] = value
 
+    @always_inline
     def fill_from_list(mut self,list:List[Scalar[Self.dtype]]):
         assert len(list) == Self.size
         comptime for i in range(Self.size):
             self.data[i] = list[i]
         
-
+    @always_inline
     def fill(mut self,value:Scalar[Self.dtype]):
         comptime for i in range(Self.size):
             self.data[i] = value
