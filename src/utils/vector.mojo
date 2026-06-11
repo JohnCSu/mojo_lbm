@@ -20,7 +20,7 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
         Create a stack allocated vector of DType elemets using Variadic Syntax:
 
         Args:
-            numbers: Scalar[DType] a variadic list of Scalars to pass into the list
+            numbers: Scalar[DType] a variadic tuple of Scalars to pass into the vector.
         '''
         assert len(numbers) == Self.size, 'Number of inputs must match'
         self.data = InlineArray[Scalar[Self.dtype],Self.size](uninitialized = True)
@@ -34,6 +34,9 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
 
     @always_inline
     def __init__(out self,numbers:List[Scalar[Self.dtype]]):
+        '''
+        Fill Vector from List. List should match ElementType and Size of vector
+        '''
         assert len(numbers) == Self.size
         self.data = InlineArray[Scalar[Self.dtype],Self.size](uninitialized = True)
         for i in range(Self.size):
@@ -52,11 +55,22 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
         self.data[idx] = value
 
     @always_inline
-    def fill_from_list(mut self,list:List[Scalar[Self.dtype]]):
+    def fill(mut self,list:List[Scalar[Self.dtype]]):
         assert len(list) == Self.size
         comptime for i in range(Self.size):
             self.data[i] = list[i]
-        
+            
+    @always_inline
+    def fill_and_cast_from_list[different_dtype:DType](mut self,list:List[Scalar[different_dtype]]):
+        '''
+        Convert a list of number not neccesarily the same dtype and cast to the vector dtype
+        i.e convert a list of Int to a Vector of Floats
+        '''
+        assert len(list) == Self.size
+        comptime for i in range(Self.size):
+            self.data[i] = Scalar[Self.dtype](list[i])
+
+
     @always_inline
     def fill(mut self,value:Scalar[Self.dtype]):
         comptime for i in range(Self.size):
