@@ -34,88 +34,100 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     ''' 
     # Convience Variable Names and constants
     comptime assert Flayout.flat_rank == 8 and BClayout.flat_rank == 8 and Flaglayout.flat_rank == 6
+    comptime assert Flayout.static_shape[6] == Q
     comptime weights = lattice_model.weights
     comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
     comptime opposite_index = lattice_model.opposite_indices
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     
-
-
     comptime if reorder_threads:
         comptime if D==1: # Indexing based on Dimension of Grid
-            x = block_dim.x * block_idx.x + thread_idx.x
-            y,z = 0,0
+            block_x,block_dim_x = block_idx.x,block_dim.x
+            block_dim_y,block_dim_z = 0,0
+            block_y,block_z = 0,0
+
+            local_x = thread_idx.y
+            local_y = 0
+            local_z = 0
         elif D == 2:
-            x = block_dim.y * block_idx.y + thread_idx.y
-            y = block_dim.x * block_idx.x + thread_idx.x
-            z = 0
+            
+            block_x,block_dim_x = block_idx.y,block_dim.y
+            block_y,block_dim_y = block_idx.x,block_dim.x
+            block_z,block_dim_z = 0,0
+
+            local_x = thread_idx.y
+            local_y = thread_idx.x
+            local_z = 0
 
         else:
-            x = block_dim.z * block_idx.z + thread_idx.z
-            y = block_dim.y * block_idx.y + thread_idx.y
-            z = block_dim.x * block_idx.x + thread_idx.x
+            block_x,block_dim_x = block_idx.z,block_dim.z
+            block_y,block_dim_y = block_idx.y,block_dim.y
+            block_z,block_dim_z = block_idx.x,block_dim.x
+
+            local_x = thread_idx.z
+            local_y = thread_idx.y
+            local_z = thread_idx.x
     else:
-        x = block_dim.x * block_idx.x + thread_idx.x
-        y = block_dim.y * block_idx.y + thread_idx.y
-        z = block_dim.z * block_idx.z + thread_idx.z
+        block_x,block_dim_x = block_idx.x,block_dim.x
+        block_y,block_dim_y = block_idx.y,block_dim.y
+        block_z,block_dim_z = block_idx.z,block_dim.z
+
+        local_x = thread_idx.x
+        local_y = thread_idx.y
+        local_z = thread_idx.z
     
-    index:InlineArray[Int,3] = [x,y,z]
+    x = block_x*block_dim_x + local_x
+    y = block_y*block_dim_y + local_y
+    z = block_z*block_dim_z + local_z
+    
+    index:InlineArray[Int,3] = [x,y,z]    
 
-    # We are Row Major for tiler
-    block_x,block_dim_x = block_idx.y,block_dim.y
-    block_y,block_dim_y = block_idx.x,block_dim.x
-    block_z = 0
-
-    # We are Col Major for tiles
-    local_x = thread_idx.y
-    local_y = thread_idx.x
-    local_z = 0
     # Main Compute
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
         var f_new = Vector[float_dtype,Q](fill = 0.)
         var velocity = Vector[float_dtype,D]()
-        
+        var rho:Scalar[float_dtype] = 0
         coord_x = coord[DType.uint32]( (local_x,block_x) )
         coord_y = coord[DType.uint32]((local_y,block_y))
         coord_z = coord[DType.uint32]((local_z,block_z))
         
         flags.prefetch(Coord(coord_x,coord_y,coord_z))
-        
+
         comptime for q in range(Q):
             direction = directions[q]
             pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
-            pulled_f = f_in.load(coord[DType.uint32]((q,pull_index[0],pull_index[1],pull_index[2])))[0]
+            pulled_f = f_in.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
             pulled_flag = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
-            
             f_new[q] = pulled_f if pulled_flag == FLUID_NODE else f_new[q]
             if pulled_flag == SOLID_NODE:
-                f_opp = f_in.load(coord[DType.uint32]((Int(opposite_index[q]),x,y,z)))[0] # Need this as  Element Type is a Simd Vec of size 1    
+                f_opp = f_in.load(coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
                 rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
-                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity)) 
+                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity))
                 
         # Get Velocity and Density
         velocity.fill(0)
         rho = 0
+        # @always_inline
+        # def vector_sum[width:Int](i:Int) {mut f_new, mut rho, read x,read y}:
+        #     f_ptr = f_new.data.unsafe_ptr()
+        #     if i  <= len(f_new): # Ensure the load is within bounds
+        #         rho += f_ptr.load[width](i).reduce_add()
 
-        @always_inline
-        def vector_sum[width:Int](i:Int) {read f_new, mut rho}:
-            f_ptr = f_new.unsafe_ptr()
-            if i  <= len(f_new): # Ensure the load is within bounds
-                rho += f_ptr.load[width](i).reduce_add()
-        
         # vectorize[simd_width](len(f_new),vector_sum)
-
-        comptime for q in range(Q):
-            rho += f_new[q]    
+        comptime for q in range(Q):    
+            rho += f_new[q]
             velocity += f_new[q]*float_directions[q]
+
         velocity /= rho
         # Collision Term
+        u_dot_u = velocity.dot(velocity)
+
         comptime for q in range(Q):
-            f_eq = SRT(weights[q],rho,velocity,float_directions[q])            
-            f_out.store(coord = coord[DType.uint32]((q,x,y,z)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
+            f_eq = SRT(weights[q],rho,velocity,u_dot_u,float_directions[q])            
+            f_out.store(coord = coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
 
 @always_inline
 def get_adjacent_idx[D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[DType.int32,D],) -> InlineArray[Int,3]:
@@ -126,10 +138,10 @@ def get_adjacent_idx[D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:In
     return adj_index
 
 @always_inline
-def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],direction:Vector[dtype,D]) -> Scalar[dtype]:
+def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
     ei_dot_u = velocity.dot(direction)
-    return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*velocity.dot(velocity))
+    return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u)
 
 
     

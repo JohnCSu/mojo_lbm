@@ -38,12 +38,12 @@ def benchmark_func[
     # This can be stored in LBM Grid
     
     comptime flag_tile = col_major[tile_size,tile_size,1]()
-    comptime f_tile = col_major[Q,tile_size,tile_size,1]()
+    comptime f_tile = col_major[tile_size,tile_size,1,Q]()
     comptime bc_tile = col_major[tile_size,tile_size,1,D+1]()
         
     comptime flag_tiler = row_major[n_tiles,n_tiles,1]()
-    comptime f_tiler = row_major[1,n_tiles,n_tiles,1]()
-    comptime bc_tiler = row_major[n_tiles,n_tiles,1,D+1]()
+    comptime f_tiler = row_major[n_tiles,n_tiles,1,1]()
+    comptime bc_tiler = row_major[n_tiles,n_tiles,1,1]()
 
     comptime flag_layout = blocked_product(flag_tile,flag_tiler)
     comptime f_layout = blocked_product(f_tile,f_tiler)
@@ -53,7 +53,7 @@ def benchmark_func[
     comptime velocity_layout = row_major[D,nx,ny,nz]()
     
 
-    comptime simd_width = 4
+    comptime simd_width = 8
     ctx = DeviceContext()
     flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
     bc = ContextTileTensor[float_dtype](ctx,bc_layout)
