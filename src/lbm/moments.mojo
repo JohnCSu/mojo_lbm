@@ -1,7 +1,8 @@
 from std.gpu import block_dim,block_idx,thread_idx
 from layout import TileTensor,LayoutTensor
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
-from .LBM import LatticeModel,LBM_Grid
+from .LBM import LBM_Grid
+from .lattice_models import LatticeModel
 from src.utils import Vector,ContextTileTensor
 
 
