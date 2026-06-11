@@ -61,7 +61,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
         var f_new = Vector[float_dtype,Q](fill = 0.)
         var velocity = Vector[float_dtype,D]()
-        for q in range(Q):
+        comptime for q in range(Q):
             f_opp = f_in[0,opposite_index[q],   local_x,block_x,    local_y,block_y,    local_z,block_z] # Need (local_idx,block_idx)
             direction = directions[q]
             pull_local,pull_block = get_adjacent_idx[D,Flaglayout,tile_size,-1](local_index,block_index,direction) # Pulling Scheme

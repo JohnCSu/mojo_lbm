@@ -61,18 +61,20 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         var f_new = Vector[float_dtype,Q](fill = 0.)
         var velocity = Vector[float_dtype,D]()
         
-        for q in range(Q):
-            f_opp = f_in.load(coord[DType.uint32]((Int(opposite_index[q]),x,y,z)))[0] # Need this as  Element Type is a Simd Vec of size 1
+        comptime for q in range(Q):
             direction = directions[q]
             pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
             pulled_f = f_in.load(coord[DType.uint32]((q,pull_index[0],pull_index[1],pull_index[2])))[0]
             pulled_flag = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
             
             f_new[q] = pulled_f if pulled_flag == FLUID_NODE else f_new[q]
-            comptime for ii in range(D):
-                velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
-            rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
-            f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity)) if pulled_flag == SOLID_NODE else f_new[q]
+
+            if pulled_flag == SOLID_NODE:
+                f_opp = f_in.load(coord[DType.uint32]((Int(opposite_index[q]),x,y,z)))[0] # Need this as  Element Type is a Simd Vec of size 1
+                comptime for ii in range(D):
+                    velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
+                rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
+                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity)) 
                 
         # Get Velocity and Density
         velocity.fill(0)
