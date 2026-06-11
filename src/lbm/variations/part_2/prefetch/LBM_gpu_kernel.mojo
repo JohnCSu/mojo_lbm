@@ -82,7 +82,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         bc.prefetch( Coord(coord_x,coord_y,coord_z,coord[DType.uint32]((D,0))))
 
 
-        for q in range(Q):
+        comptime for q in range(Q):
             f_opp = f_in.load(coord[DType.uint32]((Int(opposite_index[q]),x,y,z)))[0] # Need this as  Element Type is a Simd Vec of size 1
             direction = directions[q]
             pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme

@@ -82,7 +82,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         coord_z = coord[DType.uint32]((local_z,block_z))
         
         flags.prefetch(Coord(coord_x,coord_y,coord_z))
-        for q in range(Q):
+        comptime for q in range(Q):
             direction = directions[q]
             pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
             pulled_f = f_in.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
