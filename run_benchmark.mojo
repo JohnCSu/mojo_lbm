@@ -7,7 +7,7 @@ from std.math import ceildiv
 from std.collections import InlineArray
 from src.lbm import SOLID_NODE,FLUID_NODE,set_outer_walls,LBM_Grid,get_D2Q9
 from src.lbm.variations.part_1 import reorderThreads,tiled,branchless,immutable_inputs,loop_unroll,tiled_no_layout
-from src.lbm.variations.part_2 import tensor_loads,prefetch,tiled_no_layout_immut,vectorize_1,AoS_Tile
+from src.lbm.variations.part_2 import tensor_loads,prefetch,tiled_no_layout_immut,SoA_Tile,AoS_Tile
 from src.lbm.variations import base
 
 from src.utils import Vector,ContextTileTensor
@@ -55,7 +55,7 @@ comptime benchmark_7 = tensor_loads.benchmark_func[grid,GRID_DIM,BLOCK_SHAPE,U,t
 comptime benchmark_8 = tiled_no_layout.benchmark_func_col_tile[grid,GRID_DIM,BLOCK_SHAPE,U,tau,tile_size]
 comptime benchmark_9 = prefetch.benchmark_func[grid,GRID_DIM,BLOCK_SHAPE,U,tau,tile_size]
 comptime benchmark_8b = tiled_no_layout_immut.benchmark_func_col_tile[grid,GRID_DIM,BLOCK_SHAPE,U,tau,tile_size]
-comptime benchmark_10 = vectorize_1.benchmark_func[grid,GRID_DIM,BLOCK_SHAPE,U,tau,tile_size]
+comptime benchmark_10 = SoA_Tile.benchmark_func[grid,GRID_DIM,BLOCK_SHAPE,U,tau,tile_size]
 comptime benchmark_11 = AoS_Tile.benchmark_func[grid,GRID_DIM,BLOCK_SHAPE,U,tau,tile_size]
 
 def main() raises:
@@ -71,20 +71,29 @@ def main() raises:
     var bench_config = BenchConfig(max_iters=20, num_warmup_iters=1)
     var bench = Bench(bench_config.copy())
 
-    bench.bench_function[benchmark_1](BenchId('Base Row Major LBM Kernel '))
-    bench.bench_function[benchmark_2](BenchId('Base with Thread Reordering'))
-    bench.bench_function[benchmark_3a](BenchId('Tiled 16x16 Layout Tile:Row major Tiler: Row major'))
-    bench.bench_function[benchmark_3b](BenchId('Tiled 16x16 Layout Tile:Col major Tiler: Row major'))
-    # bench.bench_function[benchmark_3c](BenchId('Tiled 16x16 Layout Tile:Row major Tiler: Row major No Thread Reorder'))
-    # bench.bench_function[benchmark_3d](BenchId('Tiled 16x16 Layout Tile:Col major Tiler: Row major No Thread Reorder'))
-    # bench.bench_function[benchmark_4](BenchId('Tiled 16x16 Layout Col/Row Loop Unroll'))
-    # bench.bench_function[benchmark_5](BenchId('Tiled 16x16 Layout Col/Row Loop Unroll branchless'))
-    # bench.bench_function[benchmark_6](BenchId('Tiled 16x16 Layout Col/Row Loop Unroll branchless Immutable'))
-    bench.bench_function[benchmark_7](BenchId('Benchmark_6 but with TileTensor.load and .store'))
-    bench.bench_function[benchmark_8](BenchId('Tiled 16x16 Layout Tile:Col major Tiler: Row major No Layout'))
-    bench.bench_function[benchmark_8b](BenchId('benchmark 8 but Immut inputs'))
-    bench.bench_function[benchmark_9](BenchId('Benchmark 8 with Prefetching flags and BC'))
-    bench.bench_function[benchmark_10](BenchId('Benchmark 8 with vectorized rho'))
-    bench.bench_function[benchmark_11](BenchId('AoS Tile'))
+
+    print('Base Unoptimized Layout Changes ')
+    bench.bench_function[benchmark_1](BenchId('1. Base Row Major LBM Kernel '))
+    
+    print('Part 1 Layout Changes ')
+    bench.bench_function[benchmark_2](BenchId('2. Base with Thread Reordering'))
+    bench.bench_function[benchmark_3a](BenchId('3a Tiled 16x16 Layout Tile:Row major Tiler: Row major'))
+    bench.bench_function[benchmark_3b](BenchId('3b. Tiled 16x16 Layout Tile:Col major Tiler: Row major'))
+    bench.bench_function[benchmark_3c](BenchId('3c. Tiled 16x16 Layout Tile:Row major Tiler: Row major No Thread Reorder'))
+    bench.bench_function[benchmark_3d](BenchId('3d. Tiled 16x16 Layout Tile:Col major Tiler: Row major No Thread Reorder'))
+
+    print('Part 2 Algorithim Changes')
+    bench.bench_function[benchmark_4](BenchId('4. Tiled 16x16 Layout Col/Row Loop Unroll'))
+    bench.bench_function[benchmark_5](BenchId('5. Tiled 16x16 Layout Col/Row Loop Unroll branchless'))
+    bench.bench_function[benchmark_6](BenchId('6. Tiled 16x16 Layout Col/Row Loop Unroll branchless Immutable'))
+
+
+    print('Part 3 Additional Analysis')
+    bench.bench_function[benchmark_7](BenchId('7. Benchmark_6 but with TileTensor.load and .store'))
+    bench.bench_function[benchmark_8](BenchId('8. Tiled 16x16 Layout Tile:Col major Tiler: Row major Nested Indexing'))
+    bench.bench_function[benchmark_8b](BenchId('8b. Tiled 16x16 Layout Tile:Col major Tiler: Row major Nested Indexing With Immut Inputs'))
+    bench.bench_function[benchmark_9](BenchId('9. Benchmark 8 with Prefetching flags and BC'))
+    bench.bench_function[benchmark_10](BenchId('10. SoA Tile'))
+    bench.bench_function[benchmark_11](BenchId('11. AoS Tile'))
     
     print(bench)
