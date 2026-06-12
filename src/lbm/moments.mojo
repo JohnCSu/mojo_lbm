@@ -1,9 +1,33 @@
 from std.gpu import block_dim,block_idx,thread_idx
-from layout import TileTensor,LayoutTensor
+from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from .LBM import LBM_Grid
 from .lattice_models import LatticeModel
 from src.utils import Vector,ContextTileTensor
+
+
+def copy_4D_to_rowMajor_layout[  
+                        float_dtype:DType,
+                        src_Origin:Origin[mut=True],
+                        dest_Origin:Origin[mut=True],
+                        //,  
+                        srclayoutType:TensorLayout,
+                        destlayoutType:TensorLayout,
+                        ]
+                        (src_tensor:TileTensor[float_dtype,srclayoutType,src_Origin],dest_tensor:TileTensor[float_dtype,destlayoutType,dest_Origin]):
+                        
+                        comptime assert srclayoutType.rank == destlayoutType.rank
+                        comptime assert destlayoutType.flat_rank == destlayoutType.rank # Row or Col Major
+                        comptime assert destlayoutType.rank == 4
+                        comptime nx,ny,nz,D = (dest_tensor.static_shape[0],dest_tensor.static_shape[1],dest_tensor.static_shape[2],dest_tensor.static_shape[3])
+
+                        for x in range(nx):
+                            for y in range(ny):
+                                for z in range(nz):
+                                    for d in range(D):
+                                        idx = coord[DType.int32]((x,y,z,d))
+                                        value = src_tensor.load(idx)[0]
+                                        dest_tensor.store(idx,value)
 
 
 
@@ -13,7 +37,7 @@ def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
                                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
                                 nx:Int,ny:Int,nz:Int,
                                 //,
-                                grid: LBM_Grid[lattice_model,nx,ny,nz], 
+                                grid: LBM_Grid[lattice_model,nx,ny,nz,...], 
                                 Flayout:Layout[...] where Flayout.rank == 4,
                                 RhoLayout:Layout[...] where RhoLayout.rank == 3,
                                 VelocityLayout:Layout[...] where VelocityLayout.rank == 4,
@@ -57,4 +81,7 @@ def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
 
         density_lt[x,y,z] = rho
         comptime for i in range(D):
+
             velocity_lt[i,x,y,z] = u[i]
+
+
