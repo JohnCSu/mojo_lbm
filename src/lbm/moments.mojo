@@ -35,9 +35,9 @@ def copy_4D_to_rowMajor_layout[
 
 def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
                                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
-                                nx:Int,ny:Int,nz:Int,
+                                nx:Int,ny:Int,nz:Int,tile_size:Int,
                                 //,
-                                grid: LBM_Grid[lattice_model,nx,ny,nz,...], 
+                                grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
                                 Flayout:Layout[...] where Flayout.rank == 4,
                                 RhoLayout:Layout[...] where RhoLayout.rank == 3,
                                 VelocityLayout:Layout[...] where VelocityLayout.rank == 4,

@@ -10,16 +10,40 @@ from src.utils import Vector,ContextTileTensor
 
 def set_block_shape_and_grid_dim[nx:Int,ny:Int,nz:Int,D:Int,tile_size:Int]() -> Tuple[Tuple[Int,Int,Int],Tuple[Int,Int,Int]]:
     comptime assert (nx % tile_size == 0 or nx == 1) and (ny % tile_size == 0 or ny == 1) and (nz % tile_size == 0 or nz == 1), 'Tile size must divide nx,ny and nz'
-    comptime block_shape:Tuple[Int,Int,Int] = (tile_size, tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
-    comptime grid_dim:Tuple[Int,Int,Int] = (nx//tile_size, ny//tile_size if D >= 2 else 1, nz//tile_size if D == 3 else 1)
+    comptime assert tile_size >= 1
+    comptime if tile_size > 1:
+        block_shape:Tuple[Int,Int,Int] = (tile_size, tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
+        grid_dim:Tuple[Int,Int,Int] = (nx//tile_size, ny//tile_size if D >= 2 else 1, nz//tile_size if D == 3 else 1)
+
+    else:
+        if D == 1 :
+            g_dim = 256
+        elif D == 2:
+            g_dim = 16 # 2D Block has 256 Threads
+        else:
+            g_dim = 8 # 3D block has 512 threads
+
+        def calc_grid_dim(n:Int,g:Int) -> Int:
+            return n//g if n % g == 0 else n//g + 1
+
+        block_shape:Tuple[Int,Int,Int] = (g_dim, g_dim if D >= 2 else 1, g_dim if D == 3 else 1)
+        grid_dim:Tuple[Int,Int,Int] = (calc_grid_dim(nx,block_shape[0]), calc_grid_dim(ny,block_shape[1]), calc_grid_dim(nz,block_shape[2]))
+        
     return block_shape,grid_dim
 
+
+def check_model_match_dim[D:Int,nx:Int,ny:Int,nz:Int]():
+    comptime assert 1 <= D <= 3
+    comptime assert nx > 0 and ny > 0 and nz > 0
+    comptime grid_D = (1 if nx > 1 else 0) + (1 if ny > 1 else 0) + (1 if nz > 1 else 0)
+    comptime assert D == grid_D, 'The given dimension of the LatticeModel does not match that of the dimension of the grid'
+    
+        
 struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
                 latticeModel:LatticeModel[D,Q,float_dtype,int_dtype],
                 nx:Int,ny:Int,nz:Int,
                 tile_size:Int,
                 ](): 
-    
     comptime float_scalar = Scalar[Self.float_dtype]
     comptime __shapes = set_block_shape_and_grid_dim[Self.nx,Self.ny,Self.nz,Self.D,Self.tile_size]()
     comptime BLOCK_SHAPE =  Self.__shapes[0]
@@ -40,6 +64,7 @@ struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     var bc_field_size:Int
     
     def __init__(out self,dx:Self.float_scalar):
+        check_model_match_dim[Self.D,Self.nx,Self.ny,Self.nz]()
         self.dx = dx
         self.area = dx**2
         self.volume = dx**3
