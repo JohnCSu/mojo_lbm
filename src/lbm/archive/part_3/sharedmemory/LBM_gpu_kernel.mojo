@@ -1,8 +1,9 @@
 from std.gpu import block_dim,block_idx,thread_idx,barrier
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
-from layout.tile_layout import Layout,row_major,Coord,TensorLayout
+from layout.tile_layout import Layout,col_major,Coord,TensorLayout
 from std.gpu.memory import AddressSpace
+from std.gpu import barrier
 from src.lbm.lattice_models import LatticeModel
 from src.lbm import LBM_Grid
 from src.lbm.flags import SOLID_NODE,FLUID_NODE
@@ -43,6 +44,13 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     comptime opposite_index = lattice_model.opposite_indices
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     
+
+    comptime shared_x_dim = grid.tile_size + 2 if nx > 1 else 1
+    comptime shared_y_dim = grid.tile_size + 2 if ny > 1 else 1
+    comptime shared_z_dim = grid.tile_size + 2 if nz > 1 else 1
+    
+    shared_flags = stack_allocation[DType.uint8,AddressSpace.SHARED](col_major[shared_x_dim,shared_y_dim,shared_z_dim]())
+
     block_x,block_dim_x = block_idx.x,block_dim.x
     block_y,block_dim_y = block_idx.y,block_dim.y
     block_z,block_dim_z = block_idx.z,block_dim.z
@@ -56,6 +64,29 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     z = block_z*block_dim_z + local_z
     
     index:InlineArray[Int,3] = [x,y,z]    
+    tid = thread_idx.z * block_dim.x * block_dim.y 
+        + thread_idx.y * block_dim.x 
+        + thread_idx.x
+        
+    # Load Flags into shared. For 3D we have 10x10x10 so we halve the x dim so we do 5x10x10 
+    comptime max_shared_tid =  shared_x_dim//2 + shared_y_dim + shared_z_dim
+    comptime shift_x = 1 if nx > 1 else 0
+    comptime shift_y = 1 if ny > 1 else 0
+    comptime shift_z = 1 if nz > 1 else 0
+    # shared_flags[local_x+shift_x,local_y+shift_y,local_z+shift_z] = flags.load(coord[DType.uint32]((x,y,z)))[0]
+    # Halo: 2 passes of 5x10x10 = 500 cells each
+    comptime half_x = shared_x_dim // 2
+    comptime cells_per_pass = half_x * shared_y_dim * shared_z_dim
+    if tid < cells_per_pass:
+        for pass_id in range(2):
+            var sx = tid % half_x + pass_id * half_x # Get Shared_ x,y,z indices i.e. for 10x10x10
+            var sy = (tid // half_x) % shared_y_dim 
+            var sz = tid // (half_x * shared_y_dim)
+            var gx = (x + sx - shift_x + nx) % nx if nx > 1 else 0
+            var gy = (y + sy - shift_y + ny) % ny if ny > 1 else 0
+            var gz = (z + sz - shift_z + nz) % nz if nz > 1 else 0
+            shared_flags[sx, sy, sz] = flags.load(coord[DType.uint32]((gx, gy, gz)))[0]
+    barrier()
 
     # Main Compute
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
@@ -92,6 +123,10 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         comptime for q in range(Q):
             f_eq = SRT(weights[q],rho,velocity,u_dot_u,float_directions[q])            
             f_out.store(coord = coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
+
+
+@always_inline
+
 
 @always_inline
 def get_adjacent_idx[D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[DType.int32,D],) -> InlineArray[Int,3]:
