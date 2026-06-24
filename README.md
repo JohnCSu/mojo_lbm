@@ -16,14 +16,15 @@ Implementation and analysis of LBM on GPU using Mojo Programming Language
 </table>
 
 ## Features
-1. Single SRT Kernel for all dimensions leveraging mojo metaprogramming
+1. Single SRT Kernel for all dimensions and lattice models (D2Q9, D3Q19 and D3Q27) leveraging mojo metaprogramming
 2. Layout independent kernel so works for row/col major arrays and tiled arrays (e.g. a row major tile embedded in a col major tiler) using natual indexing. Tile size can be adjusted
 3. Leverages only the mojo std library for setup and solver (leverages python for visualisation)
-4. For FP32/FP32 256^3 cube ~ 2000 MLUPs for D3Q19 on RTX 2070 Super
+4. For FP32/FP32 256^3 cube ~ 2200 MLUPs for D3Q19 on RTX 2070 Super
 
 ## Limitations
 1. Single GPU Only for now
 2. Only Bounceback BC and bounceback with applied velocity availiable
+3. No async loading (only availiable for NVIDIA Ampere and above) for shared memory load for flags
 
 ## LBM
 Lattice Boltzmann Method (LBM) is a fluid simulation based on the Boltzmann Equation and specifically made for GPU like compute. It is an explicit time stepping algorithim (so no solving systems of equations) and performed on a structured grid. The Single relaxation time (SRT) model implemented is designed for incompressible flow (Mach number less than 0.3)
@@ -45,20 +46,21 @@ Num Points On grid: 16,777,216
 Non Tiled Grid Dim: (32, 32, 32) Block_Shape (8, 8, 8) 
 Tiled Grid Dim: (32, 32, 32) Block_Shape (8, 8, 8) 
 
-| name                   | met (ms)           | iters |
-| ---------------------- | ------------------ | ----- |
-| 1. Base Row Major AoS  | 34.4334289         | 10    |
-| 2. Base Col Major SoA  | 12.689794899999999 | 10    |
-| 3. Tile Col, Tiler Row | 8.7517341          | 10    |
-| 4. Tile Row, Tile Col  | 17.7538497         | 10    |
-| 5. Tile Col, Tiler Col | 8.519104           | 10    |
-| 6. Tile Row, Tiler Row | 18.4744384         | 10    |
+| name                                                      | met (ms)           | iters |
+| --------------------------------------------------------- | ------------------ | ----- |
+| 2. Base Col Major SoA                                     | 12.228749          | 10    |
+| 3. Tile Col, Tiler Row                                    | 7.6094429          | 10    |
+| 4. Tile Row, Tile Col                                     | 18.769728          | 10    |
+| 5. Tile Col, Tiler Col                                    | 7.5412925          | 10    |
+| 6. Tile Row, Tiler Row                                    | 17.9165283         | 10    |
+| 7. Shared Memory For Flags tile, Global Pull For boundary | 8.013021           | 10    |
+| 8. Map Flags from Tile+ Halo region to Shared             | 7.4686653000000005 | 10    |
 ```
 
-MLUP for best run ~ 1969.4 MLUPs on RTX 2070 Super
+MLUP for best run ~ 2200 MLUPs on RTX 2070 Super
 
 ## Key Optimisations
-1. Using Tiled Layout: Tile is Column Major AoS (x,y,z,q) with Column Major Tiler (assuming threading is aligned e.g. x = thread_idx.x)
+1. Using Tiled Layout: Tile is Column Major AoS (x,y,z,q) with Column Major Tiler (threading index is aligned with e.g. x = thread_idx.x to allow for different dimensions on the grid)
 2. Comptime For loop to unroll all loops inside the kernel
 
 ## Custom Structs
