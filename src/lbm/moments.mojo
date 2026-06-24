@@ -38,15 +38,18 @@ def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
                                 nx:Int,ny:Int,nz:Int,tile_size:Int,
                                 //,
                                 grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
-                                Flayout:Layout[...] where Flayout.rank == 4,
-                                RhoLayout:Layout[...] where RhoLayout.rank == 3,
-                                VelocityLayout:Layout[...] where VelocityLayout.rank == 4,
+                                Flayout:Layout[...] ,
+                                RhoLayout:Layout[...],
+                                VelocityLayout:Layout[...] ,
                                 ]
                                 (
                                     f:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
                                     density:TileTensor[float_dtype,type_of(RhoLayout),MutAnyOrigin],
                                     velocity:TileTensor[float_dtype,type_of(VelocityLayout),MutAnyOrigin],
-                                ):
+                                
+                                )
+                                where VelocityLayout.rank == 4 and RhoLayout.rank == 3 and Flayout.rank == 4:
+                                
     # Run on GPU
     '''
     Compute the Velocity and Density from f dist. Converts to layout tensor to allow layout independent assignment. This should be run on the gpu
