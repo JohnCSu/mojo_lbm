@@ -101,6 +101,7 @@ TileTensor on the cpu or gpu respecitively. Buffer copies between the 2 buffers 
 6. Mojo Packaging
 
 ## Timeline
+- 2026/06/24 Added D3Q27 Models
 - 2026/06/12 Implemented 3D D3Q19 LBM and non square grids
 - 2026/06/05 Implemented TiledLayouts for LBM
 - 2026/06/04 Implemeted First Variation that uses thread reording
