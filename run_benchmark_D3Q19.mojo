@@ -7,7 +7,7 @@ from std.math import ceildiv
 from std.collections import InlineArray
 from src.lbm import SOLID_NODE,FLUID_NODE,set_outer_walls,LBM_Grid,get_D3Q19
 from src.lbm.archive.part_3 import base
-from src.lbm.archive.part_3 import sharedmemory_p1, sharedmemory_all,sharedmemory_async
+from src.lbm.archive.part_3 import sharedmemory_p1, sharedmemory_all
 # from src.lbm.variations import base
 
 from src.utils import Vector,ContextTileTensor
@@ -37,7 +37,6 @@ comptime L_lat:float_scalar = N
 comptime v_lat = U*L_lat/Re
 comptime tau = v_lat/(1/3.) +0.5
 
-
 comptime benchmark_1 = base.benchmark_func_row_major_AoS[non_tiled_grid,U,tau]
 comptime benchmark_2 = base.benchmark_func_col_major_SoA[non_tiled_grid,U,tau]
 
@@ -49,7 +48,7 @@ comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
 
 comptime benchmark_7 = sharedmemory_p1.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
 comptime benchmark_8 = sharedmemory_all.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
-comptime benchmark_9 = sharedmemory_async.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
+# comptime benchmark_9 = sharedmemory_async.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
 def main() raises:
     total_bytes =  Q*num_points*2*4 + num_points*(D+1)*4 + num_points # 4btes per Q (fp32) , 4 byters per bc (fp32) , 1 byte per flag (fp) 
     print('Benchmark for fp32/fp32 LBM')
@@ -70,9 +69,9 @@ def main() raises:
     bench.bench_function[benchmark_4](BenchId('4. Tile Row, Tile Col'))
     bench.bench_function[benchmark_5](BenchId('5. Tile Col, Tiler Col'))
     bench.bench_function[benchmark_6](BenchId('6. Tile Row, Tiler Row'))
-    bench.bench_function[benchmark_7](BenchId('7. Shared Memory For Flags Global Pull if on boundary'))
-    bench.bench_function[benchmark_8](BenchId('8. Shared Memory For Flags No Global Pull'))
-    bench.bench_function[benchmark_9](BenchId('9. Shared Memory For Flags Async'))
+    bench.bench_function[benchmark_7](BenchId('7. Shared Memory For Flags tile, Global Pull For boundary'))
+    bench.bench_function[benchmark_8](BenchId('8. Map Flags + Halo region to Shared'))
+    # bench.bench_function[benchmark_9](BenchId('9. Shared Memory For Flags Async'))
 
     
     print(bench)
