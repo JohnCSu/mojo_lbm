@@ -17,20 +17,21 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 tile_size:Int,
                 //,
                 grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
-                Flayout:Layout[...] where Flayout.rank == 4,  
-                BClayout:Layout[...] where BClayout.rank == 4,
-                Flaglayout:Layout[...] where Flaglayout.rank == 3,
+                Flayout:Layout[...],
+                BClayout:Layout[...],
+                Flaglayout:Layout[...],
                 simd_width:Int,
                 *,
                 reorder_threads:Bool = True,
                 ]
-                ( 
+                (
                 f_out:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
                 f_in:TileTensor[float_dtype,type_of(Flayout),ImmutAnyOrigin],
                 bc:TileTensor[float_dtype,type_of(BClayout),ImmutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
                 inv_tau:Scalar[float_dtype]
-                ):
+                )
+                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
     From part_1/tiled. Default layout should be Col_major Tile and ORw major tiler. Uses Compile time unrolling for last 2 for loops. Main Stream/BC comptime looping does not work.
     ''' 

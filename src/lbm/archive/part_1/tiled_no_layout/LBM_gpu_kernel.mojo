@@ -15,17 +15,18 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 tile_size:Int,
                 //,
                 grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
-                Flayout:Layout[...] where Flayout.rank == 4,  
-                BClayout:Layout[...] where BClayout.rank == 4,
-                Flaglayout:Layout[...] where Flaglayout.rank == 3,
+                Flayout:Layout[...],
+                BClayout:Layout[...],
+                Flaglayout:Layout[...],
                 ]
-                ( 
+                (
                 f_out:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
                 f_in:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
                 bc:TileTensor[float_dtype,type_of(BClayout),MutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),MutAnyOrigin],
                 inv_tau:Scalar[float_dtype]
-                ):
+                )
+                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
     From reorderThreads. This uses tiletensor Indexing. This example is used to compare speed to converting to layout tensor (which should be zero cost)
 
