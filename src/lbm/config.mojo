@@ -9,24 +9,14 @@ struct LBM_Config():
     var use_float16c:Bool
     var f_dtype: Optional[DType]
 
-    # def __init__(out self,*,DDF_shift:Bool = False,use_float16c:Bool = False,f_dtype: Optional[DType] = None):
-    #     self.DDF_shift = DDF_shift
-        
-    #     # self.use_float16c = use_float16c
-    #     self.LES = False
-    #     self.KBC = False
-    #     self.use_float16c = use_float16c
-    #     self.f_dtype = Optional(DType.uint16) if use_float16c else f_dtype
-
-    def __init__(out self):
-        '''
-        Default Settings
-        '''
-        self.DDF_shift = False
+    def __init__(out self,*,DDF_shift:Bool = False,use_float16c:Bool = False,f_dtype: Optional[DType] = None):
+        self.DDF_shift = DDF_shift        
+        # self.use_float16c = use_float16c
         self.LES = False
         self.KBC = False
-        self.use_float16c = False
-        self.f_dtype = None
+        self.use_float16c = use_float16c
+        self.f_dtype = Optional(DType.uint16) if use_float16c else f_dtype
+
     @always_inline
     def enable_float16c(mut self):
         self.use_float16c = True
