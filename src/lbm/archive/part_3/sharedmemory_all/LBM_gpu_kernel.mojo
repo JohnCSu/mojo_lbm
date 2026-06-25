@@ -13,6 +13,9 @@ from src.utils import Vector,ContextTileTensor
 from std.algorithm.functional import vectorize
 from std.sys import simd_width_of
 
+
+
+
 def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
                 nx:Int,ny:Int,nz:Int,tile_size:Int,
@@ -99,7 +102,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
             local_flag_y = local_y + shift_y - (Int(direction[1]) if D >= 2 else 0)
             local_flag_z = local_z + shift_z - (Int(direction[2]) if D ==3 else 0)
             pulled_flag = shared_flags[local_flag_x,local_flag_y,local_flag_z]
-            f_new[q] = pulled_f if pulled_flag == FLUID_NODE else f_new[q]
+            f_new[q] = pulled_f #if pulled_flag == FLUID_NODE else f_new[q]
 
             if pulled_flag == SOLID_NODE:
                 f_opp = f_in.load(coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1

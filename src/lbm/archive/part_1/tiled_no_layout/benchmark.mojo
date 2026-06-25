@@ -77,7 +77,7 @@ def benchmark_func_row_tile[
     ctx.synchronize()
     #Compile Functions
     LBM_func = ctx.compile_function[LBM_kernel[grid,f_layout,bc_layout,flag_layout,reorder_threads = reorder_threads],LBM_kernel[grid,f_layout,bc_layout,flag_layout,reorder_threads = reorder_threads]]()
-    calc_rho_and_u_gpu = ctx.compile_function[calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]]()
+    calc_rho_and_u_gpu = ctx.compile_function[calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout],calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]]()
     ctx.synchronize()
     
     @always_inline
@@ -157,8 +157,8 @@ def benchmark_func_col_tile[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[LBM_kernel[grid,f_layout,bc_layout,flag_layout]]()
-    calc_rho_and_u_gpu = ctx.compile_function[calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]]()
+    LBM_func = ctx.compile_function[LBM_kernel[grid,f_layout,bc_layout,flag_layout],LBM_kernel[grid,f_layout,bc_layout,flag_layout]]()
+    calc_rho_and_u_gpu = ctx.compile_function[calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout],calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]]()
     ctx.synchronize()
     
     @always_inline

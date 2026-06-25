@@ -57,8 +57,8 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     ctx.synchronize()
     #Compile Functions
     comptime LBM_kernel_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,simd_width]
-    LBM_func = ctx.compile_function[LBM_kernel_]()
-    calc_rho_and_u_gpu = ctx.compile_function[calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]]()
+    LBM_func = ctx.compile_function[LBM_kernel_,LBM_kernel_]()
+    calc_rho_and_u_gpu = ctx.compile_function[calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout],calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]]()
     ctx.synchronize()
     
     @always_inline

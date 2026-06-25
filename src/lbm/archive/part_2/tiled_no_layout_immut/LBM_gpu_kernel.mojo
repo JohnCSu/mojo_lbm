@@ -63,7 +63,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     # Main Compute
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
         var f_new = Vector[float_dtype,Q](fill = 0.)
-        var velocity = Vector[float_dtype,D]()
+        var velocity = Vector[float_dtype,D](uninitialized = True)
         comptime for q in range(Q):
             f_opp = f_in[0,opposite_index[q],   local_x,block_x,    local_y,block_y,    local_z,block_z] # Need (local_idx,block_idx)
             direction = directions[q]
@@ -116,7 +116,7 @@ def get_adjacent_idx[D:Int,flag_layout:Layout[...],tile_size:Int,shift:Int = 1]
 
 def get_adjacent_idx[D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[DType.int32,D],) -> Vector[DType.int32,3]:
     comptime assert D <= 3 
-    adj_index = Vector[DType.int32,3]()
+    adj_index = Vector[DType.int32,3](uninitialized = True)
     comptime for d in range(D):
         adj_index[d] = (index[d] + shift*direction[d]) % grid_shape[d]
     return adj_index

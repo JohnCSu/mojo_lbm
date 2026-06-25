@@ -61,7 +61,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     # print(index)
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
         var f_new = Vector[float_dtype,Q](fill = 0.)
-        var velocity = Vector[float_dtype,D]()
+        var velocity = Vector[float_dtype,D](fill = 0.)
         var rho:Scalar[float_dtype] = 0
 
         comptime for q in range(Q):
