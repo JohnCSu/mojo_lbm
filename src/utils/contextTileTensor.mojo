@@ -61,10 +61,12 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
         self.copy_on_switch = copy_on_switch
         self.synchronize_on_copy = synchronize_on_copy
 
-
+    @always_inline
     def fill(mut self,value:Scalar[Self.dtype]) raises:
-        self._cpu_buffer.enqueue_fill(value)
-        self._gpu_buffer.enqueue_fill(value)
+        self._cpu_buffer.enqueue_fill(value) # Weird bug where a memory spike occures when gpu_buffer ie enqued
+        self.deviceContext.enqueue_copy(dst_buf= self._gpu_buffer,src_buf = self._cpu_buffer)
+        self.synchronize()
+        # _ = self.gpu()
 
     def synchronize(self) raises:
         self.deviceContext.synchronize()
@@ -78,19 +80,21 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
         self.deviceContext.enqueue_copy(dst_buf= self._cpu_buffer,src_buf = self._gpu_buffer)
         if self.synchronize_on_copy:
             self.synchronize()
-
+    
+    @always_inline
     def cpu_buffer(mut self) raises -> HostBuffer[Self.dtype]:
         self._check_last_used_device(currentDevice = 'cpu')
         return self._cpu_buffer
-
+    @always_inline
     def gpu_buffer(mut self) raises -> DeviceBuffer[Self.dtype]:
         self._check_last_used_device(currentDevice = 'gpu')
         return self._gpu_buffer
 
+    @always_inline
     def cpu(mut self) raises -> TileTensor[Self.dtype,Self.LayoutType,origin_of(self._cpu_buffer)]:
         self._check_last_used_device(currentDevice = 'cpu')
         return TileTensor(self._cpu_buffer,self.layout)
-
+    @always_inline
     def gpu(mut self) raises -> TileTensor[Self.dtype,Self.LayoutType,origin_of(self._gpu_buffer)]:
         self._check_last_used_device(currentDevice = 'gpu')
         return TileTensor(self._gpu_buffer,self.layout)
@@ -105,7 +109,7 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
         if currentDevice not in Set[String]('cpu','gpu'):
             raise Error('Device String either cpu or gpu')
 
-        if self.last_device_used is None:
+        if self.last_device_used is None: # Initial access of buffer
             self.last_device_used = currentDevice
 
         if currentDevice != self.last_device_used.value():
