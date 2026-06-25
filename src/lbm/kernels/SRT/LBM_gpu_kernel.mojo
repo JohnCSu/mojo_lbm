@@ -3,13 +3,11 @@ from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from std.gpu.memory import AddressSpace
-from src.lbm.lattice_models import LatticeModel
-from src.lbm import LBM_Grid,LBM_Config
+from src.lbm import LBM_Grid,LBM_Config,LatticeModel
 from src.lbm.flags import SOLID_NODE,FLUID_NODE
 from src.utils import Vector,ContextTileTensor
+from .load_and_store import load_f,store_f
 
-from std.algorithm.functional import vectorize
-from std.sys import simd_width_of
 
 def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
@@ -101,53 +99,6 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
 
 
 @always_inline
-def store_f[
-        f_dtype:DType,
-        FlayoutType:TensorLayout,
-        float_dtype:DType,
-        //,
-        use_float16c:Bool = False,
-        ]
-        (
-        f:TileTensor[f_dtype,FlayoutType,MutAnyOrigin],
-        val:Scalar[float_dtype],
-        index:InlineArray[Int,3],
-        q:Int
-        ):
-        comptime if use_float16c:
-            comptime assert f_dtype == DType.uint16
-            f_next = Float32(val)
-            f_as_uint = Scalar[f_dtype](LBM_Config.fp32_to_fp16c(f_next))
-            f.store(coord = coord[DType.uint32]((index[0],index[1],index[2],q)),value = f_as_uint)
-        else:
-            f.store(coord = coord[DType.uint32]((index[0],index[1],index[2],q)),value = Scalar[f_dtype](val))
-
-
-@always_inline
-def load_f[
-        f_dtype:DType,
-        FlayoutType:TensorLayout,
-        //,
-        float_dtype:DType,
-        use_float16c:Bool = False,
-        ]
-        (
-        f:TileTensor[f_dtype,FlayoutType,ImmutAnyOrigin],
-        index:InlineArray[Int,3],q:Int
-        ) -> Scalar[float_dtype]:
-        comptime to_compute_float = Scalar[float_dtype]
-        comptime assert FlayoutType.rank == 4, 'For all LBM grids we use i,j,k,q indexing'
-
-        comptime if use_float16c:
-                comptime assert f_dtype == DType.uint16, 'Float16C requires the f tiletensors to be uint16 dtype'
-                pulled_f = to_compute_float(LBM_Config.fp16c_to_fp32( f.load(coord[DType.uint32]((index[0],index[1],index[2],q)))[0] ))
-            else:
-                pulled_f =to_compute_float(f.load(coord[DType.uint32]((index[0],index[1],index[2],q)))[0])
-        
-        return pulled_f
-
-
-@always_inline
 def get_adjacent_idx[D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[DType.int32,D],) -> InlineArray[Int,3]:
     comptime assert D <= 3 
     adj_index = InlineArray[Int,3](fill = 0 )
@@ -163,32 +114,3 @@ def SRT[dtype:DType,D:Int,//,DDF_shift:Bool = False](weight:Scalar[dtype],densit
         return weight*density*(3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u) +weight*(density - 1)
     else:
         return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u)
-
-
-
-
-@always_inline
-def rho_and_u_from_f_vec[float_dtype:DType,Q:Int,D:Int,//,
-                        float_directions:InlineArray[Vector[float_dtype,D],Q],
-                        weights:Optional[Vector[float_dtype,Q]] = None,
-                        DDF_shift:Bool = False]
-                        (f_new:Vector[float_dtype,Q],
-                        mut velocity:Vector[float_dtype,D],
-                        mut rho:Scalar[float_dtype],
-                        ):
-    comptime assert D <= 3
-    velocity.fill(0)
-    rho = 0
-    comptime if DDF_shift:
-        comptime assert DDF_shift and (weights is not None), 'if DDF_shift is specified in config, weights must be passed in'
-        # comptime DDF_shift_constant = get_DDF_shift_constant(float_directions,weights.value())  # This might be 0
-        comptime for q in range(Q):    
-            rho += f_new[q]
-            velocity += f_new[q]*float_directions[q]
-        rho += 1
-        velocity/=rho
-    else:
-        comptime for q in range(Q):    
-            rho += f_new[q]
-            velocity += f_new[q]*float_directions[q]
-        velocity /= rho
