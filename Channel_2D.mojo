@@ -6,10 +6,14 @@ from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,get_D2Q9,set_outer_walls,calculate_rho_and_velocity
-# from src.lbm.variations.part_2.SoA_Tile import LBM_kernel
-from src.lbm.archive.part_3.base import LBM_kernel
-# from src.lbm.archive.part_3.base import LBM_kernel
+from src.lbm import (
+                    Flags,SOLID_NODE,FLUID_NODE,
+                    LBM_Grid,LBM_Config,
+                    get_D2Q9,set_exterior_walls,calculate_rho_and_velocity)
+
+from src.lbm.kernels.SRT import LBM_kernel
+
+
 from src.utils import Vector,ContextTileTensor
 
 comptime float_dtype = DType.float32
@@ -17,12 +21,15 @@ comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D2Q9 = get_D2Q9()
 comptime D,Q = (2,9)
-comptime N = 32
+comptime N = 128
 comptime L = 1.
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (2*N,N,1)
 comptime tile_size = 16
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx)
+comptime valid_bcs = {Flags.EQUILIBRIUM}
+comptime config = LBM_Config(valid_BC = valid_bcs,DDF_shift = False)
+
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM
@@ -58,7 +65,7 @@ def main() raises:
     print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
 
     U_phs:float_scalar = 1.
-    U:float_scalar = 0.05
+    U:float_scalar = 0.1
     viscosity:float_scalar = 1/10.
     dt = dx*U/U_phs 
     Re = 1/viscosity
@@ -78,14 +85,20 @@ def main() raises:
     rho = ContextTileTensor[float_dtype](ctx,density_layout)
 
     # Set up
+    comptime if not config.DDF_shift:
+        f.fill(1./Float32(Q))
+        f_out.fill(1./Float32(Q))
+    else:
+        f.fill(0.)
+        f_out.fill(0.)
+    
 
-    f.fill(1./Float32(Q))
-    f_out.fill(1./Float32(Q))
-
-    set_outer_walls[grid,flag_layout,bc_layout](flags.cpu(),bc.cpu(),'+Y',SOLID_NODE,[0,0],1.)
-    set_outer_walls[grid,flag_layout,bc_layout](flags.cpu(),bc.cpu(),'-Y',SOLID_NODE,[0,0],1.)
-    set_outer_walls[grid,flag_layout,bc_layout](flags.cpu(),bc.cpu(),'-X',SOLID_NODE,[U,0],1.)
-    set_outer_walls[grid,flag_layout,bc_layout](flags.cpu(),bc.cpu(),'+X',SOLID_NODE,[U,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+X',Flags.EQUILIBRIUM,[],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-X',Flags.EQUILIBRIUM,[U,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+Y',SOLID_NODE,[0,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-Y',SOLID_NODE,[0,0],1.)
+    
+    
 
     for xx in range(tile_size):
         for yy in range(tile_size):
@@ -100,10 +113,10 @@ def main() raises:
 
     ctx.synchronize()
     #Compile Functions
-    comptime LBM_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,simd_width]
+    comptime LBM_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,config]
     LBM_func = ctx.compile_function[LBM_,LBM_]()
 
-    comptime get_u_and_rho = calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]
+    comptime get_u_and_rho = calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout,config]
     calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho,get_u_and_rho]()
  
     ctx.synchronize()
@@ -150,12 +163,12 @@ def main() raises:
     pv_mesh.point_data['V velocity'] = v_plot.ravel()
     
     plotter = pv.Plotter()
-    plotter.add_mesh(pv_mesh,scalars ='U_mag',show_edges = False, cmap= 'jet',clim = [0,1],nan_color='white',)
+    plotter.add_mesh(pv_mesh,scalars ='U velocity',show_edges = False, cmap= 'jet',clim = [0,1.5],nan_color='white',)
     plotter.view_xy()
     plotter.show_axes()
     plotter.show() # screenshot = 'LDC_Re100.png'
    
-    
+    return None 
     # import pandas as pd
     v_benchmark = pd.read_csv('v_velocity_results.csv',sep = ',')
     u_benchmark = pd.read_csv('u_velocity_results.txt',sep= '\t')

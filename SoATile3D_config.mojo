@@ -6,7 +6,7 @@ from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,set_outer_walls,calculate_rho_and_velocity,LBM_Config
+from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,set_exterior_walls,calculate_rho_and_velocity,LBM_Config
 from src.lbm.lattice_models import get_D3Q19
 from src.lbm.kernels.SRT import LBM_kernel
 
@@ -24,7 +24,6 @@ comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,N)
 comptime num_points = nx*ny*nz
 comptime tile_size = 8
-
 
 comptime config = LBM_Config(DDF_shift = True,use_float16c = True)
 comptime f_dtype = DType.uint16 if config.use_float16c else float_dtype
@@ -86,10 +85,10 @@ def main() raises:
         f.fill(0)
         f_out.fill(0)
 
-    set_outer_walls[grid,flag_layout,bc_layout](flags.cpu(),bc.cpu(),'+Y',SOLID_NODE,[U,0,0],1.)
-    set_outer_walls[grid,flag_layout,bc_layout](flags.cpu(),bc.cpu(),'-Y',SOLID_NODE,[0,0,0],1.)
-    set_outer_walls[grid,flag_layout,bc_layout](flags.cpu(),bc.cpu(),'+X',SOLID_NODE,[0,0,0],1.)
-    set_outer_walls[grid,flag_layout,bc_layout](flags.cpu(),bc.cpu(),'-X',SOLID_NODE,[0,0,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+Y',SOLID_NODE,[U,0,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-Y',SOLID_NODE,[0,0,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+X',SOLID_NODE,[0,0,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-X',SOLID_NODE,[0,0,0],1.)
     
     ctx.synchronize()
     # Copy To GPU()

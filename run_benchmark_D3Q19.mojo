@@ -5,10 +5,10 @@ from std.python import Python, PythonObject
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,set_outer_walls,LBM_Grid,get_D3Q19
+from src.lbm import SOLID_NODE,FLUID_NODE,set_outer_walls,LBM_Grid,get_D3Q19,LBM_Config
 from src.lbm.archive.part_3 import base
 from src.lbm.archive.part_3 import sharedmemory_p1, sharedmemory_all
-# from src.lbm.variations import base
+from src.lbm.kernels import SRT
 
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
@@ -50,6 +50,7 @@ comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
 comptime benchmark_7 = sharedmemory_p1.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
 comptime benchmark_8 = sharedmemory_all.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
 # comptime benchmark_9 = sharedmemory_async.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
+comptime benchmark_9 = SRT.layouts_benchmarks.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau,LBM_Config()]
 def main() raises:
     total_bytes =  Q*num_points*2*4 + num_points*(D+1)*4 + num_points # 4btes per Q (fp32) , 4 byters per bc (fp32) , 1 byte per flag (fp) 
     print('Benchmark for fp32/fp32 LBM')
@@ -72,7 +73,7 @@ def main() raises:
     bench.bench_function[benchmark_6](BenchId('6. Tile Row, Tiler Row'))
     bench.bench_function[benchmark_7](BenchId('7. Shared Memory For Flags tile, Global Pull For boundary'))
     bench.bench_function[benchmark_8](BenchId('8. Map Flags + Halo region to Shared'))
-    # bench.bench_function[benchmark_9](BenchId('9. Shared Memory For Flags Async'))
+    bench.bench_function[benchmark_9](BenchId('9. LBM with LBM_Config'))
     
     print("Mojo Version: {}.{}.{}".format(sys.defines.MojoVersion().major, sys.defines.MojoVersion().minor,sys.defines.MojoVersion().patch))
     print(bench)
