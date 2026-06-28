@@ -5,7 +5,7 @@ from std.python import Python, PythonObject
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,set_outer_walls,LBM_Grid,get_D3Q27
+from src.lbm import SOLID_NODE,FLUID_NODE,set_exterior_walls,LBM_Grid,get_D3Q27
 from src.lbm.archive.part_3 import base
 from src.lbm.archive.part_3 import sharedmemory_p1, sharedmemory_all
 # from src.lbm.variations import base

@@ -5,7 +5,7 @@ from std.python import Python, PythonObject
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,set_outer_walls,LBM_Grid,get_D2Q9
+from src.lbm import SOLID_NODE,FLUID_NODE,set_exterior_walls,LBM_Grid,get_D2Q9
 from src.lbm.archive.part_1 import reorderThreads,tiled,branchless,immutable_inputs,loop_unroll,tiled_no_layout
 from src.lbm.archive.part_2 import tensor_loads,prefetch,tiled_no_layout_immut,SoA_Tile,AoS_Tile
 from src.lbm.archive import base
