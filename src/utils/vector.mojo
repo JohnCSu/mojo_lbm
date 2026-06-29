@@ -173,6 +173,11 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
     def _neq(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Bool:
         return a != b
     
+    @always_inline
+    @staticmethod
+    def _pow(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
+        return a**b
+    
     def __eq__(self,other:Self) -> Bool:
         comptime for i in range(Self.size):
             if self[i] != other[i]:
@@ -209,6 +214,9 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
     def __rmul__(self,other:Scalar[Self.dtype]) -> Self:
         return Self._scalarOp[Self._mul](self,other)
 
+    def __pow__(self,other:Scalar[Self.dtype]) -> Self:
+        return Self._scalarOp[Self._pow](self,other)
+    
 
     def __truediv__(self,other:Self) -> Self:
         return Self._elementWise[Self._div](self,other)
