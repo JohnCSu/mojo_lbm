@@ -46,7 +46,7 @@ struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
                 nx:Int,ny:Int,nz:Int,
                 tile_size:Int,
                 ](): 
-    comptime float_scalar = Scalar[Self.float_dtype]
+    comptime Float_Scalar = Scalar[Self.float_dtype]
     comptime __shapes = set_block_shape_and_grid_dim[Self.nx,Self.ny,Self.nz,Self.D,Self.tile_size]()
     comptime BLOCK_SHAPE =  Self.__shapes[0]
     comptime GRID_DIM = Self.__shapes[1]
@@ -55,17 +55,17 @@ struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     comptime n_tiles_y = Self.ny//Self.tile_size if Self.D >= 2 else 1
     comptime n_tiles_z = Self.nz//Self.tile_size if Self.D == 3 else 1
 
-    var dx:Self.float_scalar
-    var domain_size:Tuple[Self.float_scalar,Self.float_scalar,Self.float_scalar]
-    var area:Self.float_scalar
-    var volume:Self.float_scalar
+    var dx:Self.Float_Scalar
+    var domain_size:Tuple[Self.Float_Scalar,Self.Float_Scalar,Self.Float_Scalar]
+    var area:Self.Float_Scalar
+    var volume:Self.Float_Scalar
     var shape:InlineArray[Int,3]
     var num_points:Int
     var f_field_size: Int
     var vel_field_size: Int
     var bc_field_size:Int
-    
-    def __init__(out self,dx:Self.float_scalar):
+    var origin:InlineArray[Self.Float_Scalar,3]
+    def __init__(out self,dx:Self.Float_Scalar,origin:InlineArray[Self.Float_Scalar,3] = [0.,0.,0.]):
         check_model_match_dim[Self.D,Self.nx,Self.ny,Self.nz]()
         self.dx = dx
         self.area = dx**2
@@ -75,10 +75,9 @@ struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
         self.f_field_size = Self.Q*self.num_points
         self.vel_field_size = Self.D*self.num_points
         self.bc_field_size = (Self.D+1)*self.num_points
-        self.domain_size = ( Self.float_scalar(Self.nx-1)*dx,Self.float_scalar(Self.ny-1)*dx,Self.float_scalar(Self.nz-1)*dx)
-             
-
-
+        self.domain_size = ( Self.Float_Scalar(Self.nx-1)*dx,Self.Float_Scalar(Self.ny-1)*dx,Self.Float_Scalar(Self.nz-1)*dx)
+        self.origin = origin
+        
 
 def set_exterior_walls[float_dtype:DType,
                     flag_origin:Origin[mut=True],
