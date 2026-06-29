@@ -79,7 +79,7 @@ def main() raises:
 
     # Set up
     comptime if not config.DDF_shift:
-        f.fill(1./Float32(Q))
+        f.fill(1./Float32(Q)) # Should be initialising with respective weight for each dist but should be ok as IC is fluid at rest
         f_out.fill(1./Float32(Q))
     else:
         f.fill(0.)
