@@ -37,6 +37,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     comptime weights = lattice_model.weights
     comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
+    comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0'
     comptime opposite_index = lattice_model.opposite_indices
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     comptime load_f_from_xyzq = load_f[float_dtype,config.use_float16c]
@@ -81,7 +82,8 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         
         # Equilibrium BC
         comptime if Flags.EQUILIBRIUM in config.INCLUDED_BCs:
-            if flags.load(coord[DType.uint32]((x,y,z)))[0] == Flags.EQUILIBRIUM:
+            current_flag = pull_flags[0] # comptime assert gurantees this is the flag for the current node
+            if current_flag  == Flags.EQUILIBRIUM: 
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(coord[DType.uint32]((x,y,z,ii)))[0]
                 rho = bc.load(coord[DType.uint32]((x,y,z,D)))[0]
