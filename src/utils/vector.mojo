@@ -1,6 +1,6 @@
 from std.memory import UnsafePointer
 
-struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & Writable):
+struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
     '''
     Create a stack allocated vector of DType elements. Not optimised to use SIMD so you 
     should only use this for small vectors where SIMD is not worth it. Uses unrolling
@@ -125,64 +125,16 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
         return x
 
     @always_inline
-    @staticmethod
-    def _elementWise[func: def(Scalar[Self.dtype],Scalar[Self.dtype]) thin -> Scalar[Self.dtype]](a:Self,b:Self) -> Self:
-        out = Self(uninitialized = True)
+    def all_true(self) -> Bool:
+        '''
+        Return True if all element in vector are True else False
+        For Non bool vectors, anything non zero evaluates to True
+        '''
         comptime for i in range(Self.size):
-            out[i] = func(a[i],b[i])
-        return out
-        
-    @always_inline
-    @staticmethod
-    def _scalarOp[func: def(Scalar[Self.dtype],Scalar[Self.dtype]) thin ->   Scalar[Self.dtype], *, reverse:Bool = False](a:Self,b:Scalar[Self.dtype]) -> Self:
-        out = Self(uninitialized = True)
-        comptime for i in range(Self.size):
-            comptime if reverse:
-                out[i] = func(b,a[i])
-            else:
-                out[i] = func(a[i],b)
-        return out
-
-    @always_inline
-    @staticmethod
-    def _add(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
-        return a+b
-
-    @always_inline
-    @staticmethod
-    def _sub(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
-        return a-b
-
-    @always_inline
-    @staticmethod
-    def _mul(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
-            return a*b
-
-    @always_inline
-    @staticmethod
-    def _div(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
-        return a/b
-    
-    @always_inline
-    @staticmethod
-    def _eq(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Bool:
-        return a == b
-    
-    @always_inline
-    @staticmethod
-    def _neq(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Bool:
-        return a != b
-    
-    @always_inline
-    @staticmethod
-    def _pow(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
-        return a**b
-    
-    def __eq__(self,other:Self) -> Bool:
-        comptime for i in range(Self.size):
-            if self[i] != other[i]:
-                return False
+            if not Bool(self.data[i]):
+                    return False
         return True
+
 
     def __neg__(self) -> Self:
         return Self._scalarOp[Self._mul](self,-1)
@@ -217,7 +169,6 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
     def __pow__(self,other:Scalar[Self.dtype]) -> Self:
         return Self._scalarOp[Self._pow](self,other)
     
-
     def __truediv__(self,other:Self) -> Self:
         return Self._elementWise[Self._div](self,other)
         
@@ -234,5 +185,111 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Equatable & W
     def __itruediv__(mut self,other:Scalar[Self.dtype]):
         comptime for i in range(Self.size):
             self[i] /= other
+
+    def __eq__(self,other:Self) -> Vector[DType.bool,Self.size]:
+        return Self._elementWise[DType.bool,Self._eq](self,other)
+    
+    def __ne__(self,other:Self) -> Vector[DType.bool,Self.size]:
+        return Self._elementWise[DType.bool,Self._ne](self,other)
+    
+    def __le__(self,other:Self) -> Vector[DType.bool,Self.size]:
+        return Self._elementWise[DType.bool,Self._leq](self,other)
+
+    def __ge__(self,other:Self) -> Vector[DType.bool,Self.size]:
+        return Self._elementWise[DType.bool,Self._ge](self,other)
+
+    def __gt__(self,other:Self) -> Vector[DType.bool,Self.size]:
+        return Self._elementWise[DType.bool,Self._gt](self,other)
+
+    def __lt__(self,other:Self) -> Vector[DType.bool,Self.size]:
+        return Self._elementWise[DType.bool,Self._lt](self,other)
+
+
+
+    @always_inline
+    @staticmethod
+    def _elementWise[func: def(Scalar[Self.dtype],Scalar[Self.dtype]) thin -> Scalar[Self.dtype]](a:Self,b:Self) -> Self:
+        out = Self(uninitialized = True)
+        comptime for i in range(Self.size):
+            out[i] = func(a[i],b[i])
+        return out
+    
+    @always_inline
+    @staticmethod
+    def _elementWise[output_dtype:DType,func: def(Scalar[Self.dtype],Scalar[Self.dtype]) thin -> Scalar[output_dtype]](a:Self,b:Self) -> Vector[output_dtype,Self.size]:
+        out = Vector[output_dtype,Self.size](uninitialized = True)
+        comptime for i in range(Self.size):
+            out[i] = func(a[i],b[i])
+        return out
+
+    @always_inline
+    @staticmethod
+    def _scalarOp[func: def(Scalar[Self.dtype],Scalar[Self.dtype]) thin ->   Scalar[Self.dtype], *, reverse:Bool = False](a:Self,b:Scalar[Self.dtype]) -> Self:
+        out = Self(uninitialized = True)
+        comptime for i in range(Self.size):
+            comptime if reverse:
+                out[i] = func(b,a[i])
+            else:
+                out[i] = func(a[i],b)
+        return out
+    
+    # -------- Conditional Static Ops -----------
+    @staticmethod
+    @always_inline
+    def _eq(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[DType.bool]:
+        return a == b
+
+    @staticmethod
+    @always_inline
+    def _ge(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[DType.bool]:
+        return a <= b
+
+    @staticmethod
+    @always_inline
+    def _gt(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[DType.bool]:
+        return a > b
+
+    @staticmethod
+    @always_inline
+    def _lt(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[DType.bool]:
+        return a < b
+    @always_inline
+    @staticmethod
+    def _leq(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[DType.bool]:
+        return a <= b
+
+    @always_inline
+    @staticmethod
+    def _ne(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Bool:
+        return a != b
+    
+
+    # -------- Arithmetic Static Ops -----------
+    @always_inline
+    @staticmethod
+    def _add(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
+        return a+b
+
+    @always_inline
+    @staticmethod
+    def _sub(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
+        return a-b
+
+    @always_inline
+    @staticmethod
+    def _mul(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
+            return a*b
+
+    @always_inline
+    @staticmethod
+    def _div(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
+        return a/b
+ 
+    @always_inline
+    @staticmethod
+    def _pow(a:Scalar[Self.dtype],b:Scalar[Self.dtype]) -> Scalar[Self.dtype]:
+        return a**b
+    
+        
 
 
