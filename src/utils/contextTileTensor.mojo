@@ -1,9 +1,26 @@
 from std.gpu.host import DeviceContext
 from std.gpu import HostBuffer,DeviceBuffer
-from layout import TileTensor,row_major,coord,Coord
+from layout import TileTensor,row_major,col_major,coord,Coord
+from std.utils import IndexList
 from layout.tile_layout import Layout,TensorLayout
 from std.collections import Set
 from std.python import Python, PythonObject
+
+
+def get_shape_and_stride[LayoutType:TensorLayout]() ->Tuple[IndexList[LayoutType.rank],IndexList[LayoutType.rank]]:
+    comptime assert LayoutType.rank == LayoutType.flat_rank or LayoutType.rank*2 == LayoutType.flat_rank
+    comptime is_nested = LayoutType.rank*2 == LayoutType.flat_rank
+    shape = IndexList[LayoutType.rank](fill = 0)
+    stride = IndexList[LayoutType.rank](fill = 0)
+
+    comptime for i in range(LayoutType.rank):
+        comptime if is_nested:
+            shape[i] = LayoutType.static_shape[i*2] *LayoutType.static_shape[i*2+1]
+            stride[i] = LayoutType.static_stride[i*2] *LayoutType.static_stride[i*2+1]
+        else:
+            shape[i] = LayoutType.static_shape[i]
+            stride[i] = LayoutType.static_stride[i]
+    return (shape,stride)
 
 struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
     '''
@@ -25,7 +42,13 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
     # comptime assert Self.layout.all_dims_known
     
     comptime rank = Self.LayoutType.rank
-    comptime TensorType = TileTensor[Self.dtype,Self.LayoutType,MutAnyOrigin]
+    comptime flat_rank = Self.LayoutType.rank
+    
+    comptime __shape_and_stride = get_shape_and_stride[Self.LayoutType]()
+    comptime logical_shape = Self.__shape_and_stride[0]
+    comptime row_major_layout = row_major(Coord(Self.logical_shape))
+    comptime col_major_layout = col_major(Coord(Self.logical_shape))
+
     var deviceContext:DeviceContext
     var _cpu_buffer:HostBuffer[Self.dtype]
     var _gpu_buffer:DeviceBuffer[Self.dtype]
@@ -36,6 +59,8 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
     var layout:Self.LayoutType
     var size: Int 
     var last_device_used:Optional[String]
+
+    var _extra_row_host_buffer:Optional[HostBuffer[Self.dtype]]
 
     def __init__(out self,deviceContext:DeviceContext,layout:Self.LayoutType,*,synchronize_on_copy:Bool = False,copy_on_switch:Bool = True) raises:
         '''
@@ -61,6 +86,7 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
         self.copy_on_switch = copy_on_switch
         self.synchronize_on_copy = synchronize_on_copy
 
+        self._extra_row_host_buffer = None
     @always_inline
     def fill(mut self,value:Scalar[Self.dtype]) raises:
         self._cpu_buffer.enqueue_fill(value) # Weird bug where a memory spike occures when gpu_buffer ie enqued
@@ -104,6 +130,20 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
         returns a view of the host buffer as a 1D Numpy Array. Unsafe Pointer Used!
         '''
         return contextTensor_to_numpy(self)
+
+
+    # def copy_to_row_major(mut self) raises -> TileTensor[Self.dtype,type_of(Self.row_major_layout),origin_of(self._extra_row_host_buffer.value())]:
+    #     '''
+    #     copy cpu buffer to a row_major equivalent layout
+    #     '''
+    # Worlk
+    #     # This keeps track
+        # if self._extra_row_host_buffer is None:
+            # self._extra_row_host_buffer = self.deviceContext.enqueue_create_host_buffer[Self.dtype](self.size)
+        
+        # row_tensor = TileTensor(self._extra_row_host_buffer.value(),Self.row_major_layout)
+        # row_tensor.copy_from(self.cpu())
+        # return row_tensor
 
     def _check_last_used_device(mut self,currentDevice:String) raises:
         if currentDevice not in Set[String]('cpu','gpu'):
