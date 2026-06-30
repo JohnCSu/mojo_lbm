@@ -10,7 +10,7 @@ from src.lbm import (
 
 from src.lbm.kernels.SRT import LBM_kernel
 from src.utils import Vector,ContextTileTensor
-from src.lbm.geometry.primatives import add_sphere
+from src.lbm.geometry.primatives import add_sphere,add_box
 
 comptime float_dtype = DType.float32
 comptime int_dtype = DType.int32
@@ -85,22 +85,22 @@ def main() raises:
         f.fill(0.)
         f_out.fill(0.)
 
-    add_sphere[grid](flags.cpu(),center = [0.75,0.5,0.],radius = 0.1)
-    
-    # flag_np = flags.buffer_to_numpy().reshape(nx,ny)
-    # pv = Python.import_module('pyvista')
-    # np = Python.import_module('numpy')
-    # x = np.linspace(0, grid.domain_size[0], nx)
-    # y = np.linspace(0, grid.domain_size[1], ny)
-    # m = np.meshgrid(x, y,indexing = 'ij')
-    # xx,yy = m[0],m[1]
-    # pv_mesh = pv.StructuredGrid(xx, yy, np.zeros_like(xx))
-    # pv_mesh.point_data['Flags'] = flag_np.ravel()
-    # plotter = pv.Plotter()
-    # plotter.add_mesh(pv_mesh,scalars ='Flags',show_edges = False, cmap= 'jet',clim = [0,1],nan_color='white',)
-    # plotter.view_xy()
-    # plotter.show_axes()
-    # plotter.show()
+    # add_sphere[grid](flags.cpu(),center = [0.75,0.5,0.],radius = 0.1)
+    add_box[grid](flags.cpu(),center = [0.75,0.5,0.],box_radius = [0.1,0.1,0])    
+    flag_np = flags.buffer_to_numpy().reshape(nx,ny)
+    pv = Python.import_module('pyvista')
+    np = Python.import_module('numpy')
+    x = np.linspace(0, grid.domain_size[0], nx)
+    y = np.linspace(0, grid.domain_size[1], ny)
+    m = np.meshgrid(x, y,indexing = 'ij')
+    xx,yy = m[0],m[1]
+    pv_mesh = pv.StructuredGrid(xx, yy, np.zeros_like(xx))
+    pv_mesh.point_data['Flags'] = flag_np.ravel()
+    plotter = pv.Plotter()
+    plotter.add_mesh(pv_mesh,scalars ='Flags',show_edges = False, cmap= 'jet',clim = [0,1],nan_color='white',)
+    plotter.view_xy()
+    plotter.show_axes()
+    plotter.show()
 
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+X',Flags.EQUILIBRIUM,[],1.)
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-X',Flags.EQUILIBRIUM,[U,0],1.)
