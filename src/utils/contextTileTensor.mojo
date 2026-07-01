@@ -161,7 +161,7 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
             self.last_device_used = currentDevice
 
 
-def contextTensor_to_numpy[dtype:DType,layoutType:TensorLayout](mut contextTensor:ContextTileTensor[dtype,layoutType]) raises -> PythonObject:
+def contextTensor_to_numpy[dtype:DType,layoutType:TensorLayout,synchronize:Bool = True](mut contextTensor:ContextTileTensor[dtype,layoutType]) raises -> PythonObject:
     '''
     Zero Copy view of the Host Buffer of Context Tensor as a numpy array, by first syncing device and host buffers and passing an unsafe pointer to
     numpy.
@@ -190,6 +190,8 @@ def contextTensor_to_numpy[dtype:DType,layoutType:TensorLayout](mut contextTenso
     c_dtype = ctypes_dict[dtype]
     
     flag_ptr = contextTensor.cpu_buffer().unsafe_ptr()
+    comptime if synchronize:
+        contextTensor.synchronize()
     address = Int(flag_ptr) # Need to get the pointer address as Int type
     p_int = ctypes.POINTER(c_dtype) # Set Dtype
     np_ptr = ctypes.cast(address, p_int)
