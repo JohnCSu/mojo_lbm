@@ -5,7 +5,7 @@ from std.python import Python, PythonObject
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,get_D2Q9,LatticeModel,set_exterior_walls,calculate_rho_and_velocity
+from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,get_D2Q9,LatticeModel,set_exterior_walls
 from .LBM_gpu_kernel import LBM_kernel
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
@@ -58,8 +58,6 @@ def benchmark_func_row_tile[
     f = ContextTileTensor[float_dtype](ctx,f_layout)
     f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
-    u = ContextTileTensor[float_dtype](ctx,velocity_layout)
-    rho = ContextTileTensor[float_dtype](ctx,density_layout)
     # Set up
     f.fill(1./Scalar[float_dtype](Q))
     f_out.fill(1./Scalar[float_dtype](Q))
@@ -79,7 +77,6 @@ def benchmark_func_row_tile[
     ctx.synchronize()
     #Compile Functions
     LBM_func = ctx.compile_function[LBM_kernel[grid,f_layout,bc_layout,flag_layout,reorder_threads = reorder_threads],LBM_kernel[grid,f_layout,bc_layout,flag_layout,reorder_threads = reorder_threads]]()
-    calc_rho_and_u_gpu = ctx.compile_function[calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout],calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]]()
     ctx.synchronize()
     
     @always_inline
@@ -139,8 +136,6 @@ def benchmark_func_col_tile[
     f = ContextTileTensor[float_dtype](ctx,f_layout)
     f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
-    u = ContextTileTensor[float_dtype](ctx,velocity_layout)
-    rho = ContextTileTensor[float_dtype](ctx,density_layout)
     # Set up
     f.fill(1./Scalar[float_dtype](Q))
     f_out.fill(1./Scalar[float_dtype](Q))
@@ -160,7 +155,6 @@ def benchmark_func_col_tile[
     ctx.synchronize()
     #Compile Functions
     LBM_func = ctx.compile_function[LBM_kernel[grid,f_layout,bc_layout,flag_layout,reorder_threads = reorder_threads],LBM_kernel[grid,f_layout,bc_layout,flag_layout,reorder_threads = reorder_threads]]()
-    calc_rho_and_u_gpu = ctx.compile_function[calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout],calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]]()
     ctx.synchronize()
     
     @always_inline

@@ -5,7 +5,7 @@ from std.python import Python, PythonObject
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,get_D2Q9,LatticeModel,set_exterior_walls,calculate_rho_and_velocity,LBM_Config
+from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,get_D2Q9,LatticeModel,set_exterior_walls,LBM_Config
 from .LBM_gpu_kernel import LBM_kernel
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
