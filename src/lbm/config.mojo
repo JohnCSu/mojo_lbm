@@ -72,29 +72,40 @@ struct Float16C():
         m = UInt32((val & 0x07FF)) << 12
         v = ((Float32(m)).to_bits[DType.uint32]())  >> 23  # Wtf? 
 
-        sign = UInt32((val&0x8000)) << 16 
-        normalized = UInt32(e != 0)*(( e+112 ) << 23 | m)
-        denormalised = UInt32((e==0)&(m!=0)) * ((v-37) << 23 | ((m << ( 150-v)) & 0x007FF000))
-        out_bits = sign | normalized | denormalised
+        # sign = UInt32((val&0x8000)) << 16 
+        # normalized = UInt32(e != 0)*(( e+112 ) << 23 | m)
+        # denormalised = UInt32((e==0)&(m!=0)) * ((v-37) << 23 | ((m << ( 150-v)) & 0x007FF000))
+        # out_bits = sign | normalized | denormalised
 
-        return bitcast[fp32](out_bits)
+        # return bitcast[fp32](out_bits)
 
+        return bitcast[fp32](
+            UInt32((val&0x8000)) << 16 |
+            UInt32(e != 0)*(( e+112 ) << 23 | m) |
+            UInt32((e==0)&(m!=0)) * ((v-37) << 23 | ((m << ( 150-v)) & 0x007FF000))
+        )
     @staticmethod
     @always_inline
     def to_fp16c(val:Scalar[fp32]) -> Scalar[uint16]:
         '''
         Dont ask me how each op works see paper for reference
         '''
-        b = val.to_bits[DType.uint32]()
-        b = b + 0x0000_0800 # Add 1 to 12th bit from left
+        b = val.to_bits[DType.uint32]()+ 0x0000_0800
+        # b = b  # Add 1 to 12th bit from left
         e = (b & 0x7F80_0000) >> 23 # Exponent Bias 127
         m = b & 0x007F_FFFF # Get Mantissa
         
-        sign = (b & 0x80000000 ) >> 16
-        norm =  UInt32(e > 112)* ((((e-112) << 11 ) & 0x7800) | m >> 12)
-        denorm = UInt32((e < 113)&(e > 100)) * (((( 0x007FF800 +m ) >> (124 - e) ) +1) >>1) 
-        saturate = UInt32(e>127) * 0x7FFF
-        fp16c_uncompressed:UInt32 = sign | norm | denorm | saturate  # Sign Bit
-        out = bitcast[uint16,2](fp16c_uncompressed) # Mojo Syntax need to break the 32 bit number into 2 16 bit numbers and then take 0th simd element
-        return out[0]  # We keep the first 16 bits the rest are not relevant
+        # sign = (b & 0x80000000 ) >> 16
+        # norm =  UInt32(e > 112)* ((((e-112) << 11 ) & 0x7800) | m >> 12)
+        # denorm = UInt32((e < 113)&(e > 100)) * (((( 0x007FF800 +m ) >> (124 - e) ) +1) >>1) 
+        # saturate = UInt32(e>127) * 0x7FFF
+        # fp16c_uncompressed:UInt32 = sign | norm | denorm | saturate  # Sign Bit
+        # out = bitcast[uint16,2](fp16c_uncompressed) # Mojo Syntax need to break the 32 bit number into 2 16 bit numbers and then take 0th simd element
+        # return out[0]  # We keep the first 16 bits the rest are not relevant
 
+        return bitcast[uint16,2](
+            (b & 0x80000000 ) >> 16 |
+            UInt32(e > 112)* ((((e-112) << 11 ) & 0x7800) | m >> 12) |
+            UInt32((e < 113)&(e > 100)) * (((( 0x007FF800 +m ) >> (124 - e) ) +1) >>1) |
+            UInt32(e>127) * 0x7FFF
+        )[0]
