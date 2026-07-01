@@ -11,7 +11,7 @@ struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
                 latticeModel:LatticeModel[D,Q,float_dtype,int_dtype],
                 nx:Int,ny:Int,nz:Int,
                 tile_size:Int,
-                ](): 
+                ](ImplicitlyCopyable): 
     comptime Float_Scalar = Scalar[Self.float_dtype]
     comptime __shapes = set_block_shape_and_grid_dim[Self.nx,Self.ny,Self.nz,Self.D,Self.tile_size]()
     comptime BLOCK_SHAPE =  Self.__shapes[0]
@@ -44,13 +44,28 @@ struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
         self.domain_size = ( Self.Float_Scalar(Self.nx-1)*dx,Self.Float_Scalar(Self.ny-1)*dx,Self.Float_Scalar(Self.nz-1)*dx)
         self.origin = origin
 
-    def get_UnitSystem_with_Re(self,U_phys:Self.Float_Scalar,U_lattice:Self.Float_Scalar,Re:Self.Float_Scalar,density:Self.Float_Scalar = 1.) -> UnitSystem[Self.float_dtype]:
-        kinematic_viscosity = U_phys*self.dx/Re
-        return UnitSystem(U_phys,U_lattice,self.dx,1.,kinematic_viscosity,density)
+    def get_UnitSystem_with_Re(
+        self,
+        U_phys:Self.Float_Scalar,
+        U_lattice:Self.Float_Scalar,
+        L_phys:Self.Float_Scalar,
+        Re:Self.Float_Scalar,
+        density:Self.Float_Scalar = 1.) -> UnitSystem[Self.float_dtype]:
 
-    def get_UnitSystem(self,U_phys:Self.Float_Scalar,U_lattice:Self.Float_Scalar,dynamic_viscosity:Self.Float_Scalar,density:Self.Float_Scalar = 1.) -> UnitSystem[Self.float_dtype]:
-        kinematic_viscosity = dynamic_viscosity/density
-        return UnitSystem(U_phys,U_lattice,self.dx,1.,kinematic_viscosity,density)
+        L_lattice = L_phys/self.dx
+
+        kinematic_viscosity = U_phys*L_phys/Re
+        return UnitSystem(U_phys,U_lattice,L_phys,L_lattice,density,kinematic_viscosity)
+
+    def get_UnitSystem(
+        self,
+        U_phys:Self.Float_Scalar,
+        U_lattice:Self.Float_Scalar,
+        L_phys:Self.Float_Scalar,
+        kinematic_viscosity:Self.Float_Scalar,
+        density:Self.Float_Scalar = 1.) -> UnitSystem[Self.float_dtype]:
+        L_lattice = L_phys/self.dx
+        return UnitSystem(U_phys,U_lattice,L_phys,L_lattice,density,kinematic_viscosity)
 
 
 
