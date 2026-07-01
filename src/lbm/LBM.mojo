@@ -5,39 +5,7 @@ from std.collections import InlineArray
 from std.collections import Set,Dict
 from src.utils import Vector,ContextTileTensor
 from std.utils.numerics import nan,isnan
-
-def set_block_shape_and_grid_dim[nx:Int,ny:Int,nz:Int,D:Int,tile_size:Int]() -> Tuple[Tuple[Int,Int,Int],Tuple[Int,Int,Int]]:
-    comptime assert (nx % tile_size == 0 or nx == 1) and (ny % tile_size == 0 or ny == 1) and (nz % tile_size == 0 or nz == 1), 'Tile size must divide nx,ny and nz'
-    comptime assert tile_size >= 1
-    comptime if tile_size > 1:
-        block_shape:Tuple[Int,Int,Int] = (tile_size, tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
-        grid_dim:Tuple[Int,Int,Int] = (nx//tile_size, ny//tile_size if D >= 2 else 1, nz//tile_size if D == 3 else 1)
-
-    else:
-        if D == 1 :
-            g_dim = 256
-        elif D == 2:
-            g_dim = 16 # 2D Block has 256 Threads
-        else:
-            g_dim = 8 # 3D block has 512 threads
-
-        def calc_grid_dim(n:Int,g:Int) -> Int:
-            return n//g if n % g == 0 else n//g + 1
-
-        block_shape:Tuple[Int,Int,Int] = (g_dim, g_dim if D >= 2 else 1, g_dim if D == 3 else 1)
-
-
-        grid_dim:Tuple[Int,Int,Int] = (calc_grid_dim(nx,block_shape[0]), calc_grid_dim(ny,block_shape[1]), calc_grid_dim(nz,block_shape[2]))
-        
-    return block_shape,grid_dim
-
-
-def check_model_match_dim[D:Int,nx:Int,ny:Int,nz:Int]():
-    comptime assert 1 <= D <= 3
-    comptime assert nx > 0 and ny > 0 and nz > 0
-    comptime grid_D = (1 if nx > 1 else 0) + (1 if ny > 1 else 0) + (1 if nz > 1 else 0)
-    comptime assert D == grid_D, 'The given dimension of the LatticeModel does not match that of the dimension of the grid'
-    
+from .units import UnitSystem
         
 struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
                 latticeModel:LatticeModel[D,Q,float_dtype,int_dtype],
@@ -75,7 +43,53 @@ struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
         self.bc_field_size = (Self.D+1)*self.num_points
         self.domain_size = ( Self.Float_Scalar(Self.nx-1)*dx,Self.Float_Scalar(Self.ny-1)*dx,Self.Float_Scalar(Self.nz-1)*dx)
         self.origin = origin
+
+    def get_UnitSystem_with_Re(self,U_phys:Self.Float_Scalar,U_lattice:Self.Float_Scalar,Re:Self.Float_Scalar,density:Self.Float_Scalar = 1.) -> UnitSystem[Self.float_dtype]:
+        kinematic_viscosity = U_phys*self.dx/Re
+        return UnitSystem(U_phys,U_lattice,self.dx,1.,kinematic_viscosity,density)
+
+    def get_UnitSystem(self,U_phys:Self.Float_Scalar,U_lattice:Self.Float_Scalar,dynamic_viscosity:Self.Float_Scalar,density:Self.Float_Scalar = 1.) -> UnitSystem[Self.float_dtype]:
+        kinematic_viscosity = dynamic_viscosity/density
+        return UnitSystem(U_phys,U_lattice,self.dx,1.,kinematic_viscosity,density)
+
+
+
+
+def set_block_shape_and_grid_dim[nx:Int,ny:Int,nz:Int,D:Int,tile_size:Int]() -> Tuple[Tuple[Int,Int,Int],Tuple[Int,Int,Int]]:
+    comptime assert (nx % tile_size == 0 or nx == 1) and (ny % tile_size == 0 or ny == 1) and (nz % tile_size == 0 or nz == 1), 'Tile size must divide nx,ny and nz'
+    comptime assert tile_size >= 1
+    comptime if tile_size > 1:
+        block_shape:Tuple[Int,Int,Int] = (tile_size, tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
+        grid_dim:Tuple[Int,Int,Int] = (nx//tile_size, ny//tile_size if D >= 2 else 1, nz//tile_size if D == 3 else 1)
+
+    else:
+        if D == 1 :
+            g_dim = 256
+        elif D == 2:
+            g_dim = 16 # 2D Block has 256 Threads
+        else:
+            g_dim = 8 # 3D block has 512 threads
+
+        def calc_grid_dim(n:Int,g:Int) -> Int:
+            return n//g if n % g == 0 else n//g + 1
+
+        block_shape:Tuple[Int,Int,Int] = (g_dim, g_dim if D >= 2 else 1, g_dim if D == 3 else 1)
+
+
+        grid_dim:Tuple[Int,Int,Int] = (calc_grid_dim(nx,block_shape[0]), calc_grid_dim(ny,block_shape[1]), calc_grid_dim(nz,block_shape[2]))
         
+    return block_shape,grid_dim
+
+
+def check_model_match_dim[D:Int,nx:Int,ny:Int,nz:Int]():
+    comptime assert 1 <= D <= 3
+    comptime assert nx > 0 and ny > 0 and nz > 0
+    comptime grid_D = (1 if nx > 1 else 0) + (1 if ny > 1 else 0) + (1 if nz > 1 else 0)
+    comptime assert D == grid_D, 'The given dimension of the LatticeModel does not match that of the dimension of the grid'
+    
+        
+
+
 
 def set_exterior_walls[float_dtype:DType,
                     flag_origin:Origin[mut=True],
