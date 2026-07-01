@@ -26,7 +26,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 f_in:TileTensor[f_dtype,type_of(Flayout),ImmutAnyOrigin],
                 bc:TileTensor[float_dtype,type_of(BClayout),ImmutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
-                inv_tau:Scalar[float_dtype]
+                tau:Scalar[float_dtype]
                 )
                 where tile_size >= 1 and Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
@@ -37,10 +37,13 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     comptime weights = lattice_model.weights
     comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
-    comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0'
     comptime opposite_index = lattice_model.opposite_indices
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     comptime load_f_from_xyzq = load_f[float_dtype,config.use_float16c]
+
+    # Comptime asserts
+    comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
+
 
     block_x,block_dim_x = block_idx.x,block_dim.x
     block_y,block_dim_y = block_idx.y,block_dim.y
@@ -111,7 +114,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         u_dot_u = velocity.dot(velocity)
         comptime for q in range(Q):
             f_eq = SRT[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_directions[q])
-            store_f[config.use_float16c](f_out,(f_new[q] -  inv_tau*(f_new[q]- f_eq)),index,q)
+            store_f[config.use_float16c](f_out,(f_new[q] -  (f_new[q]- f_eq)/tau ),index,q)
 
 
 
