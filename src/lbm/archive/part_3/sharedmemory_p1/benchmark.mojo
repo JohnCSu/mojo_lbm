@@ -29,7 +29,7 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     ](mut b:Bencher) raises where tile_size >= 1 and f_layout.rank == 4 and flag_layout.rank == 3 and bc_layout.rank == 4 and velocity_layout.rank == 4 and density_layout.rank == 3:
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
-
+    comptime Float = Scalar[float_dtype]
     ctx = DeviceContext()
     flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
     bc = ContextTileTensor[float_dtype](ctx,bc_layout)
@@ -60,7 +60,7 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     
     @always_inline
     def run_kernel(ctx:DeviceContext) capturing raises:
-        ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),Float32(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),Float(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
     b.iter_custom[run_kernel](ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())
