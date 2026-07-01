@@ -97,11 +97,10 @@ def set_exterior_walls[float_dtype:DType,
                     nx:Int,ny:Int,nz:Int,
                     D:Int,Q:Int,
                     latticeModel:LatticeModel[D,Q,float_dtype,DType.int32],
-                    tile_size:Int,
                     FlagLayoutType:TensorLayout,
                     BCLayoutType:TensorLayout,
                     //,
-                    grid:LBM_Grid[latticeModel,nx,ny,nz,tile_size],
+                    grid:LBM_Grid[latticeModel,nx,ny,nz,_],
                     config:LBM_Config = LBM_Config()
                     ]
                     (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
@@ -109,9 +108,32 @@ def set_exterior_walls[float_dtype:DType,
                             side:String,
                             boundary_type:Scalar[DType.uint8],
                             u:List[Scalar[float_dtype]] = [],
-                            rho:Scalar[float_dtype] = nan[float_dtype]() ) raises:
+                            rho:Scalar[float_dtype] = nan[float_dtype](),
+                            unitSystem:Optional[UnitSystem[float_dtype]] = None) raises:
     '''
-    Apply Boundary conditions to exterior walls
+    Apply Boundary conditions to exterior walls to flags TileTensor. Default assumes boundary values given
+    are in lattice units unless a unitSystem is passed in.
+
+    Parameters:
+        grid: LBM_Grid struct that defines the domain for LBM.
+        config: LBM_Config struct that contain a set of valid boundaries flags is allowed to take
+
+    Args:
+        flags: TileTensor of uint8 that describe what each node in the lattice is (e.g. 0 - Fluid).
+        bc: TileTensor that stores the velocity and density for each node.
+        side: String that sets which exterior wall to apply the BC to.
+        boundary_type: Uint8 value to set the flags at the target wall to.
+        u: List of floats to set the velocity. Default empty list implies the velocity is free.
+        rho: Float Scalar to set the density. If Nan then implies density is a free variable.
+        unitSystem: Optional System of units to use. If passed in, it is assume that the values u and rho
+            are in physical units.
+
+    Raises:
+        - both u and rho are not specified.
+        - velocity list length does not match that of the grid dimension.
+        - boundary type is not a boundary type in LBM_Config parameter
+        - side is not a valid string
+        
     '''
     comptime assert float_dtype.is_floating_point()
     comptime assert FlagLayoutType.rank == 3 and BCLayoutType.rank == 4
@@ -124,8 +146,6 @@ def set_exterior_walls[float_dtype:DType,
     valid_strings:Set[String] = {'-X','+X','-Y','+Y','-Z','+Z'}
 
     u_is_empty = (len(u) == 0)
-    # print(u_is_empty)
-    # Error Checking
     if u_is_empty and isnan(rho):
         raise Error('Either velocity or density or both have to be specified. Both cant be left as None')
     
@@ -144,6 +164,10 @@ def set_exterior_walls[float_dtype:DType,
     if side not in valid_strings:
         raise Error('Side not valid. Input was {} but expects {}'.format(side,valid_strings))
     
+    if unitSystem: # if not None then implies bc give are not in 
+        density *=unitSystem.value().density.C_phys_to_lat()
+        velocity = [unitSystem.value().U.C_phys_to_lat()*u for u in velocity]
+
     axis = axes[String(side[byte = 1])]
     end_values = [nx,ny,nz]
     
