@@ -96,13 +96,7 @@ def main() raises:
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-X',Flags.EQUILIBRIUM,[U,0],1.)
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+Y',SOLID_NODE,[0,0],1.)
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-Y',SOLID_NODE,[0,0],1.)
-    
-    
 
-    for xx in range(tile_size):
-        for yy in range(tile_size):
-            print(flags.cpu().load(coord[DType.int32]((xx,yy,0))), end = ' ')
-        print()
     ctx.synchronize()
     # Copy To GPU()
     _ = flags.gpu()
