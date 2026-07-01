@@ -10,9 +10,6 @@ resolution-markers = [
     "python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
-[options]
-prerelease-mode = "allow"
-
 [[package]]
 name = "attrs"
 version = "26.1.0"
@@ -275,6 +272,19 @@ wheels = [
 ]
 
 [[package]]
+name = "imageio"
+version = "2.37.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b1/84/93bcd1300216ea50811cee96873b84a1bebf8d0489ffaf7f2a3756bab866/imageio-2.37.3.tar.gz", hash = "sha256:bbb37efbfc4c400fcd534b367b91fcd66d5da639aaa138034431a1c5e0a41451", size = 389673, upload-time = "2026-03-09T11:31:12.573Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/fa/391e437a34e55095173dca5f24070d89cbc233ff85bf1c29c93248c6588d/imageio-2.37.3-py3-none-any.whl", hash = "sha256:46f5bb8522cd421c0f5ae104d8268f569d856b29eb1a13b92829d1970f32c9f0", size = 317646, upload-time = "2026-03-09T11:31:10.771Z" },
+]
+
+[[package]]
 name = "kiwisolver"
 version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -490,6 +500,7 @@ name = "mojo-lbm-tutorial"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "imageio" },
     { name = "matplotlib" },
     { name = "mojo" },
     { name = "numpy" },
@@ -499,6 +510,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "imageio", specifier = ">=2.37.3" },
     { name = "matplotlib", specifier = ">=3.10.9" },
     { name = "mojo", specifier = "==1.0.0b1" },
     { name = "numpy", specifier = ">=2.4.5" },
