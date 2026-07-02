@@ -35,7 +35,6 @@ comptime non_tiled_grid = LBM_Grid[D3Q19,nx,ny,nz,1](dx)
 # comptime tiled_grid = LBM_Grid[D3Q27,nx,ny,nz,tile_size](dx)
 # comptime non_tiled_grid = LBM_Grid[D3Q27,nx,ny,nz,1](dx)
 
-
 comptime num_points = nx*ny*nz
 comptime U_phs:float_scalar = 1.
 comptime U:float_scalar = 0.05
@@ -68,7 +67,7 @@ def main() raises:
     print("Mojo Version: {}.{}.{}".format(sys.defines.MojoVersion().major, sys.defines.MojoVersion().minor,sys.defines.MojoVersion().patch))
     print('Grid Shape: {},{},{}'.format(nx,ny,nz))
     print('Total Number of Points On grid: {}'.format(num_points))
-    print('Approximate Total Bytes {} or MB {}'.format(total_bytes,Float64(total_bytes)/1e6))
+    print('Approximate Total Bytes {} or {} MB'.format(total_bytes,Float64(total_bytes)/1e6))
     print('Non Tiled GPU Launch: Grid Dim: {} Block_Shape {} '.format(non_tiled_grid.GRID_DIM,non_tiled_grid.BLOCK_SHAPE))
     print('Tiled GPU Launch: Grid Dim: {} Block_Shape {} '.format(tiled_grid.GRID_DIM,tiled_grid.BLOCK_SHAPE))
     print('All Indexing assumes of the form: (x,y,z,q)')

@@ -59,16 +59,18 @@ comptime benchmark_10b = SoA_Tile.benchmark_func[grid,GRID_DIM,BLOCK_SHAPE,U,tau
 comptime benchmark_11 = AoS_Tile.benchmark_func[grid,GRID_DIM,BLOCK_SHAPE,U,tau]
 comptime benchmark_11b = AoS_Tile.benchmark_func[grid,GRID_DIM,BLOCK_SHAPE,U,tau,reorder_threads = False]
 
+import std.sys as sys
 
 def main() raises:
+    ctx = DeviceContext()
     total_bytes =  Q*num_points*2*4 + num_points*(D+1)*4 + num_points # 4btes per Q (fp32) , 4 byters per bc (fp32) , 1 byte per flag (fp) 
-    print('Benchmark for fp32/fp32 LBM')
+    print('{}^3 LDC Cube at Re=100 Benchmark for fp32/fp32 D{}Q{} LBM'.format(N,D,Q))
+    print('Running On GPU Device: {}'.format(ctx.name()))
+    print("Mojo Version: {}.{}.{}".format(sys.defines.MojoVersion().major, sys.defines.MojoVersion().minor,sys.defines.MojoVersion().patch))
     print('Grid Shape: {},{},{}'.format(nx,ny,nz))
-    print('Num Points On grid: {}'.format(num_points))
-    print('Approximate Total Bytes {} or MB {}'.format(total_bytes,Float64(total_bytes)/1e6))
-    print(GRID_DIM)
-    print(BLOCK_SHAPE)
-    print('Tau {}'.format(tau))
+    print('Total Number of Points On grid: {}'.format(num_points))
+    print('Approximate Total Bytes {} or {} MB'.format(total_bytes,Float64(total_bytes)/1e6))
+    print('Tiled GPU Launch: Grid Dim: {} Block_Shape {} '.format(grid.GRID_DIM,grid.BLOCK_SHAPE))
 
     var bench_config = BenchConfig(max_iters=20, num_warmup_iters=1)
     var bench = Bench(bench_config.copy())
