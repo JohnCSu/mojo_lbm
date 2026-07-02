@@ -17,3 +17,10 @@ dependencies = [
 [tool.uv]
 package = true
 
+[dependency-groups]
+dev = [
+    "poethepoet>=0.47.1",
+]
+
+[tool.poe.tasks]
+build-LBM = {script = "buildLBM:main"}

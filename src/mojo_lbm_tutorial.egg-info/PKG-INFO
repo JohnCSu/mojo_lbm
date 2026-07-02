@@ -134,8 +134,9 @@ TileTensor on the cpu or gpu respecitively. Buffer copies between the 2 buffers 
 6. Mojo Packaging
 
 ## Timeline
+- 2026/06/02 Added Smagorinsky Turbulence LES and second moment and strain rate tensor calculations
+- 2026/05/30 Added equilibrium BC and Unit System for scaling variable to lattice dimenstions
 - 2026/06/25 Added DDF shifting and Float16c support see [Paper](https://www.researchgate.net/publication/362275548_Accuracy_and_performance_of_the_lattice_Boltzmann_method_with_64-bit_32-bit_and_customized_16-bit_number_formats)
-
 - 2026/06/24 Added D3Q27 Models
 - 2026/06/12 Implemented 3D D3Q19 LBM and non square grids
 - 2026/06/05 Implemented TiledLayouts for LBM
@@ -150,7 +151,6 @@ TileTensor on the cpu or gpu respecitively. Buffer copies between the 2 buffers 
 - [X] Use Benchmarking to determine speed ups and optimisations 
 - [] Add Simd optimisation
 - [X] Add Layout Analysis
-- [] Swizzling analysis
 
 ## Other
 - [X] Implement 3D lattices models
