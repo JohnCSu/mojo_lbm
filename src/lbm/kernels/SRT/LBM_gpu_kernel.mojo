@@ -6,8 +6,14 @@ from std.gpu.memory import AddressSpace
 from src.lbm import LBM_Grid,LBM_Config,LatticeModel
 from src.lbm.flags import SOLID_NODE,FLUID_NODE,Flags,cs_squared
 from src.utils import Vector,ContextTileTensor
-from .load_and_store import load_f,store_f
+
 from std.utils.numerics import nan,isnan
+from std.math import sqrt
+
+
+from .load_and_store import load_f,store_f
+from .moment import get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
+from .turbulence import get_Smagorinsky_LES_tau
 
 
 def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
@@ -27,7 +33,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 f_in:TileTensor[f_dtype,type_of(Flayout),ImmutAnyOrigin],
                 bc:TileTensor[float_dtype,type_of(BClayout),ImmutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
-                tau:Scalar[float_dtype]
+                tau:Scalar[float_dtype],
                 )
                 where tile_size >= 1 and Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
@@ -35,16 +41,17 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     i.e. grid can be non-square but block is squre (same block dim in each x,y,z).
     ''' 
     # Convience Variable Names and constants
+    comptime assert f_out.flat_rank == 8
     comptime weights = lattice_model.weights
     comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
     comptime opposite_index = lattice_model.opposite_indices
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
-    comptime load_f_from_xyzq = load_f[float_dtype,config.use_float16c]
+    comptime non_temporal = True
+    comptime load_f_from_xyzq = load_f[float_dtype,config.use_float16c,non_temporal]
     comptime stress_indices = lattice_model.stress_indices
     # Comptime asserts
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
-
 
     block_x,block_dim_x = block_idx.x,block_dim.x
     block_y,block_dim_y = block_idx.y,block_dim.y
@@ -66,7 +73,6 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         var f_new = Vector[float_dtype,Q](fill = 0.)
         var velocity = Vector[float_dtype,D](uninitialized = True)
         var rho:Scalar[float_dtype] = 0
-        
         # Streaming Step
         comptime for q in range(Q):
             direction = directions[q]
@@ -91,15 +97,13 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(coord[DType.uint32]((x,y,z,ii)))[0]
                 rho = bc.load(coord[DType.uint32]((x,y,z,D)))[0]
-
-                rho_local,u_l = get_eq_density_and_velocity[config.DDF_shift](f_new,float_directions,weights,index,pull_indices)
-                
+                rho_local,u_l = get_density_and_velocity_for_eq_BC[config.DDF_shift](f_new,float_directions,weights,index,pull_indices)
                 u_local = u_l if isnan(velocity[0]) else velocity # nan means the vel is free
                 rho_local = rho_local if isnan(rho) else rho # Nan means density is free
                 u_dot_u = u_local.dot(u_local)
                 comptime for q in range(Q):
-                    f_eq = SRT[config.DDF_shift](weights[q],rho_local,u_local,u_dot_u,float_directions[q])
-                    f_new[q] = f_eq 
+                    f_new[q] = f_eq[config.DDF_shift](weights[q],rho_local,u_local,u_dot_u,float_directions[q])
+
 
         # Get Velocity and Density
         velocity.fill(0)
@@ -111,64 +115,23 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
             rho += 1
         velocity /= rho
 
+        tau_local = tau # Create a local variable if we need to modify tau
+        comptime if config.second_moment:
+            second_moment = get_second_velocity_moment[stress_indices,float_directions,config.DDF_shift](f_new)
+            strain_rate = get_strain_rate_tensor[stress_indices,config.DDF_shift](second_moment,velocity,rho,tau)
+            comptime if config.LES:
+                comptime Cs = 0.1
+                tau_eddy = get_Smagorinsky_LES_tau[stress_indices](strain_rate,Cs)
+                tau_local += tau_eddy
+            
         # Collision Term
         u_dot_u = velocity.dot(velocity)
-
-        inv_tau = 1./tau # This is faster by 0.4 ms on the 256^3 benchmark
+        inv_tau = 1./tau_local # This is faster by 0.4 ms on the 256^3 benchmark
         comptime for q in range(Q):
-            f_eq = SRT[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_directions[q])
-            store_f[config.use_float16c](f_out,(f_new[q] -  inv_tau*(f_new[q]- f_eq) ),index,q)
+            f_eq_q = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_directions[q])
+            store_f[config.use_float16c,non_temporal](f_out,(f_new[q] -  inv_tau*(f_new[q]- f_eq_q) ),index,q)
 
 
-def get_second_velocity_moment[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    DDF_shift:Bool = False]
-    (
-        f_vec:Vector[float_dtype,Q],
-        float_directions:InlineArray[Vector[float_dtype,D],Q],
-        weights:Vector[float_dtype,Q],
-        stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],D*(D+1)//2],
-        index:InlineArray[Int,3],
-    ):
-    pass
-    
-
-
-
-@always_inline
-def get_eq_density_and_velocity[
-    float_dtype:DType,D:Int,Q:Int,//,
-    DDF_shift:Bool = False]
-    (
-        f_vec:Vector[float_dtype,Q],
-        float_directions:InlineArray[Vector[float_dtype,D],Q],
-        weights:Vector[float_dtype,Q],
-        index:InlineArray[Int,3],
-        pull_indices:InlineArray[InlineArray[Int,3],Q]) 
-    -> Tuple[Scalar[float_dtype],Vector[float_dtype,D]]:
-
-    var velocity = Vector[float_dtype,D](fill = 0.)
-    var rho:Scalar[float_dtype] = 0
-
-    comptime for q in range(Q):
-        comptime if DDF_shift:
-            rest_f:Scalar[float_dtype] = 0.
-        else:
-            rest_f = weights[q]
-            
-        is_oob = False
-        comptime for i in range(3):
-            # So if any of the indices wraps is_oob is always trye
-            is_oob = ((abs(pull_indices[q][i] - index[i]) > 1) or is_oob) 
-
-        # We set unknown fs (i.e from out of bounds/wrapped around fs) to rest value
-        fq = rest_f if is_oob else f_vec[q]
-        rho += fq
-        velocity += fq*float_directions[q]
-
-    comptime if DDF_shift:
-        rho += 1
-    velocity /= rho
-    return rho,velocity
 
 
 @always_inline
@@ -180,7 +143,7 @@ def get_adjacent_idx[D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:In
     return adj_index
 
 @always_inline
-def SRT[dtype:DType,D:Int,//,DDF_shift:Bool = False](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:
+def f_eq[dtype:DType,D:Int,//,DDF_shift:Bool = False](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
     ei_dot_u = velocity.dot(direction)
     comptime if DDF_shift:
