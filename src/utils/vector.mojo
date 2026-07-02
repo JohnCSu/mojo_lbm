@@ -118,7 +118,6 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
             out *= self[i]
         return out
     
-
     @always_inline
     def unsafe_ptr(self) -> UnsafePointer[Self.dataType.ElementType,origin_of(self.data)]: 
         x = self.data.unsafe_ptr()
@@ -159,6 +158,10 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
     def __imul__(mut self,other:Self):
         comptime for i in range(Self.size):
             self[i] *= other[i]
+
+    def __imul__(mut self,other:Scalar[Self.dtype]):
+        comptime for i in range(Self.size):
+            self[i] *= other
 
     def __mul__(self,other:Scalar[Self.dtype]) -> Self:
         return Self._scalarOp[Self._mul](self,other)
