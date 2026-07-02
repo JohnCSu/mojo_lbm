@@ -11,15 +11,28 @@ struct LBM_Config():
     var use_float16c:Bool
     var f_dtype: Optional[DType]
     var INCLUDED_BCs: Set[UInt8]
+    var second_moment:Bool
 
-    def __init__(out self,*,BCs:Set[UInt8] = {},DDF_shift:Bool = False,use_float16c:Bool = False,f_dtype: Optional[DType] = None):
+    def __init__(
+        out self,
+        *,
+        LES:Bool = False,
+        BCs:Set[UInt8] = {},
+        DDF_shift:Bool = False,
+        use_float16c:Bool = False,
+        f_dtype: Optional[DType] = None
+        ):
         self.DDF_shift = DDF_shift        
         # self.use_float16c = use_float16c
-        self.LES = False
+        self.LES = LES
         self.KBC = False
         self.use_float16c = use_float16c
         self.f_dtype = DType.uint16 if use_float16c else f_dtype
         
+        self.second_moment = True if (LES) else False
+
+
+        # Boundary Condition Check
         if len(BCs) == 0:
             self.INCLUDED_BCs = {Flags.FLUID,Flags.SOLID}
         else:
