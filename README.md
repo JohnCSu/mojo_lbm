@@ -1,6 +1,6 @@
 # MOJO-LBM-Tutorial
 
-Implementation and analysis of LBM on GPU using Mojo Programming Language
+Open Source Implementation and analysis of LBM on GPU using Mojo Programming Language! 
 
 <table>
   <tr>
@@ -16,18 +16,13 @@ Implementation and analysis of LBM on GPU using Mojo Programming Language
 </table>
 
 ## Features
-1. Single SRT Kernel serves for all dimensions and lattice models (D2Q9, D3Q19 and D3Q27) leveraging mojo metaprogramming
-2. Layout independent kernel so works for row/col major arrays and tiled arrays (e.g. a row major tile embedded in a col major tiler) using natual indexing (x,y,z,q indexing). Tile size can be adjusted
-3. Leverages **only** the mojo std library for setup and solver (leverages python for basic visualisation)
+1. A Single SRT Kernel serves for all dimensions and lattice models (D2Q9, D3Q19 and D3Q27) leveraging mojo metaprogramming
+2. Layout independent kernel so works for row/col major arrays and tiled arrays (e.g. a row major tile embedded in a col major tiler) using natual indexing (x,y,z,q indexing).
+3. Leverages **only** the mojo std library for the solver (leverages python for basic visualisation)
 4. DDF shifting for improved numerical stability and Float16c for stable 16 bit simulations see [Fluidx3D](https://github.com/ProjectPhysX/FluidX3D) and [Paper](https://www.researchgate.net/publication/362275548_Accuracy_and_performance_of_the_lattice_Boltzmann_method_with_64-bit_32-bit_and_customized_16-bit_number_formats))
-
-4. For FP32/FP32 256^3 cube ~ 2200 MLUPs for D3Q19 on RTX 2070 Super
-5. Run on Nvidia, AMD and Apple GPUs
-
-## Limitations
-1. Single GPU Only for now
-2. Only Bounceback BC and bounceback with applied velocity availiable
-3. No async loading (only availiable for NVIDIA Ampere and above) for shared memory load for flags
+5. Large Eddy Simulation via Smagorinsky Turbulence Model
+6. For FP32/FP32 256^3 cube ~ 2200 MLUPs for D3Q19 on RTX 2070 Super - SOTA
+7. Built on mojo allowing the kernel to run on Nvidia, AMD and Apple GPUs
 
 ## LBM
 Lattice Boltzmann Method (LBM) is a fluid simulation based on the Boltzmann Equation and specifically made for GPU like compute. It is an explicit time stepping algorithim (so no solving systems of equations) and performed on a structured grid. The Single relaxation time (SRT) model implemented is designed for incompressible flow (Mach number less than 0.3)
@@ -42,48 +37,43 @@ Its simplicity allows one to capture fluid motion in a single tight kernel ~ 50 
 ## D3Q19 Benchmark LDC Cube 256^3
 
 ``` bash
-Benchmark for fp32/fp32 LBM
+256^3 LDC Cube at Re=100 Benchmark for fp32/fp32 D3Q19 LBM
+Running On GPU Device: NVIDIA GeForce RTX 2070 SUPER
+Mojo Version: 1.0.0
 Grid Shape: 256,256,256
-Num Points On grid: 16,777,216
+Total Number of Points On grid: 16777216
+Approximate Total Bytes 2835349504 or 2835.349504 MB
+Non Tiled GPU Launch: Grid Dim: (32, 32, 32) Block_Shape (8, 8, 8) 
+Tiled GPU Launch: Grid Dim: (32, 32, 32) Block_Shape (8, 8, 8) 
+All Indexing assumes of the form: (x,y,z,q)
 
-Non Tiled Grid Dim: (32, 32, 32) Block_Shape (8, 8, 8) 
-Tiled Grid Dim: (32, 32, 32) Block_Shape (8, 8, 8) 
-
-Version: 1.0.0b2
-| name                                                      | met (ms)           | iters |
-| --------------------------------------------------------- | ------------------ | ----- |
-| 2. Base Col Major SoA                                     | 12.228749          | 10    |
-| 3. Tile Col, Tiler Row                                    | 7.6094429          | 10    |
-| 4. Tile Row, Tile Col                                     | 18.769728          | 10    |
-| 5. Tile Col, Tiler Col                                    | 7.5412925          | 10    |
-| 6. Tile Row, Tiler Row                                    | 17.9165283         | 10    |
-| 7. Shared Memory For Flags tile, Global Pull For boundary | 8.013021           | 10    |
-| 8. Map Flags from Tile+ Halo region to Shared             | 7.4686653000000005 | 10    |
-
-
-Version: 1.0.0b1
-| name                                                      | met (ms)           | iters |
-| --------------------------------------------------------- | ------------------ | ----- |
-| 1. Base Row Major AoS                                     | 33.597061100000005 | 10    |
-| 2. Base Col Major SoA                                     | 12.0542205         | 10    |
-| 3. Tile Col, Tiler Row                                    | 8.4702178          | 10    |
-| 4. Tile Row, Tile Col                                     | 17.895464999999998 | 10    |
-| 5. Tile Col, Tiler Col                                    | 8.0567901          | 10    |
-| 6. Tile Row, Tiler Row                                    | 18.3676544         | 10    |
-| 7. Shared Memory For Flags tile, Global Pull For boundary | 8.5808067          | 10    |
-| 8. Map Flags + Halo region to Shared                      | 7.9359169          | 10    |
-
+| name                                                      | met (ms)          | iters |
+| --------------------------------------------------------- | ----------------- | ----- |
+| 1. Base Row Major AoS                                     | 33.5616699        | 10    |
+| 2. Base Col Major SoA                                     | 12.3241889        | 10    |
+| 3. Tile Col, Tiler Row                                    | 8.5124671         | 10    |
+| 4. Tile Row, Tile Col                                     | 17.6597793        | 10    |
+| 5. Tile Col, Tiler Col                                    | 8.2339996         | 10    |
+| 6. Tile Row, Tiler Row                                    | 18.0384185        | 10    |
+| 7. Shared Memory For Flags tile, Global Pull For boundary | 8.570633599999999 | 10    |
+| 8. Map Flags + Halo region to Shared                      | 7.941366499999999 | 10    |
+| 9. LBM with Default LBM_Config                            | 7.585488100000001 | 10    |
+| 10. LBM float16c + DDF_shift                              | 6.0446815         | 10    |
 ```
 
-MLUP for best run  2000 - 2200 MLUPs on RTX 2070 Super 
-
-
-
+MLUP for best run  2000 - 2200 MLUPs on RTX 2070 Super
 
 ## Key Optimisations
 1. Using Tiled Layout: Tile is Column Major AoS (x,y,z,q) with Column Major Tiler (threading index is aligned with e.g. x = thread_idx.x to allow for different dimensions on the grid)
 2. Comptime For loop to unroll all loops inside the kernel
 3. Float16c to halve memory bandwidth and footprint (~2x speedup) and DDF Shifting to reduce numerical tradeoff (learnt from Fluidx3D and [Paper](https://www.researchgate.net/publication/362275548_Accuracy_and_performance_of_the_lattice_Boltzmann_method_with_64-bit_32-bit_and_customized_16-bit_number_formats))
+
+
+## Limitations
+1. Single GPU Only for now
+2. Only Bounceback BC and bounceback with applied velocity availiable
+3. No async loading (only availiable for NVIDIA Ampere and above) for shared memory load for flags
+
 
 ## Custom Structs
 
