@@ -1,17 +1,18 @@
-from std.gpu import block_dim,block_idx,thread_idx,barrier
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
-from std.gpu.memory import AddressSpace
-from src.lbm import LBM_Grid,LBM_Config,LatticeModel
-from src.lbm.flags import SOLID_NODE,FLUID_NODE,Flags,cs_squared
-from src.utils import Vector,ContextTileTensor
 
+from std.gpu import block_dim,block_idx,thread_idx,barrier
+from std.gpu.memory import AddressSpace
 from std.utils.numerics import nan,isnan
 from std.math import sqrt
 
+from src.lbm import LBM_Grid,LBM_Config,LatticeModel
+from src.lbm.flags import SOLID_NODE,FLUID_NODE,Flags,cs_squared
+from src.lbm.utils.index import get_adjacent_idx
+from src.lbm.utils.load_and_store import load_f,store_f
 
-from .load_and_store import load_f,store_f
+from src.utils import Vector,ContextTileTensor
 from .moment import get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
 from .turbulence import get_Smagorinsky_LES_tau
 
@@ -131,16 +132,6 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
             f_eq_q = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_directions[q])
             store_f[config.use_float16c,non_temporal](f_out,(f_new[q] -  inv_tau*(f_new[q]- f_eq_q) ),index,q)
 
-
-
-
-@always_inline
-def get_adjacent_idx[D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[DType.int32,D],) -> InlineArray[Int,3]:
-    comptime assert D <= 3 
-    adj_index = InlineArray[Int,3](fill = 0 )
-    comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
-    return adj_index
 
 @always_inline
 def f_eq[dtype:DType,D:Int,//,DDF_shift:Bool = False](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:
