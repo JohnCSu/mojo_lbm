@@ -112,9 +112,9 @@ class Pyvista_Visualizer():
         self.charts[subplot].line(x,y,label = label,**kwargs)
          
     
-    def set_animation(self,name):
+    def set_animation(self,name,framerate = 24):
         self.plotter.show(interactive_update= True)
-        self.plotter.open_movie(name)
+        self.plotter.open_movie(name,framerate)
         
     
     def update_frame(self):
