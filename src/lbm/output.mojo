@@ -5,34 +5,8 @@ from .LBM import LBM_Grid
 from .config import LBM_Config
 from .lattice_models import LatticeModel
 from src.utils import Vector,ContextTileTensor
-
-
-def copy_4D_to_rowMajor_layout[  
-                        float_dtype:DType,
-                        src_Origin:Origin[mut=True],
-                        dest_Origin:Origin[mut=True],
-                        //,  
-                        srclayoutType:TensorLayout,
-                        destlayoutType:TensorLayout,
-                        ]
-                        (src_tensor:TileTensor[float_dtype,srclayoutType,src_Origin],dest_tensor:TileTensor[float_dtype,destlayoutType,dest_Origin]):
-                        
-                        comptime assert srclayoutType.rank == destlayoutType.rank
-                        comptime assert destlayoutType.flat_rank == destlayoutType.rank # Row or Col Major
-                        comptime assert destlayoutType.rank == 4
-                        comptime nx,ny,nz,D = (dest_tensor.static_shape[0],dest_tensor.static_shape[1],dest_tensor.static_shape[2],dest_tensor.static_shape[3])
-
-                        for x in range(nx):
-                            for y in range(ny):
-                                for z in range(nz):
-                                    for d in range(D):
-                                        idx = coord[DType.int32]((x,y,z,d))
-                                        value = src_tensor.load(idx)[0]
-                                        dest_tensor.store(idx,value)
-
-
-
-
+from src.lbm.utils.index import get_adjacent_idx
+from src.lbm.utils.load_and_store import load_f,store_f
 
 def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
                                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
@@ -100,3 +74,67 @@ def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
         density_lt[x,y,z] = rho
         comptime for i in range(D):
             velocity_lt[i,x,y,z] = u[i]
+
+
+
+
+comptime Runtime_rowMajor_1D_Type = type_of(row_major(coord[DType.int32]((3,))))
+comptime Runtime_rowMajor_2D_Type = type_of(row_major(coord[DType.int32]((3,3))))
+
+def calculate_drag_around_object[
+    float_dtype:DType,D:Int,Q:Int,
+    lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+    nx:Int,ny:Int,nz:Int,tile_size:Int,
+    //,
+    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
+    FLayout:Layout[...] ,
+    FlagLayout:Layout[...],
+    VelocityLayout:Layout[...],
+    config:LBM_Config = LBM_Config(),
+    *,
+    f_dtype:DType = float_dtype if config.f_dtype is None else config.f_dtype.value()
+    ](
+        f:TileTensor[f_dtype,type_of(FLayout),ImmutAnyOrigin],
+        flags:TileTensor[DType.uint8,type_of(FlagLayout),ImmutAnyOrigin],
+        fluid_boundary:TileTensor[DType.int32,Runtime_rowMajor_2D_Type,MutAnyOrigin],
+        force_tensor:TileTensor[float_dtype,Runtime_rowMajor_2D_Type,MutAnyOrigin],
+    ):
+
+    # Should be a 1D based kernel loop
+    tid = block_dim.x * block_idx.x + thread_idx.x
+    grid_index:InlineArray[Int,3] = [Int(fluid_boundary[tid,0]),Int(fluid_boundary[tid,1]),Int(fluid_boundary[tid,2])]
+    
+    comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
+    comptime opposite_index = lattice_model.opposite_indices
+
+    var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
+    var pull_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
+    # Get flags of surrounding fluid
+    if grid_index[0] < grid_shape[0] and grid_index[1] < grid_shape[1] and grid_index[2] < grid_shape[2]:
+        var f_pulled = Vector[float_dtype,Q](fill = 0.)
+        
+
+        # Pull F from neighbors
+        comptime for q in range(Q):
+            comptime direction = lattice_model.directions[q]
+            pull_indices[q] = get_adjacent_idx[D,-1](grid_index,grid_shape,direction) # Pulling Scheme
+            pull_flags[q] = flags.load(coord[DType.uint32]((pull_indices[q][0],pull_indices[q][1],pull_indices[q][2])))[0]
+            f_pulled[q] =  load_f[float_dtype,config.use_float16c](f,pull_indices[q],q)
+        
+
+        # Compute Forces
+        var force_vec = Vector[float_dtype,D](fill = 0.)
+        comptime zero_vec = Vector[float_dtype,D](fill = 0)
+        comptime for q in range(Q):
+            comptime float_dir = lattice_model.float_directions[q]
+            comptime opp_index = Int(opposite_index[q])
+            force_vec += (f_pulled[q] + f_pulled[opp_index])*float_dir if pull_flags[q] == SOLID_NODE else zero_vec
+        
+        # Push to global
+        comptime for i in range(D):
+            force_tensor[tid,i] = force_vec[i]
+
+
+
+    
+
