@@ -1,12 +1,10 @@
 from std.gpu import block_dim,block_idx,thread_idx
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
-from .LBM import LBM_Grid
-from .config import LBM_Config
-from .lattice_models import LatticeModel
+from src.lbm import LBM_Grid,LBM_Config,LatticeModel
 from src.utils import Vector,ContextTileTensor
-from src.lbm.utils.index import get_adjacent_idx
-from src.lbm.utils.load_and_store import load_f,store_f
+from src.lbm.kernels.utils.index import get_adjacent_idx
+from src.lbm.kernels.utils.load_and_store import load_f,store_f
 
 def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
                                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
@@ -78,8 +76,8 @@ def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
 
 
 
-comptime Runtime_rowMajor_1D_Type = type_of(row_major(coord[DType.int32]((3,))))
-comptime Runtime_rowMajor_2D_Type = type_of(row_major(coord[DType.int32]((3,3))))
+comptime Runtime_rowMajor_1D_Type = type_of(row_major(coord[DType.int32]((1,))))
+comptime Runtime_rowMajor_2D_Type = type_of(row_major(coord[DType.int32]((1,2))))
 
 def calculate_drag_around_object[
     float_dtype:DType,D:Int,Q:Int,
@@ -112,7 +110,6 @@ def calculate_drag_around_object[
     # Get flags of surrounding fluid
     if grid_index[0] < grid_shape[0] and grid_index[1] < grid_shape[1] and grid_index[2] < grid_shape[2]:
         var f_pulled = Vector[float_dtype,Q](fill = 0.)
-        
 
         # Pull F from neighbors
         comptime for q in range(Q):
@@ -121,7 +118,6 @@ def calculate_drag_around_object[
             pull_flags[q] = flags.load(coord[DType.uint32]((pull_indices[q][0],pull_indices[q][1],pull_indices[q][2])))[0]
             f_pulled[q] =  load_f[float_dtype,config.use_float16c](f,pull_indices[q],q)
         
-
         # Compute Forces
         var force_vec = Vector[float_dtype,D](fill = 0.)
         comptime zero_vec = Vector[float_dtype,D](fill = 0)
