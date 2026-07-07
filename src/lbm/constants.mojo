@@ -1,3 +1,5 @@
+
+
 comptime FLUID_NODE:Scalar[DType.uint8] = 0
 comptime SOLID_NODE:Scalar[DType.uint8] = 1
 
@@ -12,3 +14,5 @@ struct Flags():
 
 
 comptime _FlagSet = {Flags.FLUID,Flags.SOLID,Flags.EQUILIBRIUM}
+
+
