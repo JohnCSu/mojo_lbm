@@ -9,8 +9,8 @@ from std.math import sqrt
 
 from src.lbm import LBM_Grid,LBM_Config,LatticeModel
 from src.lbm.flags import SOLID_NODE,FLUID_NODE,Flags,cs_squared
-from src.lbm.utils.index import get_adjacent_idx
-from src.lbm.utils.load_and_store import load_f,store_f
+from src.lbm.kernels.utils.index import get_adjacent_idx
+from src.lbm.kernels.utils.load_and_store import load_f,store_f
 
 from src.utils import Vector,ContextTileTensor
 from .moment import get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
