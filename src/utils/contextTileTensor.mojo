@@ -22,7 +22,7 @@ def get_shape_and_stride[LayoutType:TensorLayout]() ->Tuple[IndexList[LayoutType
             stride[i] = LayoutType.static_stride[i]
     return (shape,stride)
 
-struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout]():
+struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout](Movable):
     '''
     A simple container for storing both host and device buffers tied to a deviceContext and tying to a specific tiletensor.
     Uses `.cpu()` and `.gpu()` method to call tiletensor views of underlying data which are created created on the fly to
