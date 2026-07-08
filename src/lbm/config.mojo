@@ -1,7 +1,7 @@
 
 comptime fp32 = DType.float32
 comptime uint16 = DType.uint16
-from .flags import Flags,_FlagSet
+from .constants import Flags,_FlagSet
 from std.collections import Set
 
 struct LBM_Config():

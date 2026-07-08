@@ -1,5 +1,5 @@
 from src.utils import Vector
-from src.lbm.flags import cs_squared
+from src.lbm.constants import cs_squared
 
 @always_inline
 def get_density_and_velocity_for_eq_BC[

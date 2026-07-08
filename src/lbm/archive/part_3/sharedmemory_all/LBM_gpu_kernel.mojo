@@ -6,7 +6,7 @@ from std.gpu.memory import AddressSpace
 from std.gpu import barrier
 from src.lbm.lattice_models import LatticeModel
 from src.lbm import LBM_Grid
-from src.lbm.flags import SOLID_NODE,FLUID_NODE
+from src.lbm.constants import SOLID_NODE,FLUID_NODE
 from src.utils import Vector,ContextTileTensor
 
 

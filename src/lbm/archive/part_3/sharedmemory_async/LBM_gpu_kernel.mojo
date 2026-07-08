@@ -6,7 +6,7 @@ from layout.tile_layout import Layout,col_major,Coord,TensorLayout
 from std.gpu.memory import AddressSpace,async_copy_wait_all
 from src.lbm.lattice_models import LatticeModel
 from src.lbm import LBM_Grid
-from src.lbm.flags import SOLID_NODE,FLUID_NODE
+from src.lbm.constants import SOLID_NODE,FLUID_NODE
 from src.utils import Vector,ContextTileTensor
 from std.algorithm.functional import vectorize
 from std.sys import simd_width_of
