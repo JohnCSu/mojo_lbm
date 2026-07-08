@@ -1,5 +1,5 @@
 from src.lbm import LBM_Grid,LatticeModel
-from src.lbm.flags import Flags
+from src.lbm.constants import Flags
 from std.gpu.host import DeviceContext
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
@@ -23,15 +23,16 @@ def get_sphere_boundary_indices[
         flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
         center:List[Scalar[float_dtype]],
         radius:Scalar[float_dtype],
-        ) raises -> List[Tuple[Int,Int,Int]]:
-
+        ) raises -> List[Scalar[int_dtype]]:
+    '''
+    Returns a list of the id of the indices based on the tile size and dim and assume Col Major!
+    '''
     # comptime (nx,ny,nz) = (grid.nx,grid.ny,grid.nz)
     
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
     # b:Tuple[Int,Int,Int] = (0,0,0)
     var bounding_box:List[List[Int]] = []
-    
     
     for i in range(3):
         if i < D:
@@ -59,18 +60,19 @@ def get_sphere_boundary_indices[
                 else: # If Outside add to possible candidate
                     candidate_indices.add((nx,ny,nz))
 
-    indices = List[Tuple[Int,Int,Int]](length = len(candidate_indices),fill = (-1,-1,-1))
+    indices =  List[Scalar[int_dtype]](length = len(candidate_indices),fill = (-1))
 
     num_boundary_indices = 0
     for idx in candidate_indices:
         x,y,z = idx
+        crd = coord[int_dtype]((x,y,z))
         for q in range(Q): # We iterate and check if adjacent index is inside boundary and break if true
             test_direction:InlineArray[Int,3] = [x,y,z]
             comptime for i in range(D):
                 test_direction[i] += Int(latticeModel.directions[q][i])
             coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,grid.origin)
             if inside_boundary(coord_test,center_vec,radius): # If any direction Q touches a solid mark current point as solid
-                indices[num_boundary_indices] = (x,y,z)
+                indices[num_boundary_indices] = flags.layout[linear_idx_type = int_dtype](crd) # Using the flag's layout to calculate the linear idx mem
                 num_boundary_indices += 1
                 break
 
@@ -89,9 +91,6 @@ def index_to_coord[float_dtype:DType]
         out[i] = Scalar[float_dtype](grid_index[i])*grid_spacing + origin[i]
     return out
     
-
-
-
 
 
 def add_sphere[
