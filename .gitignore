@@ -7,3 +7,5 @@ debug_fill.mojo
 *.gif
 *.mojopkg
 *__pycache__
+test*.mojo
+debug*.mojo
