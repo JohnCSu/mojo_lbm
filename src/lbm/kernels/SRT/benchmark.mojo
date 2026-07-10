@@ -68,6 +68,7 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     @always_inline
     def run_kernel(ctx:DeviceContext) capturing raises:
         ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),Float(tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        ctx.synchronize()
 
     b.iter_custom[run_kernel](ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())

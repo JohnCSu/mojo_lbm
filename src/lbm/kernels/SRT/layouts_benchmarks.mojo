@@ -12,7 +12,7 @@ from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
 from std.utils import Variant
 
 @always_inline
-def benchmark_func_col_tile_col_tiler[
+def benchmark_func_3D[
     float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
@@ -26,15 +26,15 @@ def benchmark_func_col_tile_col_tiler[
     reorder_threads:Bool = True
     ]
     (mut b:Bencher) capturing raises where tile_size >= 1:
-    comptime assert tile_size > 1
+    comptime assert tile_size > 1 and D == 3
     # This can be stored in LBM Grid
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = col_major[tile_size,tile_size,1]()
-    comptime f_tile = col_major[tile_size,tile_size,1,Q]()
-    comptime bc_tile = col_major[tile_size,tile_size,1,D+1]()
+    comptime flag_tile = col_major[tile_size,tile_size,tile_size]()
+    comptime f_tile = col_major[tile_size,tile_size,tile_size,Q]()
+    comptime bc_tile = col_major[tile_size,tile_size,tile_size,D+1]()
         
     comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
     comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
