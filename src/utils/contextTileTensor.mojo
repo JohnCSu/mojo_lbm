@@ -57,7 +57,7 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout](Movable):
     var copy_on_switch:Bool
     var synchronize_on_copy:Bool
     var layout:Self.LayoutType
-    var size: Int 
+    var _size: Int 
     var last_device_used:Optional[String]
 
     var _extra_row_host_buffer:Optional[HostBuffer[Self.dtype]]
@@ -76,10 +76,10 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout](Movable):
         '''
         self.layout = layout
         self.deviceContext = deviceContext
-        self.size = layout.size()
+        self._size = layout.size()
 
-        self._cpu_buffer = deviceContext.enqueue_create_host_buffer[Self.dtype](self.size)
-        self._gpu_buffer = deviceContext.enqueue_create_buffer[Self.dtype](self.size)
+        self._cpu_buffer = deviceContext.enqueue_create_host_buffer[Self.dtype](self._size)
+        self._gpu_buffer = deviceContext.enqueue_create_buffer[Self.dtype](self._size)
 
         self.last_used_cpu = None
         self.last_device_used = None
@@ -87,6 +87,14 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout](Movable):
         self.synchronize_on_copy = synchronize_on_copy
 
         self._extra_row_host_buffer = None
+
+    def __len__(self) -> Int:
+        return self.size()
+
+    @always_inline
+    def size(self) -> Int:
+        return self._size
+
     @always_inline
     def fill(mut self,value:Scalar[Self.dtype]) raises:
         self._cpu_buffer.enqueue_fill(value) # Weird bug where a memory spike occures when gpu_buffer ie enqued
@@ -139,7 +147,7 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout](Movable):
     # Worlk
     #     # This keeps track
         # if self._extra_row_host_buffer is None:
-            # self._extra_row_host_buffer = self.deviceContext.enqueue_create_host_buffer[Self.dtype](self.size)
+            # self._extra_row_host_buffer = self.deviceContext.enqueue_create_host_buffer[Self.dtype](self._size)
         
         # row_tensor = TileTensor(self._extra_row_host_buffer.value(),Self.row_major_layout)
         # row_tensor.copy_from(self.cpu())
@@ -195,5 +203,5 @@ def contextTensor_to_numpy[dtype:DType,layoutType:TensorLayout,synchronize:Bool 
     address = Int(flag_ptr) # Need to get the pointer address as Int type
     p_int = ctypes.POINTER(c_dtype) # Set Dtype
     np_ptr = ctypes.cast(address, p_int)
-    np_arr = np.ctypeslib.as_array(np_ptr, shape=Python.tuple(contextTensor.size))
+    np_arr = np.ctypeslib.as_array(np_ptr, shape=Python.tuple(contextTensor.size()))
     return np_arr
