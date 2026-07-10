@@ -75,17 +75,11 @@ def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
 
 
 
-
-comptime Runtime_rowMajor_1D_Type = type_of(row_major(coord[DType.int32]((1,))))
-comptime Runtime_rowMajor_2D_Type = type_of(row_major(coord[DType.int32]((1,2))))
-
 def rowMajor1D[int_dtype:DType]() -> type_of( row_major(coord[int_dtype]((1,))) ):
     return row_major(coord[int_dtype]((1,)))
 
 def rowMajor2D[int_dtype:DType]() -> type_of(row_major(coord[int_dtype]((1,2))) ):
     return row_major(coord[int_dtype]((1,2)))
-
-from std.atomic import Atomic
 
 
 def calculate_drag_around_object[
@@ -105,7 +99,7 @@ def calculate_drag_around_object[
         f:TileTensor[f_dtype,type_of(FLayout),ImmutAnyOrigin],
         flags:TileTensor[DType.uint8,type_of(FlagLayout),ImmutAnyOrigin],
         fluid_boundary:TileTensor[int_dtype,type_of(rowMajor1D[int_dtype]()),MutAnyOrigin],
-        force_tensor:TileTensor[float_dtype,Runtime_rowMajor_2D_Type,MutAnyOrigin],
+        force_tensor:TileTensor[float_dtype,type_of(rowMajor2D[int_dtype]()),MutAnyOrigin],
     ):
 
     # Should be a 1D based kernel loop
@@ -154,7 +148,7 @@ def calculate_drag_around_object[
                         f_link = f_local
 
                     force_vec += (2*f_link)*lattice_model.float_directions[q] # Only stationary wall for now
-                    
+
             # push to global
             comptime for i in range(D): # Overwrite
                 force_tensor[tid,i] = force_vec[i]
