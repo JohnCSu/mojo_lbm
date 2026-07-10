@@ -13,9 +13,8 @@ from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
 
 from src.utils import Vector,ContextTileTensor
-from .moment import get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
+from .moment import get_density,get_velocity,get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
 from .turbulence import get_Smagorinsky_LES_tau
-
 
 def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
@@ -106,16 +105,9 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                     f_new[q] = f_eq[config.DDF_shift](weights[q],rho_local,u_local,u_dot_u,float_directions[q])
 
         # Get Velocity and Density
-        velocity.fill(0)
-        rho = 0
-        comptime for q in range(Q):    
-            rho += f_new[q]
-            velocity += f_new[q]*float_directions[q]
-        comptime if config.DDF_shift:
-            rho += 1
-        velocity /= rho
-
-        tau_local = tau # Create a local variable if we need to modify tau
+        rho = get_density[config.DDF_shift](f_new)
+        velocity = get_velocity[float_directions](f_new,rho)
+        tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
 
         # LES
         comptime if config.second_moment:

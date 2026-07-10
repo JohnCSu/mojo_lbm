@@ -38,6 +38,35 @@ def get_density_and_velocity_for_eq_BC[
     return rho,velocity
 
 
+@always_inline
+def get_density[
+    float_dtype:DType,Q:Int,//,
+    DDF_shift:Bool = False
+    ]
+    (
+    f_vec:Vector[float_dtype,Q],
+    ) -> Scalar[float_dtype]:
+    comptime if DDF_shift:
+        return f_vec.sum() + 1
+    else:
+        return f_vec.sum()
+    
+
+@always_inline
+def get_velocity[
+    float_dtype:DType,D:Int,Q:Int,//,
+    float_directions:InlineArray[Vector[float_dtype,D],Q],
+    ]
+    (
+    f_vec:Vector[float_dtype,Q],
+    density:Scalar[float_dtype], 
+    ) -> Vector[float_dtype,D]:
+    velocity = Vector[float_dtype,D](fill =0)
+    comptime for q in range(Q):
+        velocity += f_vec[q]*float_directions[q]
+    velocity /= density
+    return velocity
+    
 
 @always_inline
 def get_second_velocity_moment[
@@ -58,6 +87,7 @@ def get_second_velocity_moment[
             comptime c_ialpha_c_ibeta = float_directions[q][alpha]*float_directions[q][beta]
             second_moment[n] += f_vec[q]*c_ialpha_c_ibeta
     return second_moment
+
 
 @always_inline
 def get_strain_rate_tensor[
