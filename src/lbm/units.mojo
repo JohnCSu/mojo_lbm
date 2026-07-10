@@ -20,7 +20,7 @@ struct Unit[float_dtype:DType](ImplicitlyCopyable & Writable):
         return self.lattice/self.physical
     
 
-struct UnitSystem[float_dtype:DType](ImplicitlyCopyable & Writable):
+struct UnitSystem[float_dtype:DType,D:Int](ImplicitlyCopyable & Writable):
     """
     Struct to store relevant unit conversion values for LBM System.
 
@@ -92,9 +92,9 @@ struct UnitSystem[float_dtype:DType](ImplicitlyCopyable & Writable):
         self.kinematic_viscosity = Self.Unit_(kinematic_viscosity,v_lat)
         
         # Useful for analysing drag and mass flow
-        self.Mass = Self.Unit_(self.density.C_lat_to_phys()*(self.L.C_lat_to_phys()**3),1.)
-        self.Force = Self.Unit_(self.density.C_lat_to_phys()*self.L.C_lat_to_phys()**2*self.U.C_lat_to_phys()**2,1.) # unit Force
-        self.Pressure = Self.Unit_(self.Force.C_lat_to_phys()/self.L.C_lat_to_phys()**2,1.) # Unit Pressure
+        self.Mass = Self.Unit_(self.density.C_lat_to_phys() * (self.L.C_lat_to_phys()**Self.D) , 1. )
+        self.Force = Self.Unit_(self.density.C_lat_to_phys() * self.L.C_lat_to_phys()**(Self.D-1) * self.U.C_lat_to_phys()**2,1.) # unit Force
+        self.Pressure = Self.Unit_(self.Force.C_lat_to_phys()/self.L.C_lat_to_phys()**(Self.D-1),1.) # Unit Pressure
 
 
     def __init__(
