@@ -105,7 +105,6 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 comptime for q in range(Q):
                     f_new[q] = f_eq[config.DDF_shift](weights[q],rho_local,u_local,u_dot_u,float_directions[q])
 
-
         # Get Velocity and Density
         velocity.fill(0)
         rho = 0
@@ -117,6 +116,8 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         velocity /= rho
 
         tau_local = tau # Create a local variable if we need to modify tau
+
+        # LES
         comptime if config.second_moment:
             second_moment = get_second_velocity_moment[stress_indices,float_directions,config.DDF_shift](f_new)
             strain_rate = get_strain_rate_tensor[stress_indices,config.DDF_shift](second_moment,velocity,rho,tau)
