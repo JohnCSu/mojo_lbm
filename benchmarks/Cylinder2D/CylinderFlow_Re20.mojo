@@ -135,19 +135,15 @@ def main() raises:
     
     force_layout = row_major(coord[int_dtype]((cyl_ids.size(),D)))
     force_tensor = ContextTileTensor[float_dtype](ctx,force_layout)
-    
-    sum_force_layout = row_major(coord[int_dtype]((3,)))
-    sum_force = ContextTileTensor[float_dtype](ctx,sum_force_layout)
-    sum_force.cpu()[0] = 0
 
     def inlet[float_dtype:DType,D:Int](x:Scalar[float_dtype],y:Scalar[float_dtype],z:Scalar[float_dtype],mut vel:InlineArray[Scalar[float_dtype],D]) capturing:
         comptime Um = 1.5*U_phs
         vel[0] = 4*Scalar[float_dtype](Um)*y*(L-y)/(L*L)
         vel[1] = 0.
 
-
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+X',Flags.EQUILIBRIUM,[],1.)
-    set_exterior_walls_with_func[inlet,grid,config](flags.cpu(),bc.cpu(),'-X',Flags.SOLID,units,1.)
+    set_exterior_walls_with_func[grid,config,u = inlet](flags.cpu(),bc.cpu(),'-X',Flags.SOLID,units,1.)
+
 
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-Y',Flags.SOLID,[0,0],1.)
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+Y',Flags.SOLID,[0,0],1.)
