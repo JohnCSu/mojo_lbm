@@ -235,9 +235,15 @@ def set_exterior_walls_with_func[
                     FlagLayoutType:TensorLayout,
                     BCLayoutType:TensorLayout,
                     //,
-                    u:def[float_dtype:DType,D:Int](Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],mut InlineArray[Scalar[float_dtype],D]) capturing,
                     grid:LBM_Grid[latticeModel,nx,ny,nz,_],
                     config:LBM_Config = LBM_Config(),
+                    *,
+                    u: def[float_dtype:DType,D:Int]
+                        (Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],mut InlineArray[Scalar[float_dtype],D]) 
+                        capturing
+                    # u: Optional[def[float_dtype:DType,D:Int]
+                    #     (Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],mut InlineArray[Scalar[float_dtype],D]) 
+                    #     capturing] = None
                     ]
                     (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
                             bc:TileTensor[float_dtype,BCLayoutType,bc_origin],
@@ -273,7 +279,8 @@ def set_exterior_walls_with_func[
     '''
     comptime assert float_dtype.is_floating_point()
     comptime assert FlagLayoutType.rank == 3 and BCLayoutType.rank == 4
-    
+    # comptime assert u is not None
+    comptime u_func = u
     VALID_BOUNDARIES = materialize[config.INCLUDED_BCs]()
     
     axes:Dict[String,Int] = {'X':0,
@@ -312,7 +319,7 @@ def set_exterior_walls_with_func[
                 flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 velocity = InlineArray[Scalar[float_dtype],D](fill =0)
                 grid_coords =  grid.get_grid_coordinates(x,y,z)
-                u(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
+                u_func(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
                 comptime for i in range(D):
                     bc.store(coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) ) 
                 bc.store(coord[DType.int32]((x,y,z,D)),density) 
@@ -323,7 +330,7 @@ def set_exterior_walls_with_func[
                 flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 velocity = InlineArray[Scalar[float_dtype],D](fill =0)
                 grid_coords =  grid.get_grid_coordinates(x,y,z)
-                u(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
+                u_func(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
                 comptime for i in range(D):
                     bc.store(coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) ) 
                 bc.store(coord[DType.int32]((x,y,z,D)),density) 
@@ -334,7 +341,7 @@ def set_exterior_walls_with_func[
                 flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 velocity = InlineArray[Scalar[float_dtype],D](fill =0)
                 grid_coords =  grid.get_grid_coordinates(x,y,z)
-                u(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
+                u_func(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
                 comptime for i in range(D):
                     bc.store(coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) ) 
                 bc.store(coord[DType.int32]((x,y,z,D)),density) 
