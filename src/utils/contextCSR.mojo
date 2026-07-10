@@ -48,25 +48,6 @@ struct ContextCSR[int_dtype:DType = DType.int32]():
                 row_inc += 1
                 offset_count = 0 
              
-
-    @staticmethod
-    def from_3d_indices[*T:ImplicitlyCopyable & Intable](ctx:DeviceContext,shape:Tuple[Int,Int,Int],indices: List[ Tuple[Int,Int,Int]],tile_size:Int) raises -> Self:
-        '''
-        Convert 3D indices to 1D flattened index. Asssume Row_major for now
-        '''
-        # We need to convert the 3D indices into a 1D format
-        
-        if not (1 <= len(shape) <= 3):
-            raise Error()
-
-        # comptime assert T = Tuple[]
-
-        grid_dim = 3
-        num_rows = tile_size**3
-        indices_1D = [x + y*shape[0] + z*(shape[0]*shape[1]) for x,y,z in indices]
-        return Self()
-
-
         
 
 
