@@ -19,33 +19,31 @@ struct ImmersedObject[
     ]():
     comptime Int_Scalar = Scalar[Self.int_dtype]
 
-    var boundary:Dict[String,List[Self.Int_Scalar]]
+    var fluid_boundary_list:List[Self.Int_Scalar]
     '''Store The fluid nodes adjacent to the node'''
 
     def __init__(out self):
-        self.boundary = Dict[String,List[Self.Int_Scalar]]()
+        self.fluid_boundary_list = List[Self.Int_Scalar]()
     
     def add_sphere[FlagLayoutType:TensorLayout,flag_origin:Origin[mut=True]](
     mut self,
-    name:String,
     flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
     center:List[Scalar[Self.float_dtype]],
     radius:Scalar[Self.float_dtype],
     ) raises :
-        self.boundary[name] = get_sphere_boundary_indices[self.grid](flags,center,radius)
+        self.fluid_boundary_list = get_sphere_boundary_indices[self.grid](flags,center,radius)
     
     def to_ContextTileTensor(
         self,
-        name:String,
         deviceContext:DeviceContext
         )
         raises 
         -> ContextTileTensor[Self.int_dtype,type_of( row_major(coord[Self.int_dtype]((1,))) ) ]:
 
-        N = Int(len(self.boundary[name]))
+        N = Int(len(self.fluid_boundary_list))
         layout = row_major( coord[Self.int_dtype]((N,) ))
         out = ContextTileTensor[Self.int_dtype](deviceContext,layout)
-        out.cpu_buffer().enqueue_copy_from(src = Span(self.boundary[name]))
+        out.cpu_buffer().enqueue_copy_from(src = Span(self.fluid_boundary_list))
         return out^ # Must take ownership of ContextTileTensor
     
 
