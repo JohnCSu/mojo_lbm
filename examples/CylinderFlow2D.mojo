@@ -153,19 +153,6 @@ def main() raises:
     ctx.enqueue_function(calc_rho_and_u_gpu,f.gpu(),rho.gpu(),u.gpu(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
     ctx.synchronize()
     
-
     pv_mesh.close()
-    # u_np = (u.buffer_to_numpy()/U).reshape(D,nx,ny,nz)
-    # # pv_mesh = grid_viewer[grid](subplot_shape= (1,1))
-    
-    # u_plot = u_np[0,all_slice,all_slice,all_slice].T
-    # v_plot = u_np[1,all_slice,all_slice,all_slice].T
 
-    # u_mag = np.sqrt(u_plot**2 + v_plot**2)
-    # pv_mesh.point_data['U_mag'] = u_mag.ravel()
-    # pv_mesh.point_data['U velocity'] = u_plot.ravel()
-    # pv_mesh.point_data['V velocity'] = v_plot.ravel()
-    
-    # pv_mesh.set_mesh_display('U_mag',clim = [0,1.5],cmap ='jet')
-    # pv_mesh.show()
    
