@@ -79,57 +79,85 @@ def calculate_rho_and_velocity[ float_dtype:DType,D:Int,Q:Int,
 comptime Runtime_rowMajor_1D_Type = type_of(row_major(coord[DType.int32]((1,))))
 comptime Runtime_rowMajor_2D_Type = type_of(row_major(coord[DType.int32]((1,2))))
 
+def rowMajor1D[int_dtype:DType]() -> type_of( row_major(coord[int_dtype]((1,))) ):
+    return row_major(coord[int_dtype]((1,)))
+
+def rowMajor2D[int_dtype:DType]() -> type_of(row_major(coord[int_dtype]((1,2))) ):
+    return row_major(coord[int_dtype]((1,2)))
+
+from std.atomic import Atomic
+
+
 def calculate_drag_around_object[
-    float_dtype:DType,D:Int,Q:Int,
-    lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+    float_dtype:DType,
+    int_dtype:DType,
+    D:Int,Q:Int,
+    lattice_model:LatticeModel[D,Q,float_dtype,int_dtype],
     nx:Int,ny:Int,nz:Int,tile_size:Int,
     //,
     grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
     FLayout:Layout[...] ,
     FlagLayout:Layout[...],
-    VelocityLayout:Layout[...],
     config:LBM_Config = LBM_Config(),
     *,
     f_dtype:DType = float_dtype if config.f_dtype is None else config.f_dtype.value()
     ](
         f:TileTensor[f_dtype,type_of(FLayout),ImmutAnyOrigin],
         flags:TileTensor[DType.uint8,type_of(FlagLayout),ImmutAnyOrigin],
-        fluid_boundary:TileTensor[DType.int32,Runtime_rowMajor_2D_Type,MutAnyOrigin],
+        fluid_boundary:TileTensor[int_dtype,type_of(rowMajor1D[int_dtype]()),MutAnyOrigin],
         force_tensor:TileTensor[float_dtype,Runtime_rowMajor_2D_Type,MutAnyOrigin],
     ):
 
     # Should be a 1D based kernel loop
     tid = block_dim.x * block_idx.x + thread_idx.x
-    grid_index:InlineArray[Int,3] = [Int(fluid_boundary[tid,0]),Int(fluid_boundary[tid,1]),Int(fluid_boundary[tid,2])]
-    
-    comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
-    comptime opposite_index = lattice_model.opposite_indices
-
-    var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
-    var pull_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
-    # Get flags of surrounding fluid
-    if grid_index[0] < grid_shape[0] and grid_index[1] < grid_shape[1] and grid_index[2] < grid_shape[2]:
-        var f_pulled = Vector[float_dtype,Q](fill = 0.)
-
-        # Pull F from neighbors
-        comptime for q in range(Q):
-            comptime direction = lattice_model.directions[q]
-            pull_indices[q] = get_adjacent_idx[D,-1](grid_index,grid_shape,direction) # Pulling Scheme
-            pull_flags[q] = flags.load(coord[DType.uint32]((pull_indices[q][0],pull_indices[q][1],pull_indices[q][2])))[0]
-            f_pulled[q] =  load_f[float_dtype,config.use_float16c](f,pull_indices[q],q)
+    if tid < fluid_boundary.layout.size():
+        crd = FlagLayout.idx2crd[out_dtype = int_dtype](Int(fluid_boundary[tid])).flatten()
+        grid_index = InlineArray[Int,3](uninitialized = True)
         
-        # Compute Forces
-        var force_vec = Vector[float_dtype,D](fill = 0.)
-        comptime zero_vec = Vector[float_dtype,D](fill = 0)
-        comptime for q in range(Q):
-            comptime float_dir = lattice_model.float_directions[q]
-            comptime opp_index = Int(opposite_index[q])
-            force_vec += (f_pulled[q] + f_pulled[opp_index])*float_dir if pull_flags[q] == SOLID_NODE else zero_vec
+        comptime if FlagLayout.rank*2 == FlagLayout.flat_rank:
+            comptime for i in range(3):
+                loc_x = Int(crd[2*i].value()) # local
+                til_x = Int(crd[(2*i)+1].value())
+                grid_index[i] = tile_size*til_x + loc_x
+        else:
+            comptime assert FlagLayout.rank == FlagLayout.flat_rank
+            comptime for i in range(3):
+                grid_index[i] = Int(crd[i].value())
         
-        # Push to global
-        comptime for i in range(D):
-            force_tensor[tid,i] = force_vec[i]
+        comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
+        comptime opposite_index = lattice_model.opposite_indices
 
+        if grid_index[0] < grid_shape[0] and grid_index[1] < grid_shape[1] and grid_index[2] < grid_shape[2]:
+            var push_flags = InlineArray[UInt8,Q](uninitialized = True)
+            var push_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
+            
+            # push F from neighbors
+            comptime for q in range(Q):
+                comptime direction = lattice_model.directions[q]
+                push_indices[q] = get_adjacent_idx[D,1](grid_index,grid_shape,direction) # push Scheme as
+                push_flags[q] = flags.load(coord[DType.uint32]((push_indices[q][0],push_indices[q][1],push_indices[q][2])))[0]
+                
+            # Compute Forces
+            var force_vec = Vector[float_dtype,D](fill = 0.)
+            comptime for q in range(Q):
+                comptime direction = lattice_model.directions[q]
+                comptime float_dir = lattice_model.float_directions[q]
+                comptime opp_index = Int(opposite_index[q])
+
+                if push_flags[q] == SOLID_NODE:
+                    var f_local = load_f[float_dtype,config.use_float16c](f,grid_index,q)
+
+                    comptime if config.DDF_shift:
+                        comptime weight = lattice_model.weights[q]
+                        f_link = f_local + weight
+                    else:
+                        f_link = f_local
+
+                    force_vec += (2*f_link)*lattice_model.float_directions[q] # Only stationary wall for now
+                    
+            # push to global
+            comptime for i in range(D): # Overwrite
+                force_tensor[tid,i] = force_vec[i]
 
 
     
