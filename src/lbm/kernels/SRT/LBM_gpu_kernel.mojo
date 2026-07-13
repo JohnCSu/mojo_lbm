@@ -13,7 +13,7 @@ from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
 
 from src.utils import Vector,ContextTileTensor
-from .moment import get_density,get_velocity,get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
+from src.lbm.kernels.utils.moment import get_density,get_velocity,get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
 from .turbulence import get_Smagorinsky_LES_tau
 
 def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
@@ -30,6 +30,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 ]
                 (
                 f_out:TileTensor[f_dtype,type_of(Flayout),MutAnyOrigin],
+                
                 f_in:TileTensor[f_dtype,type_of(Flayout),ImmutAnyOrigin],
                 bc:TileTensor[float_dtype,type_of(BClayout),ImmutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
