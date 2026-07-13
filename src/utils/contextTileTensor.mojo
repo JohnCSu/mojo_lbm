@@ -62,7 +62,7 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout](Movable):
 
     var _extra_row_host_buffer:Optional[HostBuffer[Self.dtype]]
 
-    def __init__(out self,deviceContext:DeviceContext,layout:Self.LayoutType,*,synchronize_on_copy:Bool = False,copy_on_switch:Bool = True) raises:
+    def __init__(out self,deviceContext:DeviceContext,layout:Self.LayoutType,*,fill:Optional[Scalar[Self.dtype]] = None,synchronize_on_copy:Bool = False,copy_on_switch:Bool = True) raises:
         '''
         Initialise ContextTileTensor with DeviceContext and layout. LayoutType is inferred from layout passed in.
 
@@ -80,6 +80,8 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout](Movable):
 
         self._cpu_buffer = deviceContext.enqueue_create_host_buffer[Self.dtype](self._size)
         self._gpu_buffer = deviceContext.enqueue_create_buffer[Self.dtype](self._size)
+        
+
 
         self.last_used_cpu = None
         self.last_device_used = None
@@ -87,6 +89,9 @@ struct ContextTileTensor[dtype:DType,LayoutType:TensorLayout](Movable):
         self.synchronize_on_copy = synchronize_on_copy
 
         self._extra_row_host_buffer = None
+
+        if fill:
+            self.fill(fill.value())
 
     def __len__(self) -> Int:
         return self.size()
