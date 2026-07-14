@@ -34,6 +34,21 @@ comptime get_pulled_indices_and_flags = get_indices_and_flags[_,-1] # Need direc
 comptime get_pushed_indices_and_flags = get_indices_and_flags[_,1] # Need directions 
 '''Convience function for push method of getting flags and indices. Pass lattice_model.directions to complete parameterization.'''
 
+
+
+@always_inline
+def is_index_out_of_bounds(index:InlineArray[Int,3],grid_shape:InlineArray[Int,3]) -> Bool:
+    is_oob = False
+    comptime for i in range(3):
+        is_oob = True if (index[i] >= grid_shape[i] or index[i] < 0) else is_oob
+    return is_oob
+
+@always_inline
+def is_index_valid(index:InlineArray[Int,3],grid_shape:InlineArray[Int,3]) -> Bool:
+    return not is_index_out_of_bounds(index,grid_shape)
+
+
+
 @always_inline
 def get_adjacent_idx[int_dtype:DType,//,D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[int_dtype,D],) -> InlineArray[Int,3]:
     comptime assert D <= 3 
