@@ -14,7 +14,7 @@ from src.lbm.kernels.utils.load_and_store import load_f,store_f
 
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.moment import get_density,get_velocity,get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
-from .turbulence import get_Smagorinsky_LES_tau
+from src.lbm.kernels.utils.turbulence import get_Smagorinsky_LES_tau
 
 def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
