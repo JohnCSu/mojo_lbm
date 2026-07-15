@@ -19,6 +19,9 @@ def get_velocity_gradient[
     velocity_direction:Int,
     axis:Int,
     ) -> Scalar[float_dtype]:
+    '''
+    TODO: Check for periodicity (Assume one sided finite difference at boundary currently)
+    '''
     comptime assert shared_u.flat_rank == 4 
     comptime assert flags.rank == 3
     comptime inv_dx = 1/dx

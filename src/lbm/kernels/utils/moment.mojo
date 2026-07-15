@@ -78,14 +78,22 @@ def get_second_velocity_moment[
     (
         f_vec:Vector[float_dtype,Q],
     ) -> Vector[float_dtype,n_stress]:
-
+    '''
+    Returns the full Total Second Moment Taking into account DDF_shifting
+    '''
     second_moment = Vector[float_dtype,n_stress](fill = 0.)
+
     comptime for n in range(n_stress): # This is very slow as its n_stress*Q ops
         comptime alpha = Int(stress_indices[n][0])
         comptime beta  = Int(stress_indices[n][1])
         comptime for q in range(Q):
             comptime c_ialpha_c_ibeta = float_directions[q][alpha]*float_directions[q][beta]
             second_moment[n] += f_vec[q]*c_ialpha_c_ibeta
+
+        comptime if DDF_shift:# Add a correction term if DDF_shifted
+            comptime if (alpha == beta) and DDF_shift: 
+                second_moment[n] += cs_squared
+
     return second_moment
 
 
@@ -101,19 +109,46 @@ def get_strain_rate_tensor[
         rho:Scalar[float_dtype],
         tau:Scalar[float_dtype],
     ) -> Vector[float_dtype,n_stress]:
+    '''
+    We assume the second moment has been unshifted
+    '''
+    
     comptime assert n_stress == D*(D+1)//2
+    
     strain_rate = Vector[float_dtype,n_stress](uninitialized =True)
-    comptime if DDF_shift:
-        rho_term = (rho-1)  
-    else:
-        rho_term = rho
+    
+    p_delta = rho*cs_squared
+    # Equilibrium value = p*delta_alpha_beta + rho*u_alpha*u_beta
+    # where p = cs_sq*density
 
     comptime for n in range(n_stress):
         comptime alpha = Int(stress_indices[n][0])
-        comptime beta  = Int(stress_indices[n][1])
-        strain_rate[n] = second_moment[n] - (rho_term*u[alpha]*u[beta])
-        comptime if alpha == beta:
-            strain_rate[n] -= (rho_term*cs_squared)
-    # strain_rate /= (-2*(rho*cs_squared*(tau-0.5))) #-1.5/(rho*(tau-0.5)) # 1/(-2*(rho*cs_squared*(tau-0.5)))
-    strain_rate *= -1.5/(rho*(tau-0.5))
+        comptime beta  = Int(stress_indices[n][1])    
+        strain_rate[n] = second_moment[n] - (rho*u[alpha]*u[beta])
+        comptime if alpha == beta: 
+            strain_rate[n] -= (p_delta) # Pressure term 
+    
+    comptime inv_2_cs_sq = 1/(2*cs_squared)
+    strain_rate *= -inv_2_cs_sq/(rho*(tau-0.5))
+
     return strain_rate
+
+
+@always_inline
+def get_strain_rate_tensor_norm_squared
+    [
+    float_dtype:DType,int_dtype:DType,n_stress:Int,//,
+    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
+    ]
+    (
+    strain_rate_tensor:Vector[float_dtype,n_stress]
+    ) -> Scalar[float_dtype]:
+    
+    ss = strain_rate_tensor*strain_rate_tensor
+    s_norm_squared = Scalar[float_dtype](0)
+    comptime for n in range(n_stress):
+        comptime if stress_indices[n][0] != stress_indices[n][1]: # Alpha != Beta -> off diagonals
+            s_norm_squared += ss[n]*2 # 2 as is symmetric tensor so double count off-diagonals
+        else:
+            s_norm_squared += ss[n]
+    return s_norm_squared
