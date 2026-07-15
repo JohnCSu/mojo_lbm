@@ -8,9 +8,9 @@ from src.lbm import LBM_Grid,LBM_Config,LatticeModel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
-from src.lbm.kernels.utils.moment import get_density,get_velocity
+from src.lbm.kernels.utils.moment import get_density,get_velocity,get_second_velocity_moment,get_strain_rate_tensor,get_strain_rate_tensor_norm_squared
 from src.lbm.kernels.utils.finite_difference import get_velocity_gradient
-from src.lbm.kernels.utils.shared_tile import get_global_index_for_shared_memory
+from src.lbm.kernels.utils.shared_tile import get_global_index_for_shared_memory,sync_load_rank4_tensor_to_shared_with_halo
 
 
 def calculate_rho_and_velocity[ 
@@ -46,7 +46,7 @@ def calculate_rho_and_velocity[
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     comptime assert velocity.rank == velocity.flat_rank and density.rank == density.flat_rank, 'Velocity and Density Tensors should be non-nested and row-major or col-major'
     
-    comptime D_is_last_dim = (VelocityLayout.static_shape[0] == nx and VelocityLayout.static_shape[1] == ny and VelocityLayout.static_shape[2] == nz and VelocityLayout.static_shape[3] == (D+1)) 
+    comptime D_is_last_dim = (VelocityLayout.static_shape[0] == nx and VelocityLayout.static_shape[1] == ny and VelocityLayout.static_shape[2] == nz and VelocityLayout.static_shape[3] == (D)) 
 
     var x = block_dim.x * block_idx.x + thread_idx.x
     var y = block_dim.y * block_idx.y + thread_idx.y
@@ -77,51 +77,6 @@ def calculate_rho_and_velocity[
             else:
                 velocity.store(coord[DType.int32]((d,index[0],index[1],index[2])), value = u[d])
 
-def sync_load_rank4_tensor_to_shared_with_halo[
-    float_dtype:DType,
-    sharedLayoutType:TensorLayout,
-    srcLayoutType:TensorLayout,
-    srcOrigin:Origin,
-    //,
-    tile_size:Int,
-    D:Int,
-    ]
-    (
-    shared_tile:TileTensor[float_dtype,sharedLayoutType, MutExternalOrigin, address_space=AddressSpace.SHARED],
-    src_tensor:TileTensor[float_dtype,srcLayoutType,srcOrigin],
-    tid:Int,
-    mut shared_local_index:InlineArray[Int,3],
-    block_index:InlineArray[Int,3],
-    tiler_shape:InlineArray[Int,3],
-    ):
-    comptime assert shared_tile.rank == 4 and shared_tile.flat_rank == 4
-    comptime assert src_tensor.rank == 4 and (src_tensor.flat_rank == 4 or src_tensor.flat_rank == 8)
-
-    comptime is_nested = src_tensor.rank != src_tensor.flat_rank
-    comptime src_N = src_tensor.static_shape[6]*src_tensor.static_shape[7] if is_nested else src_tensor.static_shape[3]
-    comptime N = shared_tile.static_shape[3] # Guranteed to be non-nested layout from assertion above
-    comptime assert N == src_N, 'The last dimension of the shared tile and soruce tensor must match'
-    
-    comptime SHARED_x = tile_size + 2
-    comptime SHARED_y = tile_size + 2 if D >= 2 else 1 
-    comptime SHARED_z = tile_size + 2 if D == 3 else 1
-    comptime NUM_THREADS = tile_size**D
-    comptime NUM_SHARED_XYZ_POINTS = SHARED_x*SHARED_y*SHARED_z
-
-    for i in range(tid,NUM_SHARED_XYZ_POINTS,NUM_THREADS): # loop only iterates 1-2 per thread
-        # Indexes for shared array
-        shared_local_index[0] = i % SHARED_x
-        shared_local_index[1] = (i % (SHARED_x*SHARED_y))//SHARED_x 
-        shared_local_index[2] = i // (SHARED_x * SHARED_y)
-        # Index for the current i threadindex
-        shared_global_index = get_global_index_for_shared_memory[D,tile_size](shared_local_index,block_index,tiler_shape)
-        comptime for n in range(N):
-            val = src_tensor.load(coord[DType.int32]((shared_global_index[0],shared_global_index[1],shared_global_index[2],n)))[0]
-            shared_tile[shared_local_index[0],shared_local_index[1],shared_local_index[2],n] = val
-    
-    
-
-
 
 def calculate_Q_criterion[
     float_dtype:DType,D:Int,Q:Int,
@@ -143,6 +98,7 @@ def calculate_Q_criterion[
         f:TileTensor[f_dtype,type_of(Flayout),ImmutAnyOrigin],
         flags:TileTensor[DType.uint8,type_of(FlagLayout),ImmutAnyOrigin],
         velocity:TileTensor[float_dtype,type_of(VelocityLayout),ImmutAnyOrigin],
+        tau:Scalar[float_dtype],
     )
     where velocity.rank == 4 and f.rank == 4 and Q_tensor.rank == 3 and flags.rank == 3:
 
@@ -150,32 +106,17 @@ def calculate_Q_criterion[
     comptime SHARED_y = tile_size + 2 if D >= 2 else 1 
     comptime SHARED_z = tile_size + 2 if D == 3 else 1
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
-    comptime NUM_THREADS = tile_size**D
-    comptime NUM_SHARED_XYZ_POINTS = SHARED_x*SHARED_y*SHARED_z
-    comptime load_v = load_f[float_dtype]
-     
-    # comptime ijk_layout = col_major[]
-    var shared_u = stack_allocation[float_dtype,AddressSpace.SHARED](col_major[SHARED_x,SHARED_y,SHARED_z,D]())
-
+    comptime D_is_last_dim = (VelocityLayout.static_shape[0] == nx and VelocityLayout.static_shape[1] == ny and VelocityLayout.static_shape[2] == nz and VelocityLayout.static_shape[3] == (D))
+    
+    comptime assert D_is_last_dim, 'Velocity Tensor must be indexed as [x,y,z,D]'
+    comptime assert D == 2 or D == 3,'Calculating Q criterion can only be 2D or 3D'
+    
     # 0 to 511
     var tid = thread_idx.x + thread_idx.y * block_dim.x + thread_idx.z * block_dim.x * block_dim.y
-    # var shared_global_index = InlineArray[Int,3](uninitialized = True)
-    var shared_local_index = InlineArray[Int,3](uninitialized = True)
     var block_index:InlineArray[Int,3] = [block_idx.x,block_idx.y,block_idx.z]
     var tiler_shape:InlineArray[Int,3] = [grid_dim.x,grid_dim.y,grid_dim.z]
-
-    # To Pull
-    
-    for i in range(tid,NUM_SHARED_XYZ_POINTS,NUM_THREADS): # loop only iterates
-        # Indexes for shared array
-        shared_local_index[0] = i % SHARED_x
-        shared_local_index[1] = (i % (SHARED_x*SHARED_y))//SHARED_x 
-        shared_local_index[2] = i // (SHARED_x * SHARED_y)
-        # Index for the current i threadindex
-        shared_global_index = get_global_index_for_shared_memory[D,tile_size](shared_local_index,block_index,tiler_shape)
-        comptime for d in range(D):
-            vel_i = velocity.load(coord[DType.int32]((d,shared_global_index[0],shared_global_index[1],shared_global_index[2])))[0]
-            shared_u[shared_local_index[0],shared_local_index[1],shared_local_index[2],d] = vel_i
+    var shared_u = stack_allocation[float_dtype,AddressSpace.SHARED](col_major[SHARED_x,SHARED_y,SHARED_z,D]())
+    sync_load_rank4_tensor_to_shared_with_halo[tile_size,D](shared_u,velocity,tid,block_index,tiler_shape)
     barrier()
     
     var x = block_dim.x * block_idx.x + thread_idx.x
@@ -185,26 +126,57 @@ def calculate_Q_criterion[
     comptime shift_x = 1
     comptime shift_y = 1 if D >= 2 else 0
     comptime shift_z = 1 if D == 3 else 0
-    index:InlineArray[Int,3] = [x,y,z]
-    coord_index = coord[DType.int32]((index[0],index[1],index[2]))
-    flag = flags.load(coord_index)
+    comptime vorticity_size = 1 if D == 2 else 3
+
+    var shared_local_index = InlineArray[Int,3](uninitialized = True)
+    var index:InlineArray[Int,3] = [x,y,z]
+    var coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+    var flag = flags.load(coord_index)
+    
     if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2] and flag != SOLID_NODE: # Basic Guard
-        
         shared_local_index[0] = thread_idx.x + shift_x
         shared_local_index[1] = thread_idx.y + shift_y
         shared_local_index[2] = thread_idx.z + shift_z
-        # Calculate Voricity lets do 2D for now
-        comptime if D == 2: # We are mixing lattice unit so actually dx is = 1
+        # Calculate Voricity
+        comptime if D == 2: # Lattice Units so dx is = 1
             dv_dx = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 1,axis = 0)
             du_dy = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 0,axis = 1)
-            Q_tensor.store(coord_index,value= dv_dx- du_dy)
+            vorticity = dv_dx- du_dy
+            vort_norm_sq = vorticity*vorticity
         else:
-            comptime assert False, 'D = 3 not implemented yet'
+            # ex
+            dw_dy = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 2,axis = 1)
+            dv_dz = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 1,axis = 2)
+            # ey
+            du_dz = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 0,axis = 2)
+            dw_dx = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 2,axis = 0)
+            # ez
+            dv_dx = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 1,axis = 0)
+            du_dy = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 0,axis = 1)
+
+            vorticity_vector = Vector[float_dtype,3](dw_dy-dv_dz,du_dz-dw_dx,dv_dx-du_dy)
+            vort_norm_sq = vorticity_vector.norm_squared() # This is 2xRotation Tensor magnitude
+
+        # Get Strain Rate Tensor
+        var f_vec = Vector[float_dtype,Q](uninitialized = True)
+        comptime for q in range(Q):
+            f_vec[q] = load_f[float_dtype,config.use_float16c](f,index,q)
         
+        comptime stress_indices = lattice_model.stress_indices
+        comptime float_directions = lattice_model.float_directions
 
+        var u_vec = Vector[float_dtype,D](uninitialized = True)
+        comptime for d in range(D):
+            u_vec[d] = shared_u[ shared_local_index[0], shared_local_index[1], shared_local_index[2],d]
+        rho = get_density[config.DDF_shift](f_vec)
+        second_moment = get_second_velocity_moment[stress_indices,float_directions,config.DDF_shift](f_vec)
+        strain_rate = get_strain_rate_tensor[stress_indices,config.DDF_shift](second_moment,u_vec,rho,tau)
+        ss_norm_sq = get_strain_rate_tensor_norm_squared[stress_indices](strain_rate)
 
-
-
+        # Note ss_norm_sq does not inlcude the factor of 2
+        # magnitude of vort = 2*magnitude of rotation tensor
+        Q_crit = 0.25*vort_norm_sq - 0.5*ss_norm_sq
+        Q_tensor.store(coord_index,value= Q_crit)
 
 
 def rowMajor1D[int_dtype:DType]() -> type_of( row_major(coord[int_dtype]((1,))) ):
