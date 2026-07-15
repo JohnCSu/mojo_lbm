@@ -1,4 +1,5 @@
 from std.memory import UnsafePointer
+from std.math import sqrt
 
 struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
     '''
@@ -118,6 +119,15 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
             out *= self[i]
         return out
     
+    @always_inline
+    def norm_squared(self) -> Scalar[Self.dtype]:
+        return (self*self).sum()
+
+    @always_inline
+    def norm(self) -> Scalar[Self.dtype]:
+        return sqrt(self.norm_squared())
+
+
     @always_inline
     def unsafe_ptr(self) -> UnsafePointer[Self.dataType.ElementType,origin_of(self.data)]: 
         x = self.data.unsafe_ptr()
