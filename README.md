@@ -2,9 +2,10 @@
 
 Open Source Implementation and analysis of LBM on GPU using Mojo Programming Language! 
 
-<table>
+<img src="images/LDC_Re10000.gif" alt="Description of the image">
+<!-- <table>
   <tr>
-    <td align="center"><img src="images/LDC_Re100.png" width="300"></td>
+    <td align="center"><img src="images/LDC_Re10000.gif" width="300"></td>
     <td align="center"><img src="images/u_velocity_benchmark.png" width="300"></td>
     <td align="center"><img src="images/v_velocity_benchmark.png" width="300"></td>
   </tr>
@@ -13,7 +14,7 @@ Open Source Implementation and analysis of LBM on GPU using Mojo Programming Lan
     <td align="center">u Benchmark Results</td>
     <td align="center">v Benchmark Results</td>
   </tr>
-</table>
+</table> -->
 
 ## Features
 1. A Single SRT Kernel serves for all dimensions and lattice models (D2Q9, D3Q19 and D3Q27) leveraging mojo metaprogramming
