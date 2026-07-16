@@ -36,8 +36,22 @@ def main():
     print(f"🚀 Running {script_path.name} from inside {target_dir.name}/...")
     run_cmd = ["mojo", "-I", ".", script_path.name]
     
-    final_run = subprocess.run(run_cmd)
-    sys.exit(final_run.returncode)
+    try:
+        final_run = subprocess.run(run_cmd)
+        exit_code = final_run.returncode
+    except Exception as e:
+        print(f"❌ Failed to run Mojo script: {e}", file=sys.stderr)
+        exit_code = 1
+    finally:
+        # 5. Clean up the generated Mojo package after the run
+        if output_package.exists():
+            try:
+                output_package.unlink()
+                print(f"🧹 Deleted {output_package}")
+            except OSError as e:
+                print(f"⚠️ Could not delete {output_package}: {e}", file=sys.stderr)
+
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
     main()
