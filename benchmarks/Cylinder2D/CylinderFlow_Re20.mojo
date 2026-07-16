@@ -164,7 +164,7 @@ def main() raises:
     comptime calculate_drag_ = calculate_drag_around_object[grid,f_layout,flag_layout,config]
     calculate_drag = ctx.compile_function[calculate_drag_,calculate_drag_]()
 
-    comptime get_u_and_rho = calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout,config]
+    comptime get_u_and_rho = calculate_rho_and_velocity[grid,f_layout,bc_layout,flag_layout,density_layout,velocity_layout,config]
     calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho,get_u_and_rho]()
 
     ctx.synchronize()
@@ -194,7 +194,7 @@ def main() raises:
         ctx.enqueue_function(LBM_func,f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         if (t % (MAX_ITERS//10)) == 0:
             ctx.synchronize()
-            # ctx.enqueue_function(calc_rho_and_u_gpu,f.gpu(),rho.gpu(),u.gpu(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+            # ctx.enqueue_function(calc_rho_and_u_gpu,rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
             ctx.enqueue_function(calculate_drag,f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
             ctx.synchronize()
             u_np = (u.buffer_to_numpy()*u_lat_to_phys).reshape(D,nx,ny,nz)

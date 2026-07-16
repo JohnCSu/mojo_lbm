@@ -97,7 +97,7 @@ def main() raises:
     comptime LBM_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,simd_width]
     LBM_func = ctx.compile_function[LBM_,LBM_]()
 
-    comptime get_u_and_rho = calculate_rho_and_velocity[grid,f_layout,density_layout,velocity_layout]
+    comptime get_u_and_rho = calculate_rho_and_velocity[grid,f_layout,bc_layout,flag_layout,density_layout,velocity_layout]
     calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho,get_u_and_rho]()
  
     # ctx.synchronize()
@@ -109,13 +109,13 @@ def main() raises:
         if t % 1000 == 0 :
             pass
             ctx.synchronize()
-            ctx.enqueue_function(calc_rho_and_u_gpu,f.gpu(),rho.gpu(),u.gpu(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+            ctx.enqueue_function(calc_rho_and_u_gpu,rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
             ctx.synchronize()
             u_np = u.buffer_to_numpy()/U
             print('step = {} max ={} avg = {}'.format(t,u_np.max(),u_np.mean()),u_np.min())
     ctx.synchronize()
     # Get Final U and rho
-    ctx.enqueue_function(calc_rho_and_u_gpu,f.gpu(),rho.gpu(),u.gpu(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+    ctx.enqueue_function(calc_rho_and_u_gpu,rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
     return None
     # ctx.synchronize()
     
