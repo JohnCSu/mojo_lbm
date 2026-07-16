@@ -41,7 +41,10 @@ struct LBM_Config():
                 print('Warning: Some Specified BC types are not standard: {}'.format(BCs.difference(__valid_bcs)))
             # Ensure that fluid and solid nodes are always in the valid BC
             self.INCLUDED_BCs = {Flags.FLUID,Flags.SOLID}.union(BCs) 
-        
+    def implies_f_noneq(self) -> Bool:
+        return self.LES
+    
+    # def implies_
 
 
     @always_inline
