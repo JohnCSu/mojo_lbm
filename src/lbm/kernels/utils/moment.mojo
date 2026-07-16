@@ -68,70 +68,53 @@ def get_velocity[
     return velocity
     
 
+
 @always_inline
-def get_second_velocity_moment[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,n_stress:Int,//,
-    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress],
-    float_directions:InlineArray[Vector[float_dtype,D],Q],
-    DDF_shift:Bool = False,
+def get_Qiab[float_dtype:DType,D:Int,Q:Int,//,
+    float_directions:InlineArray[Vector[float_dtype, D], Q]]
+    (f_neq:Vector[float_dtype,Q],a:Int,b:Int)
+    -> Scalar[float_dtype]:
+    
+    Qiab:Scalar[float_dtype] = 0.
+    comptime for q in range(0,Q):
+        Qiab +=f_neq[q]*float_directions[q][a]*float_directions[q][b]
+    return Qiab
+
+@always_inline
+def get_non_eq_second_order_moment[
+    float_dtype:DType,
+    int_dtype:DType,
+    D:Int,
+    Q:Int,
+    n_stress:Int,
+    //,
+    float_directions:InlineArray[Vector[float_dtype, D], Q],
+    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
     ]
     (
-        f_vec:Vector[float_dtype,Q],
+        f_neq:Vector[float_dtype,Q],
     ) -> Vector[float_dtype,n_stress]:
-    '''
-    Returns the full Total Second Moment Taking into account DDF_shifting
-    '''
-    second_moment = Vector[float_dtype,n_stress](fill = 0.)
 
-    comptime for n in range(n_stress): # This is very slow as its n_stress*Q ops
+    Q_neq = Vector[float_dtype,n_stress](uninitialized=True)
+    comptime assert n_stress == D*(D+1)//2
+    comptime for n in range(n_stress):
         comptime alpha = Int(stress_indices[n][0])
         comptime beta  = Int(stress_indices[n][1])
-        comptime for q in range(Q):
-            comptime c_ialpha_c_ibeta = float_directions[q][alpha]*float_directions[q][beta]
-            second_moment[n] += f_vec[q]*c_ialpha_c_ibeta
-
-        comptime if DDF_shift:# Add a correction term if DDF_shifted
-            comptime if (alpha == beta) and DDF_shift: 
-                second_moment[n] += cs_squared
-
-    return second_moment
+        Q_neq[n] = get_Qiab[float_directions](f_neq,alpha,beta)
+        # *(-1/(2*rho*cs_squared*(tau)))
+    return Q_neq
 
 
 @always_inline
 def get_strain_rate_tensor[
-    float_dtype:DType,int_dtype:DType,D:Int,n_stress:Int,//,
-    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress],
-    DDF_shift:Bool = False,
-    ]
-    (
-        second_moment:Vector[float_dtype,n_stress],
-        u:Vector[float_dtype,D],
-        rho:Scalar[float_dtype],
-        tau:Scalar[float_dtype],
-    ) -> Vector[float_dtype,n_stress]:
-    '''
-    We assume the second moment has been unshifted
-    '''
-    
-    comptime assert n_stress == D*(D+1)//2
-    
-    strain_rate = Vector[float_dtype,n_stress](uninitialized =True)
-    
-    p_delta = rho*cs_squared
-    # Equilibrium value = p*delta_alpha_beta + rho*u_alpha*u_beta
-    # where p = cs_sq*density
+    float_dtype:DType,
+    n_stress:Int,//
+    ](
+    Q_neq:Vector[float_dtype,n_stress],rho:Scalar[float_dtype],tau:Scalar[float_dtype]
+    )-> Vector[float_dtype,n_stress]:
+    return Q_neq*(-1/(2*rho*cs_squared*(tau)))
 
-    comptime for n in range(n_stress):
-        comptime alpha = Int(stress_indices[n][0])
-        comptime beta  = Int(stress_indices[n][1])    
-        strain_rate[n] = second_moment[n] - (rho*u[alpha]*u[beta])
-        comptime if alpha == beta: 
-            strain_rate[n] -= (p_delta) # Pressure term 
-    
-    comptime inv_2_cs_sq = 1/(2*cs_squared)
-    strain_rate *= -inv_2_cs_sq/(rho*(tau-0.5))
 
-    return strain_rate
 
 
 @always_inline
