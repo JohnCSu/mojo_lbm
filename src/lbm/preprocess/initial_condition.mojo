@@ -23,7 +23,36 @@ def _do_nothing[
         return [du,dv]
 
 
-def initialise_f_from_func[
+
+def initialize_fluid_at_rest[
+    float_dtype:DType,
+    f_origin:Origin[mut=True],
+    nx:Int,ny:Int,nz:Int,
+    D:Int,Q:Int,
+    lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+    FLayoutType:TensorLayout,
+    //,
+    grid:LBM_Grid[lattice_model,nx,ny,nz,_],
+    config:LBM_Config = LBM_Config(),
+    *,
+    f_dtype:DType = config.f_dtype.value() if config.f_dtype else float_dtype
+    ]    
+    (
+    f:TileTensor[f_dtype,FLayoutType,f_origin],
+    ) raises:
+
+    def at_rest[
+        float_dtype:DType,D:Int
+        ]
+        (
+        x:Scalar[float_dtype],y:Scalar[float_dtype],z:Scalar[float_dtype],mut u:Vector[float_dtype,D]
+        ) capturing:
+        u *= 0.
+    initialize_f_from_func[grid,config,u=at_rest](f,None,1,1)
+         
+
+
+def initialize_f_from_func[
     float_dtype:DType,
     f_origin:Origin[mut=True],
     nx:Int,ny:Int,nz:Int,

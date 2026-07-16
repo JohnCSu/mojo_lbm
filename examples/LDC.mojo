@@ -9,7 +9,7 @@ from src.lbm import (
                     get_D2Q9,set_exterior_walls,calculate_rho_and_velocity,
                     UnitSystem
                     )
-
+from src.lbm.preprocess.initial_condition import initialize_fluid_at_rest
 from src.lbm.kernels.SRT import LBM_kernel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.geometry.primatives import add_sphere,add_box
@@ -86,12 +86,8 @@ def main() raises:
     pv_view = pyvista_viewer_import()
 
     # Set up
-    comptime if not config.DDF_shift:
-        f.fill(1./Float32(Q)) # Should be initialising with respective weight for each dist but should be ok as IC is fluid at rest
-        f_out.fill(1./Float32(Q))
-    else:
-        f.fill(0.)
-        f_out.fill(0.)
+
+    initialize_fluid_at_rest[grid,config](f.cpu())
 
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+Y',SOLID_NODE,[U,0],1.)
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-Y',SOLID_NODE,[0,0],1.)

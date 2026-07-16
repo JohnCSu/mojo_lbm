@@ -1,1 +1,1 @@
-from .initial_condition import initialise_f_from_func
+from .initial_condition import initialize_f_from_func,initialize_fluid_at_rest
