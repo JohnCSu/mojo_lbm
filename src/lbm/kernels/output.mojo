@@ -8,10 +8,10 @@ from src.lbm import LBM_Grid,LBM_Config,LatticeModel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
-from src.lbm.kernels.utils.moment import get_density,get_velocity,get_second_velocity_moment,get_strain_rate_tensor,get_strain_rate_tensor_norm_squared
+from src.lbm.kernels.utils.moment import get_density,get_velocity,get_strain_rate_tensor,get_strain_rate_tensor_norm_squared,get_non_eq_second_order_moment
 from src.lbm.kernels.utils.finite_difference import get_velocity_gradient
 from src.lbm.kernels.utils.shared_tile import get_global_index_for_shared_memory,sync_load_rank4_tensor_to_shared_with_halo
-
+from src.lbm.kernels.utils.equilibrium import get_f_eq_vec,get_f_noneq_vec
 
 def calculate_rho_and_velocity[ 
     float_dtype:DType,D:Int,Q:Int,
@@ -132,7 +132,24 @@ def calculate_Q_criterion[
     var index:InlineArray[Int,3] = [x,y,z]
     var coord_index = coord[DType.int32]((index[0],index[1],index[2]))
     var flag = flags.load(coord_index)
-    
+    # if block_index[0] == 1 and block_index[1] == 1 and tid == 0:
+    #     print('u')
+    #     for i in range(SHARED_x):
+    #         for j in range(SHARED_y):
+    #             print(shared_u[i,j,0,0],end = ' ')
+    #         print()
+    #     print()
+
+    #     print('v')
+    #     for i in range(SHARED_x):
+    #         for j in range(SHARED_y):
+    #             print(shared_u[i,j,0,1],end = ' ')
+    #         print()
+    #     print()
+    comptime stress_indices = lattice_model.stress_indices
+    comptime float_directions = lattice_model.float_directions
+    comptime weights = lattice_model.weights
+    comptime assert not config.LES, 'Q criterion currently assumes post-collision so doesnt work for LES'
     if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2] and flag != SOLID_NODE: # Basic Guard
         shared_local_index[0] = thread_idx.x + shift_x
         shared_local_index[1] = thread_idx.y + shift_y
@@ -161,22 +178,40 @@ def calculate_Q_criterion[
         var f_vec = Vector[float_dtype,Q](uninitialized = True)
         comptime for q in range(Q):
             f_vec[q] = load_f[float_dtype,config.use_float16c](f,index,q)
-        
-        comptime stress_indices = lattice_model.stress_indices
-        comptime float_directions = lattice_model.float_directions
 
-        var u_vec = Vector[float_dtype,D](uninitialized = True)
-        comptime for d in range(D):
-            u_vec[d] = shared_u[ shared_local_index[0], shared_local_index[1], shared_local_index[2],d]
-        rho = get_density[config.DDF_shift](f_vec)
-        second_moment = get_second_velocity_moment[stress_indices,float_directions,config.DDF_shift](f_vec)
-        strain_rate = get_strain_rate_tensor[stress_indices,config.DDF_shift](second_moment,u_vec,rho,tau)
+        var rho = get_density[config.DDF_shift](f_vec)
+        var u = get_velocity[lattice_model.float_directions](f_vec,rho)
+
+        var f_eq = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_vec,rho,u)
+        var f_neq = get_f_noneq_vec[post_collision = True](f_vec,f_eq,tau)
+        var second_moment_neq = get_non_eq_second_order_moment[float_directions,stress_indices](f_neq)
+        var strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau)
+
         ss_norm_sq = get_strain_rate_tensor_norm_squared[stress_indices](strain_rate)
 
-        # Note ss_norm_sq does not inlcude the factor of 2
-        # magnitude of vort = 2*magnitude of rotation tensor
         Q_crit = 0.25*vort_norm_sq - 0.5*ss_norm_sq
         Q_tensor.store(coord_index,value= Q_crit)
+        ## Using Finite Difference (as reference)
+        # du_dx = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 0,axis = 0)
+        # S_xx_2 = (du_dx)
+        # dv_dy = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 1,axis = 1)
+        # S_yy_2 = (dv_dy)
+        # dv_dx = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 1,axis = 0)
+        # du_dy = get_velocity_gradient[1](shared_u,flags,shared_local_index,index,grid_shape,velocity_direction = 0,axis = 1)
+        # S_xy_2 = 0.5*(dv_dx + du_dy)
+
+
+        # if index[0] == 64 and index[1] == 64:
+        #     print(u_vec,u)
+        #     print('Sxx: ',S_xx,S_xx_2)
+        #     print('Syy: ',S_xy,S_xy_2)
+        #     print('Sxy: ',S_yy,S_yy_2)
+
+        #     ss_n = S_xx*S_xx + S_yy*S_yy + 2*S_xy*S_xy
+        #     ss_n_2 = S_xx_2*S_xx_2 + S_yy_2*S_yy_2 + 2*S_xy_2*S_xy_2
+        #     print('|S|: ',ss_n,ss_n_2)
+        #     print(' Q : ',0.25*vort_norm_sq - 0.5*ss_n,0.25*vort_norm_sq - 0.5*ss_n_2 )
+        
 
 
 def rowMajor1D[int_dtype:DType]() -> type_of( row_major(coord[int_dtype]((1,))) ):
