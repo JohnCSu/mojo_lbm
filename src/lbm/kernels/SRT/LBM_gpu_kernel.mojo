@@ -13,8 +13,14 @@ from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
 
 from src.utils import Vector,ContextTileTensor
-from src.lbm.kernels.utils.moment import get_density,get_velocity,get_strain_rate_tensor,get_second_velocity_moment,get_density_and_velocity_for_eq_BC
+from src.lbm.kernels.utils.moment import (
+                                            get_density,
+                                            get_velocity,
+                                            get_strain_rate_tensor,
+                                            get_non_eq_second_order_moment,
+                                            get_density_and_velocity_for_eq_BC)
 from src.lbm.kernels.utils.turbulence import get_Smagorinsky_LES_tau
+from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec
 
 def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
@@ -101,19 +107,19 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 rho_local,u_l = get_density_and_velocity_for_eq_BC[config.DDF_shift](f_new,float_directions,weights,index,pull_indices)
                 u_local = u_l if isnan(velocity[0]) else velocity # nan means the vel is free
                 rho_local = rho_local if isnan(rho) else rho # Nan means density is free
-                u_dot_u = u_local.dot(u_local)
-                comptime for q in range(Q):
-                    f_new[q] = f_eq[config.DDF_shift](weights[q],rho_local,u_local,u_dot_u,float_directions[q])
-
+                f_new = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_new,rho_local,u_local)
+                
         # Get Velocity and Density
         rho = get_density[config.DDF_shift](f_new)
         velocity = get_velocity[float_directions](f_new,rho)
         tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
+        f_eq = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_new,rho,velocity)
 
         # LES
-        comptime if config.second_moment:
-            second_moment = get_second_velocity_moment[stress_indices,float_directions,config.DDF_shift](f_new)
-            strain_rate = get_strain_rate_tensor[stress_indices,config.DDF_shift](second_moment,velocity,rho,tau)
+        comptime if config.implies_f_noneq():
+            f_neq = get_f_noneq_vec[post_collision = False](f_new,f_eq,tau_local)
+            second_moment_neq = get_non_eq_second_order_moment[float_directions,stress_indices](f_neq)
+            strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau_local)
             comptime if config.LES:
                 comptime Cs = 0.1
                 tau_eddy = get_Smagorinsky_LES_tau[stress_indices](strain_rate,Cs)
@@ -123,15 +129,14 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         u_dot_u = velocity.dot(velocity)
         inv_tau = 1./tau_local # This is faster by 0.4 ms on the 256^3 benchmark
         comptime for q in range(Q):
-            f_eq_q = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_directions[q])
-            store_f[config.use_float16c,non_temporal](f_out,(f_new[q] -  inv_tau*(f_new[q]- f_eq_q) ),index,q)
+            store_f[config.use_float16c,non_temporal](f_out,(f_new[q] -  inv_tau*(f_new[q]- f_eq[q]) ),index,q)
 
 
-@always_inline
-def f_eq[dtype:DType,D:Int,//,DDF_shift:Bool = False](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:
-    comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
-    ei_dot_u = velocity.dot(direction)
-    comptime if DDF_shift:
-        return weight*density*(3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u) +weight*(density - 1)
-    else:
-        return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u)
+# @always_inline
+# def f_eq[dtype:DType,D:Int,//,DDF_shift:Bool = False](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:
+#     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
+#     ei_dot_u = velocity.dot(direction)
+#     comptime if DDF_shift:
+#         return weight*density*(3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u) +weight*(density - 1)
+#     else:
+#         return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u)
