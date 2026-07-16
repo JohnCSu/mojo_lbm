@@ -43,7 +43,7 @@ def sync_load_rank4_tensor_to_shared_with_halo[
     D:Int,
     ]
     (
-    shared_tile:TileTensor[float_dtype,sharedLayoutType, MutExternalOrigin, address_space=AddressSpace.SHARED],
+    mut shared_tile:TileTensor[float_dtype,sharedLayoutType, MutExternalOrigin, address_space=AddressSpace.SHARED],
     src_tensor:TileTensor[float_dtype,srcLayoutType,srcOrigin],
     tid:Int,
     block_index:InlineArray[Int,3],
@@ -62,7 +62,6 @@ def sync_load_rank4_tensor_to_shared_with_halo[
     comptime SHARED_z = tile_size + 2 if D == 3 else 1
     comptime NUM_THREADS = tile_size**D
     comptime NUM_SHARED_XYZ_POINTS = SHARED_x*SHARED_y*SHARED_z
-
     var shared_local_index = InlineArray[Int,3](uninitialized = True)
     for i in range(tid,NUM_SHARED_XYZ_POINTS,NUM_THREADS): # loop only iterates 1-2 per thread
         # Indexes for shared array
@@ -74,4 +73,3 @@ def sync_load_rank4_tensor_to_shared_with_halo[
         comptime for n in range(N):
             val = src_tensor.load(coord[DType.int32]((shared_global_index[0],shared_global_index[1],shared_global_index[2],n)))[0]
             shared_tile[shared_local_index[0],shared_local_index[1],shared_local_index[2],n] = val
-    
