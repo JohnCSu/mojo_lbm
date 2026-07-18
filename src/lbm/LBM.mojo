@@ -6,7 +6,9 @@ from std.collections import Set,Dict
 from src.utils import Vector,ContextTileTensor
 from std.utils.numerics import nan,isnan
 from .units import UnitSystem
-        
+from .grid import Grid
+
+@deprecated(use=Grid)
 struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
                 latticeModel:LatticeModel[D,Q,float_dtype,int_dtype],
                 nx:Int,ny:Int,nz:Int,
