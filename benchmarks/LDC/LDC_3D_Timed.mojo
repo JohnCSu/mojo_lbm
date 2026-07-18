@@ -10,7 +10,7 @@ from src.lbm import (
                     UnitSystem
                     )
 
-from src.lbm.kernels.SRT import LBM_kernel
+from src.lbm.kernels.double_buffer import double_buffer_kernel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.geometry.primatives import add_sphere,add_box
 from src.visualization import pyvista_viewer_import,grid_viewer
@@ -100,7 +100,7 @@ def main() raises:
     _ = f_out.gpu()
 
     #Compile Functions
-    comptime LBM_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,config]
+    comptime LBM_ = double_buffer_kernel[f_layout,bc_layout,flag_layout,grid,config]
     LBM_func = ctx.compile_function[LBM_,LBM_]()
 
     ctx.synchronize()

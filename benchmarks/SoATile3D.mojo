@@ -96,7 +96,7 @@ def main() raises:
     comptime LBM_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,simd_width]
     LBM_func = ctx.compile_function[LBM_,LBM_]()
 
-    comptime get_u_and_rho = calculate_rho_and_velocity[grid,f_layout,bc_layout,flag_layout,density_layout,velocity_layout]
+    comptime get_u_and_rho = calculate_rho_and_velocity[f_layout,bc_layout,flag_layout,density_layout,velocity_layout,grid]
     calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho,get_u_and_rho]()
  
     # ctx.synchronize()

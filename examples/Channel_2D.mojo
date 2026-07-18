@@ -11,7 +11,7 @@ from src.lbm import (
                     LBM_Grid,LBM_Config,
                     get_D2Q9,set_exterior_walls,calculate_rho_and_velocity)
 
-from src.lbm.kernels.SRT import LBM_kernel
+from src.lbm.kernels.double_buffer import double_buffer_kernel
 
 
 from src.utils import Vector,ContextTileTensor
@@ -106,10 +106,10 @@ def main() raises:
 
     ctx.synchronize()
     #Compile Functions
-    comptime LBM_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,config]
+    comptime LBM_ = double_buffer_kernel[f_layout,bc_layout,flag_layout,grid,config]
     LBM_func = ctx.compile_function[LBM_,LBM_]()
 
-    comptime get_u_and_rho = calculate_rho_and_velocity[grid,f_layout,bc_layout,flag_layout,density_layout,velocity_layout,config]
+    comptime get_u_and_rho = calculate_rho_and_velocity[f_layout,bc_layout,flag_layout,density_layout,velocity_layout,grid,config]
     calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho,get_u_and_rho]()
  
     ctx.synchronize()
