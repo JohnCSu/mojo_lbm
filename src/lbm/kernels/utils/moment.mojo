@@ -1,16 +1,19 @@
 from src.utils import Vector
 from src.lbm.constants import cs_squared
+from .index import get_adjacent_idx,is_index_out_of_bounds
 
 @always_inline
 def get_density_and_velocity_for_eq_BC[
-    float_dtype:DType,D:Int,Q:Int,//,
+    float_dtype:DType,D:Int,Q:Int,int_dtype:DType,//,
+    float_directions:InlineArray[Vector[float_dtype,D],Q],
+    int_directions:InlineArray[Vector[int_dtype,D],Q],
     DDF_shift:Bool = False]
     (
         f_vec:Vector[float_dtype,Q],
-        float_directions:InlineArray[Vector[float_dtype,D],Q],
         weights:Vector[float_dtype,Q],
         index:InlineArray[Int,3],
-        pull_indices:InlineArray[InlineArray[Int,3],Q]) 
+        grid_shape:InlineArray[Int,3],
+    ) 
     -> Tuple[Scalar[float_dtype],Vector[float_dtype,D]]:
 
     var velocity = Vector[float_dtype,D](fill = 0.)
@@ -23,15 +26,18 @@ def get_density_and_velocity_for_eq_BC[
             rest_f = weights[q]
             
         is_oob = False
+        comptime pull_direction = -int_directions[q]
         comptime for i in range(3):
-            # So if any of the indices wraps is_oob is always i.e out of bounds
-            is_oob = ((abs(pull_indices[q][i] - index[i]) > 1) or is_oob) 
+            comptime if i < D:  
+                comptime pull_i = Int(pull_direction[i])
+                pull_idx = index[i] + pull_i  
+                is_oob = (( (pull_idx < 0) or (pull_idx >= grid_shape[i]))  or is_oob) 
 
         # We set unknown fs (i.e from out of bounds/wrapped around fs) to rest value
         fq = rest_f if is_oob else f_vec[q]
         rho += fq
         velocity += fq*float_directions[q]
-
+        
     comptime if DDF_shift:
         rho += 1
     velocity /= rho
