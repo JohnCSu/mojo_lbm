@@ -155,8 +155,8 @@ def add_circle[
     '''
     Alias for Spere for 2D
     '''
-    comptime assert float_dtype == grid.latticeModel.float_dtype
-    comptime assert grid.latticeModel.D == 2,'Circle only valid for 2D'
+    comptime assert float_dtype == grid.lattice_model.float_dtype
+    comptime assert grid.lattice_model.D == 2,'Circle only valid for 2D'
     return add_sphere[grid](flags,center,radius)
 
 
