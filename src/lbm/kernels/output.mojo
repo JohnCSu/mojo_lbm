@@ -267,7 +267,7 @@ def calculate_drag_around_object[
             # Gather Neighboring Flags in PUSH direction not Pull
             comptime for q in range(Q):
                 comptime direction = lattice_model.directions[q]
-                push_indices[q] = get_adjacent_idx[D,1](grid_index,grid_shape,direction) # push Scheme as
+                push_indices[q] = get_adjacent_idx[1](grid_index,grid_shape,direction) # push Scheme as
                 push_flags[q] = flags.load(coord[DType.uint32]((push_indices[q][0],push_indices[q][1],push_indices[q][2])))[0]
                 
             # Compute Forces
