@@ -93,10 +93,9 @@ def initialize_f_from_func[
                 velocity*= unitSystem.value().U.C_phys_to_lat() if unitSystem else 1.
                 
                 index:InlineArray[Int,3] = [i,j,k]
-                
                 u_dot_u = velocity.dot(velocity)
                 
-                comptime assert D == 2,'adding neq only works for 2D for now'
+                # comptime assert D == 2,'adding neq only works for 2D for now'
 
                 comptime for q in range(Q):
                     f_i = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_directions[q])
