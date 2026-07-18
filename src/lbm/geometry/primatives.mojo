@@ -1,3 +1,10 @@
+"""Provides geometry primitives for marking solid nodes on the flag field.
+
+The functions here embed simple shapes (spheres, circles, boxes) into an LBM
+domain by writing `Flags.SOLID` into the flag tile tensor for every node
+inside the shape, and `get_sphere_boundary_indices` collects the fluid nodes
+adjacent to a sphere for use by force computations.
+"""
 from src.lbm import LBM_Grid,LatticeModel
 from src.lbm.constants import Flags
 from std.gpu.host import DeviceContext
@@ -19,21 +26,51 @@ def get_sphere_boundary_indices[
     //,
     grid:LBM_Grid[latticeModel,nx,ny,nz,tile_size]
     ]
-    (   
+    (
         flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
         center:List[Scalar[float_dtype]],
         radius:Scalar[float_dtype],
         ) raises -> List[Scalar[int_dtype]]:
-    '''
-    Returns a list of the id of the indices based on the tile size and dim and assume Col Major!
-    '''
+    """Marks a sphere solid and returns the linear indices of adjacent fluid nodes.
+
+    Writes `Flags.SOLID` into `flags` for every node inside the sphere, then
+    collects the linear memory indices of every fluid node whose
+    neighborhood touches the solid. Assumes a column-major flag layout for
+    the linear-index computation.
+
+    Parameters:
+        flag_origin: The origin of the `flags` tile tensor.
+        FlagLayoutType: The compile-time layout of `flags`.
+        float_dtype: The `DType` of the sphere coordinates.
+        int_dtype: The `DType` of the returned linear indices.
+        nx: The number of lattice nodes along `x`.
+        ny: The number of lattice nodes along `y`.
+        nz: The number of lattice nodes along `z`.
+        D: The spatial dimension of the grid.
+        Q: The number of discrete velocities per node.
+        tile_size: The tile size of the grid.
+        latticeModel: The compile-time lattice model.
+        grid: The compile-time `LBM_Grid` describing the domain.
+
+    Args:
+        flags: The `uint8` tile tensor labeling each node.
+        center: The physical `(x, y, z)` coordinates of the sphere center.
+        radius: The physical radius of the sphere.
+
+    Returns:
+        A list of linear memory indices of the fluid nodes adjacent to the
+        sphere.
+
+    Raises:
+        Error: If `center` does not have exactly three elements.
+    """
     # comptime (nx,ny,nz) = (grid.nx,grid.ny,grid.nz)
-    
+
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
     # b:Tuple[Int,Int,Int] = (0,0,0)
     var bounding_box:List[List[Int]] = []
-    
+
     for i in range(3):
         if i < D:
             a_min,a_max = center[i] - radius, center[i] + radius
@@ -56,7 +93,7 @@ def get_sphere_boundary_indices[
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
                 coord_vec = index_to_coord((nx,ny,nz),grid.dx,grid.origin)
                 if inside_boundary(coord_vec,center_vec,radius): # If inside boundary set to 1
-                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID) 
+                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
                 else: # If Outside add to possible candidate
                     candidate_indices.add((nx,ny,nz))
 
@@ -86,11 +123,24 @@ def index_to_coord[float_dtype:DType]
         grid_spacing:Scalar[float_dtype],
         origin:InlineArray[Scalar[float_dtype],3]
     ) -> Vector[float_dtype,3]:
+    """Converts a lattice index triplet to physical coordinates.
+
+    Parameters:
+        float_dtype: The `DType` of the returned vector.
+
+    Args:
+        grid_index: The `(i, j, k)` lattice indices.
+        grid_spacing: The lattice spacing `dx`.
+        origin: The physical coordinate of the `(0, 0, 0)` node.
+
+    Returns:
+        The physical `(x, y, z)` coordinates of the node.
+    """
     out = Vector[float_dtype,3](fill =0)
     comptime for i in range(3):
         out[i] = Scalar[float_dtype](grid_index[i])*grid_spacing + origin[i]
     return out
-    
+
 
 
 def add_sphere[
@@ -103,16 +153,29 @@ def add_sphere[
     //,
     grid:LBM_Grid[latticeModel,nx,ny,nz,_]]
     (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[float_dtype]],radius:Scalar[float_dtype]) raises:
-    '''
-    Add a sphere into the LBM domain equivalent to a circle in 2D, Sphere/Ball in 3D
-    '''
+    """Marks a sphere (circle in 2D, ball in 3D) solid in the flag field.
+
+    Writes `Flags.SOLID` into `flags` for every node whose physical coordinate
+    lies within `radius` of `center`.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+
+    Args:
+        flags: The `uint8` tile tensor labeling each node.
+        center: The physical `(x, y, z)` coordinates of the sphere center.
+        radius: The physical radius of the sphere.
+
+    Raises:
+        Error: If `center` does not have exactly three elements.
+    """
     comptime assert FlagLayoutType.rank == 3
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
     # b:Tuple[Int,Int,Int] = (0,0,0)
     var bounding_box:List[List[Int]] = []
-    
-    
+
+
     for i in range(3):
         if i < D:
             a_min,a_max = center[i] - radius, center[i] + radius
@@ -125,7 +188,7 @@ def add_sphere[
     # bounding_box.append([0,nx])
     # bounding_box.append([0,ny])
     # bounding_box.append([0,nz])
-    
+
 
     comptime vec3 = Vector[float_dtype,3]
     comptime float = Scalar[float_dtype]
@@ -140,8 +203,8 @@ def add_sphere[
                 coord_vec[1] = dy + grid.origin[1]
                 coord_vec[2] = dz + grid.origin[2]
                 if ((coord_vec - center_vec)**2).sum() <= radius**2:
-                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID) 
-                 
+                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
+
 def add_circle[
     float_dtype:DType,
     flag_origin:Origin[mut=True],
@@ -151,10 +214,17 @@ def add_circle[
     grid:LBM_Grid[latticeModel,...],
     ]
     (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[float_dtype]],radius:Scalar[float_dtype]) raises:
-    
-    '''
-    Alias for Spere for 2D
-    '''
+
+    """Alias of `add_sphere` constrained to 2D grids.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+
+    Args:
+        flags: The `uint8` tile tensor labeling each node.
+        center: The physical `(x, y, z)` coordinates of the circle center.
+        radius: The physical radius of the circle.
+    """
     comptime assert float_dtype == grid.lattice_model.float_dtype
     comptime assert grid.lattice_model.D == 2,'Circle only valid for 2D'
     return add_sphere[grid](flags,center,radius)
@@ -172,6 +242,23 @@ def add_box[
     //,
     grid:LBM_Grid[latticeModel,nx,ny,nz,tile_size]]
     (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[float_dtype]],box_radius:List[Scalar[float_dtype]]) raises:
+    """Marks an axis-aligned box solid in the flag field.
+
+    Writes `Flags.SOLID` into `flags` for every node whose physical coordinate
+    lies within `box_radius` of `center` along each axis.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+
+    Args:
+        flags: The `uint8` tile tensor labeling each node.
+        center: The physical `(x, y, z)` coordinates of the box center.
+        box_radius: The half-extents of the box along each axis.
+
+    Raises:
+        Error: If `center` does not have exactly three elements.
+        Error: If `box_radius` does not have exactly three elements.
+    """
     comptime assert FlagLayoutType.rank == 3
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
@@ -180,7 +267,7 @@ def add_box[
         raise Error('lengths must be a list of 3 floats got a len of {} instead'.format(len(box_radius)))
     # b:Tuple[Int,Int,Int] = (0,0,0)
     var bounding_box:List[List[Int]] = []
-    
+
 
     for i in range(3):
         if i < D:
@@ -208,10 +295,26 @@ def add_box[
                 coord_vec[1] = dy + grid.origin[1]
                 coord_vec[2] = dz + grid.origin[2]
                 if check_box_axis(coord_vec,center_vec,box_radius_vec):
-                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID) 
+                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
 
 
 def check_box_axis[float_dtype:DType,//](point:Vector[float_dtype,3],center:Vector[float_dtype,3],box_radius:Vector[float_dtype,3]) -> Bool:
+    """Returns `True` when `point` lies inside an axis-aligned box.
+
+    The box is centered at `center` with half-extents `box_radius` along each
+    axis.
+
+    Parameters:
+        float_dtype: The `DType` of the vectors (inferred).
+
+    Args:
+        point: The point to test.
+        center: The box center.
+        box_radius: The half-extents of the box along each axis.
+
+    Returns:
+        `True` when `point` is inside the box, `False` otherwise.
+    """
     if (center-box_radius <= point).all_true() and (point <= (center + box_radius)).all_true():
         return True
     else:

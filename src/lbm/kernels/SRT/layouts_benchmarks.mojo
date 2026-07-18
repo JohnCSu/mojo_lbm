@@ -1,3 +1,9 @@
+"""Provides the tiled-layout SRT LBM benchmark for 3D grids.
+
+`benchmark_func_3D` builds column-major tile and tiler layouts for the flag,
+`f`, and `bc` fields and delegates to `run_benchmark` with row-major density
+and velocity outputs.
+"""
 from .benchmark import run_benchmark
 from layout import TileTensor
 from layout.tile_layout import (row_major,col_major,TensorLayout,blocked_product,Layout)
@@ -26,6 +32,23 @@ def benchmark_func_3D[
     reorder_threads:Bool = True
     ]
     (mut b:Bencher) capturing raises where tile_size >= 1:
+    """Benchmarks one SRT LBM time step on a 3D tiled layout.
+
+    Builds column-major `(tile_size, tile_size, tile_size[, Q|D+1])` tiles
+    composed with column-major tilers via `blocked_product`, then delegates
+    to `run_benchmark` with row-major density and velocity outputs.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+        U: The lid velocity in lattice units.
+        tau: The SRT relaxation time.
+        config: The `LBM_Config` selecting runtime toggles (defaults to a
+            fresh `LBM_Config()`).
+        reorder_threads: Reserved; currently unused (defaults to `True`).
+
+    Args:
+        b: The `Bencher` used to time the kernel.
+    """
     comptime assert tile_size > 1 and D == 3
     # This can be stored in LBM Grid
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
@@ -35,7 +58,7 @@ def benchmark_func_3D[
     comptime flag_tile = col_major[tile_size,tile_size,tile_size]()
     comptime f_tile = col_major[tile_size,tile_size,tile_size,Q]()
     comptime bc_tile = col_major[tile_size,tile_size,tile_size,D+1]()
-        
+
     comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
     comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
     comptime bc_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()

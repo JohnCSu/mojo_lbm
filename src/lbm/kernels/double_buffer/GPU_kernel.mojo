@@ -1,3 +1,10 @@
+"""Defines the double-buffer SRT LBM GPU kernel.
+
+The kernel reads pre-collision populations from `f_in` and writes
+post-collision populations to `f_out`, so the caller swaps the two buffers
+between time steps. A single kernel serves the D2Q9, D3Q19, and D3Q27
+lattice models through compile-time parameterization.
+"""
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
@@ -39,15 +46,35 @@ def double_buffer_kernel[
     tau:Scalar[grid.float_dtype],
     )
     where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+    """Runs one SRT LBM time step from `f_in` into `f_out`.
+
+    Performs pull-scheme streaming with mid-grid bounce-back at solid nodes,
+    optional equilibrium boundary-condition handling, density and velocity
+    extraction, optional Smagorinsky LES relaxation-time correction, and the
+    BGK collision. The result is written to `f_out`; the caller swaps
+    `f_in` and `f_out` between calls.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+        config: The `LBM_Config` selecting DDF shift, Float16C, LES, and the
+            valid boundary-condition flags.
+
+    Args:
+        f_out: The output distribution function tile tensor (rank 4).
+        f_in: The input distribution function tile tensor (rank 4).
+        bc: The boundary-condition tile tensor (rank 4).
+        flags: The `uint8` tile tensor labeling each node (rank 3).
+        tau: The base SRT relaxation time.
+    """
     '''
-    Base LBM to also handle 3D and non_square Grids. Key assumption is that block dim == tile-size 
+    Base LBM to also handle 3D and non_square Grids. Key assumption is that block dim == tile-size
     i.e. grid can be non-square but block is squre (same block dim in each x,y,z).
-    ''' 
+    '''
     # Convience Variable Names and constants
     comptime nx = grid.nx
     comptime ny = grid.ny
     comptime nz = grid.nz
-    comptime tile_size = grid.tile_size 
+    comptime tile_size = grid.tile_size
     comptime D = grid.D
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
@@ -69,8 +96,8 @@ def double_buffer_kernel[
     x = block_idx.x*block_dim.x + thread_idx.x
     y = block_idx.y*block_dim.y + thread_idx.y
     z = block_idx.z*block_dim.z + thread_idx.z
-    
-    var index:InlineArray[Int,3] = [x,y,z]    
+
+    var index:InlineArray[Int,3] = [x,y,z]
     var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
     # var pull_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
     # Main Compute
@@ -85,31 +112,31 @@ def double_buffer_kernel[
             comptime direction = directions[q]
             pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
             f_new[q] =  load_f_from_xyzq(f_in,pull_index,q)
-        
+
 
         # Function this
         # Bounce Back AND PULL FLAGS
         comptime for q in range(Q):
             comptime direction = directions[q]
             pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
-            comptime if q > 0: # we pulled the flag[0] earlier    
+            comptime if q > 0: # we pulled the flag[0] earlier
                 pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
-            
+
             if pull_flags[q] == SOLID_NODE:
-                
-                opp_q = Int(opposite_index[q]) 
+
+                opp_q = Int(opposite_index[q])
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
                 rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
-                comptime float_direction = (float_directions[q]) 
+                comptime float_direction = (float_directions[q])
                 f_new[q] = load_f_from_xyzq(f_in,index,opp_q) + 2.*3.*weights[q]*rho*(float_direction.dot(velocity))
-        
+
 
         # Function This
         # Equilibrium BC
         comptime if Flags.EQUILIBRIUM in config.INCLUDED_BCs:
             current_flag = pull_flags[0] # comptime assert gurantees this is the flag for the current node
-            if current_flag  == Flags.EQUILIBRIUM: 
+            if current_flag  == Flags.EQUILIBRIUM:
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(coord[DType.uint32]((x,y,z,ii)))[0]
                 rho = bc.load(coord[DType.uint32]((x,y,z,D)))[0]
@@ -117,8 +144,8 @@ def double_buffer_kernel[
                 u_local = u_l if isnan(velocity[0]) else velocity # nan means the vel is free
                 rho_local = rho_local if isnan(rho) else rho # Nan means density is free
                 f_new = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_new,rho_local,u_local)
-            
-        
+
+
         # Get Velocity and Density
         rho = get_density[config.DDF_shift](f_new)
         velocity = get_velocity[float_directions](f_new,rho)
@@ -134,7 +161,7 @@ def double_buffer_kernel[
                 comptime Cs = 0.1
                 tau_eddy = get_Smagorinsky_LES_tau[stress_indices](strain_rate,Cs)
                 tau_local += tau_eddy
-            
+
         # Collision Term
         u_dot_u = velocity.dot(velocity)
         inv_tau = 1./tau_local # This is faster by 0.4 ms on the 256^3 benchmark
@@ -142,4 +169,3 @@ def double_buffer_kernel[
         # Store f back to Global
         comptime for q in range(Q):
             store_f[config.use_float16c,non_temporal](f_out,(f_new[q] -  inv_tau*(f_new[q]- f_eq[q]) ),index,q)
-

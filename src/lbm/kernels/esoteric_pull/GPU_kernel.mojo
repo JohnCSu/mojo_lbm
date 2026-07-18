@@ -1,3 +1,10 @@
+"""Defines the esoteric-pull LBM GPU kernel (incomplete).
+
+The esoteric-pull streaming scheme reads and writes populations in-place to
+halve memory traffic compared with the double-buffer variant. The
+implementation here is a work in progress and only contains the start of the
+streaming step.
+"""
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
@@ -42,10 +49,31 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
                 tau:Scalar[float_dtype],
                 )
                 where tile_size >= 1 and Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+    """Runs one esoteric-pull SRT LBM time step in place (incomplete).
+
+    Intended to perform the pull-scheme streaming and collision in place by
+    pulling from the positive half of the lattice on even time steps and the
+    negative half on odd time steps, halving memory traffic versus the
+    double-buffer kernel. The implementation is a work in progress and only
+    contains the start of the streaming step.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+        config: The `LBM_Config` selecting DDF shift, Float16C, LES, and the
+            valid boundary-condition flags.
+        is_even_time_step: When `True`, pull from the positive half of the
+            lattice; otherwise pull from the negative half.
+
+    Args:
+        f: The distribution function tile tensor (rank 4), updated in place.
+        bc: The boundary-condition tile tensor (rank 4).
+        flags: The `uint8` tile tensor labeling each node (rank 3).
+        tau: The base SRT relaxation time.
+    """
     '''
-    Base LBM to also handle 3D and non_square Grids. Key assumption is that block dim == tile-size 
+    Base LBM to also handle 3D and non_square Grids. Key assumption is that block dim == tile-size
     i.e. grid can be non-square but block is squre (same block dim in each x,y,z).
-    ''' 
+    '''
     # Convience Variable Names and constants
     comptime assert f.flat_rank == 8
     comptime weights = lattice_model.weights
@@ -62,8 +90,8 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
     x = block_idx.x*block_dim.x + thread_idx.x
     y = block_idx.y*block_dim.y + thread_idx.y
     z = block_idx.z*block_dim.z + thread_idx.z
-    
-    var index:InlineArray[Int,3] = [x,y,z]    
+
+    var index:InlineArray[Int,3] = [x,y,z]
     var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
     # var pull_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
     pull_flags[0] = flags.load(coord[DType.uint32]((x,y,z)))[0]
@@ -73,4 +101,4 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
         var velocity = Vector[float_dtype,D](uninitialized = True)
         var rho:Scalar[float_dtype] = 0
 
-        # We pull from the positive 
+        # We pull from the positive

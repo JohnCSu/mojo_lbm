@@ -1,3 +1,10 @@
+"""Provides post-processing GPU kernels for the LBM solver.
+
+Contains the density/velocity extraction kernel, the Q-criterion kernel, and
+the drag-force kernel around an immersed object. Each kernel is parameterized
+by the compile-time `LBM_Grid` and `LBM_Config` and runs on the GPU using
+natural `(x, y, z, q)` indexing.
+"""
 from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
@@ -13,7 +20,7 @@ from src.lbm.kernels.utils.finite_difference import get_velocity_gradient
 from src.lbm.kernels.utils.shared_tile import get_global_index_for_shared_memory,sync_load_rank4_tensor_to_shared_with_halo
 from src.lbm.kernels.utils.equilibrium import get_f_eq_vec,get_f_noneq_vec
 
-def calculate_rho_and_velocity[ 
+def calculate_rho_and_velocity[
     float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,tile_size:Int,
@@ -23,7 +30,7 @@ def calculate_rho_and_velocity[
     Flaglayout:Layout[...],
     RhoLayout:Layout[...],
     VelocityLayout:Layout[...],
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
+    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
     config:LBM_Config = LBM_Config(),
     *,
     f_dtype:DType = float_dtype if config.f_dtype is None else config.f_dtype.value()
@@ -38,15 +45,30 @@ def calculate_rho_and_velocity[
     )
     where velocity.rank == 4 and density.rank == 3 and Flayout.rank == 4
         and bc.rank == 4:
-                                
+
     # Run on GPU
-    '''
-    Compute the Velocity and Density from f dist. Converts to layout tensor to allow layout independent assignment. This should be run on the gpu
-    '''
+    """Computes the density and velocity fields from the distribution function.
+
+    For each non-solid node, loads `f`, computes the density and velocity
+    from the moments, and stores them into the `density` and `velocity`
+    tensors. For solid nodes, copies the boundary-condition values into the
+    output tensors instead.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+        config: The `LBM_Config` used to select storage options.
+
+    Args:
+        density: The output density tile tensor (rank 3).
+        velocity: The output velocity tile tensor (rank 4).
+        f: The input distribution function tile tensor (rank 4).
+        bc: The boundary-condition tile tensor (rank 4).
+        flags: The `uint8` tile tensor labeling each node (rank 3).
+    """
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     comptime assert velocity.rank == velocity.flat_rank and density.rank == density.flat_rank, 'Velocity and Density Tensors should be non-nested and row-major or col-major'
-    
-    comptime D_is_last_dim = (VelocityLayout.static_shape[0] == nx and VelocityLayout.static_shape[1] == ny and VelocityLayout.static_shape[2] == nz and VelocityLayout.static_shape[3] == (D)) 
+
+    comptime D_is_last_dim = (VelocityLayout.static_shape[0] == nx and VelocityLayout.static_shape[1] == ny and VelocityLayout.static_shape[2] == nz and VelocityLayout.static_shape[3] == (D))
 
     var x = block_dim.x * block_idx.x + thread_idx.x
     var y = block_dim.y * block_idx.y + thread_idx.y
@@ -56,7 +78,7 @@ def calculate_rho_and_velocity[
     coord_index = coord[DType.int32]((index[0],index[1],index[2]))
 
     var flag = flags.load(coord_index)[0]
-    
+
     var u = Vector[float_dtype,D](fill=0)
     if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]: # Basic Guard
         if flag != SOLID_NODE:
@@ -69,7 +91,7 @@ def calculate_rho_and_velocity[
             comptime for ii in range(D):
                 u[ii] = bc.load(coord[DType.int32]((index[0],index[1],index[2],ii)))[0]
             rho = bc.load(coord[DType.int32]((index[0],index[1],index[2],D)))[0]
-            
+
         density.store(coord_index,rho)
         comptime for d in range(D):
             comptime if D_is_last_dim:
@@ -87,7 +109,7 @@ def calculate_Q_criterion[
     FlagLayout:Layout[...] ,
     VelocityLayout:Layout[...],
     QLayout:Layout[...],
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
+    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
     config:LBM_Config = LBM_Config(),
     *,
     f_dtype:DType = float_dtype if config.f_dtype is None else config.f_dtype.value()
@@ -102,15 +124,34 @@ def calculate_Q_criterion[
     )
     where velocity.rank == 4 and f.rank == 4 and Q_tensor.rank == 3 and flags.rank == 3:
 
+    """Computes the Q-criterion field for the current state.
+
+    Loads the velocity field into shared memory with a halo, computes the
+    vorticity magnitude squared via finite differences, computes the
+    strain-rate tensor from the non-equilibrium populations, and stores
+    $$Q = 0.25 \\|\\omega\\|^2 - 0.5 \\|S\\|_F^2$$.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+        config: The `LBM_Config` used to select storage options.
+
+    Args:
+        Q_tensor: The output Q-criterion tile tensor (rank 3).
+        f: The input distribution function tile tensor (rank 4).
+        flags: The `uint8` tile tensor labeling each node (rank 3).
+        velocity: The input velocity tile tensor (rank 4), indexed as
+            `[x, y, z, D]`.
+        tau: The relaxation time used for the strain-rate reconstruction.
+    """
     comptime SHARED_x = tile_size + 2
-    comptime SHARED_y = tile_size + 2 if D >= 2 else 1 
+    comptime SHARED_y = tile_size + 2 if D >= 2 else 1
     comptime SHARED_z = tile_size + 2 if D == 3 else 1
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     comptime D_is_last_dim = (VelocityLayout.static_shape[0] == nx and VelocityLayout.static_shape[1] == ny and VelocityLayout.static_shape[2] == nz and VelocityLayout.static_shape[3] == (D))
-    
+
     comptime assert D_is_last_dim, 'Velocity Tensor must be indexed as [x,y,z,D]'
     comptime assert D == 2 or D == 3,'Calculating Q criterion can only be 2D or 3D'
-    
+
     # 0 to 511
     var tid = thread_idx.x + thread_idx.y * block_dim.x + thread_idx.z * block_dim.x * block_dim.y
     var block_index:InlineArray[Int,3] = [block_idx.x,block_idx.y,block_idx.z]
@@ -118,7 +159,7 @@ def calculate_Q_criterion[
     var shared_u = stack_allocation[float_dtype,AddressSpace.SHARED](col_major[SHARED_x,SHARED_y,SHARED_z,D]())
     sync_load_rank4_tensor_to_shared_with_halo[tile_size,D](shared_u,velocity,tid,block_index,tiler_shape)
     barrier()
-    
+
     var x = block_dim.x * block_idx.x + thread_idx.x
     var y = block_dim.y * block_idx.y + thread_idx.y
     var z = block_dim.z * block_idx.z + thread_idx.z
@@ -205,19 +246,34 @@ def calculate_Q_criterion[
         #     print(u_vec,u)
         #     print('Sxx: ',S_xx,S_xx_2)
         #     print('Syy: ',S_xy,S_xy_2)
-        #     print('Sxy: ',S_yy,S_yy_2)
+        #     print('Sxy: ',S_yy,S_xy_2)
 
         #     ss_n = S_xx*S_xx + S_yy*S_yy + 2*S_xy*S_xy
         #     ss_n_2 = S_xx_2*S_xx_2 + S_yy_2*S_yy_2 + 2*S_xy_2*S_xy_2
         #     print('|S|: ',ss_n,ss_n_2)
         #     print(' Q : ',0.25*vort_norm_sq - 0.5*ss_n,0.25*vort_norm_sq - 0.5*ss_n_2 )
-        
 
 
 def rowMajor1D[int_dtype:DType]() -> type_of( row_major(coord[int_dtype]((1,))) ):
+    """Returns a 1D row-major `Int`-dtype layout instance.
+
+    Parameters:
+        int_dtype: The `DType` used for the layout coordinates.
+
+    Returns:
+        A 1D row-major layout instance.
+    """
     return row_major(coord[int_dtype]((1,)))
 
 def rowMajor2D[int_dtype:DType]() -> type_of(row_major(coord[int_dtype]((1,2))) ):
+    """Returns a 2D row-major `Int`-dtype layout instance.
+
+    Parameters:
+        int_dtype: The `DType` used for the layout coordinates.
+
+    Returns:
+        A 2D row-major layout instance.
+    """
     return row_major(coord[int_dtype]((1,2)))
 
 
@@ -230,7 +286,7 @@ def calculate_drag_around_object[
     //,
     FLayout:Layout[...] ,
     FlagLayout:Layout[...],
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
+    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
     config:LBM_Config = LBM_Config(),
     *,
     f_dtype:DType = float_dtype if config.f_dtype is None else config.f_dtype.value()
@@ -241,12 +297,32 @@ def calculate_drag_around_object[
         force_tensor:TileTensor[float_dtype,type_of(rowMajor2D[int_dtype]()),MutAnyOrigin],
     ):
 
+    """Computes the drag force on the fluid nodes adjacent to an immersed object.
+
+    Iterates over the linear fluid boundary indices, gathers the push-scheme
+    neighbor flags, and accumulates the momentum-exchange contribution
+
+    $$F = \\sum_q 2 f_{link} e_q$$
+
+    for every direction `q` whose push neighbor is solid. The result is
+    written into `force_tensor[tid, i]` for each dimension `i`.
+
+    Parameters:
+        grid: The compile-time `LBM_Grid` describing the domain.
+        config: The `LBM_Config` used to select storage options.
+
+    Args:
+        f: The input distribution function tile tensor (rank 4).
+        flags: The `uint8` tile tensor labeling each node (rank 3).
+        fluid_boundary: The 1D tile tensor of linear fluid boundary indices.
+        force_tensor: The 2D output tile tensor of per-node force vectors.
+    """
     # Should be a 1D based kernel loop
     tid = block_dim.x * block_idx.x + thread_idx.x
     if tid < fluid_boundary.layout.size():
         crd = FlagLayout.idx2crd[out_dtype = int_dtype](Int(fluid_boundary[tid])).flatten()
         grid_index = InlineArray[Int,3](uninitialized = True)
-        
+
         comptime if FlagLayout.rank*2 == FlagLayout.flat_rank:
             comptime for i in range(3):
                 loc_x = Int(crd[2*i].value()) # local
@@ -256,20 +332,20 @@ def calculate_drag_around_object[
             comptime assert FlagLayout.rank == FlagLayout.flat_rank
             comptime for i in range(3):
                 grid_index[i] = Int(crd[i].value())
-        
+
         comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
         comptime opposite_index = lattice_model.opposite_indices
 
         if grid_index[0] < grid_shape[0] and grid_index[1] < grid_shape[1] and grid_index[2] < grid_shape[2]:
             var push_flags = InlineArray[UInt8,Q](uninitialized = True)
             var push_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
-            
+
             # Gather Neighboring Flags in PUSH direction not Pull
             comptime for q in range(Q):
                 comptime direction = lattice_model.directions[q]
                 push_indices[q] = get_adjacent_idx[1](grid_index,grid_shape,direction) # push Scheme as
                 push_flags[q] = flags.load(coord[DType.uint32]((push_indices[q][0],push_indices[q][1],push_indices[q][2])))[0]
-                
+
             # Compute Forces
             var force_vec = Vector[float_dtype,D](fill = 0.)
             comptime for q in range(Q):
@@ -287,7 +363,3 @@ def calculate_drag_around_object[
             # push to global
             comptime for i in range(D): # Overwrite
                 force_tensor[tid,i] = force_vec[i]
-
-
-    
-

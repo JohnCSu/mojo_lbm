@@ -1,3 +1,9 @@
+"""Provides distribution-function load and store helpers for the LBM kernels.
+
+The `load_f` and `store_f` functions wrap `TileTensor` access with optional
+Float16C conversion and non-temporal hints, centralizing the `(x, y, z, q)`
+indexing convention used throughout the solver.
+"""
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
@@ -18,6 +24,27 @@ def store_f[
         index:InlineArray[Int,3],
         q:Int
         ):
+        """Stores a single distribution value at `(x, y, z, q)`.
+
+        Converts `val` to Float16C when `use_float16c` is `True`, otherwise
+        stores it as `f_dtype`. The store uses the `(x, y, z, q)` indexing
+        convention required by all LBM layouts.
+
+        Parameters:
+            f_dtype: The storage `DType` of `f`.
+            FlayoutType: The compile-time layout of `f`; must be rank 4.
+            float_dtype: The `DType` of `val`.
+            use_float16c: When `True`, encode `val` as Float16C before
+                storing (defaults to `False`).
+            non_temporal: When `True`, issue a non-temporal store (defaults
+                to `False`).
+
+        Args:
+            f: The distribution function tile tensor.
+            val: The scalar value to store.
+            index: The `(x, y, z)` lattice index.
+            q: The discrete velocity index.
+        """
         comptime assert FlayoutType.rank == 4, 'For all LBM grids we use i,j,k,q indexing'
         comptime if use_float16c:
             comptime assert f_dtype == DType.uint16
@@ -43,6 +70,28 @@ def load_f[
         f:TileTensor[f_dtype,FlayoutType,ImmutAnyOrigin],
         index:InlineArray[Int,3],q:Int
         ) -> Scalar[float_dtype]:
+        """Loads a single distribution value from `(x, y, z, q)`.
+
+        Decodes Float16C storage to `float_dtype` when `use_float16c` is
+        `True`, otherwise casts the stored value to `float_dtype`.
+
+        Parameters:
+            f_dtype: The storage `DType` of `f`.
+            FlayoutType: The compile-time layout of `f`; must be rank 4.
+            float_dtype: The `DType` of the returned scalar.
+            use_float16c: When `True`, decode the loaded value from
+                Float16C (defaults to `False`).
+            non_temporal: When `True`, issue a non-temporal load (defaults
+                to `False`).
+
+        Args:
+            f: The distribution function tile tensor.
+            index: The `(x, y, z)` lattice index.
+            q: The discrete velocity index.
+
+        Returns:
+            The loaded distribution value as a `Scalar[float_dtype]`.
+        """
         comptime to_compute_float = Scalar[float_dtype]
         comptime assert FlayoutType.rank == 4, 'For all LBM grids we use i,j,k,q indexing'
         comptime if use_float16c:
