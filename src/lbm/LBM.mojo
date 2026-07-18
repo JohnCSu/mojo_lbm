@@ -6,14 +6,24 @@ from std.collections import Set,Dict
 from src.utils import Vector,ContextTileTensor
 from std.utils.numerics import nan,isnan
 from .units import UnitSystem
-from .grid import Grid
+from .grid import GridLike
 
-@deprecated(use=Grid)
-struct LBM_Grid[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-                latticeModel:LatticeModel[D,Q,float_dtype,int_dtype],
-                nx:Int,ny:Int,nz:Int,
-                tile_size:Int,
-                ](ImplicitlyCopyable): 
+struct LBM_Grid[float_dtype_:DType,int_dtype_:DType,D_:Int,Q_:Int,//,
+                lattice_model_:LatticeModel[D_,Q_,float_dtype_,int_dtype_],
+                nx_:Int,ny_:Int,nz_:Int,
+                tile_size_:Int,
+                ](ImplicitlyCopyable & GridLike): 
+    comptime float_dtype:DType = Self.float_dtype_
+    comptime int_dtype:DType = Self.int_dtype_
+    comptime D:Int = Self.D_
+    comptime Q:Int = Self.Q_
+    comptime nx:Int = Self.nx_
+    comptime ny:Int = Self.ny_
+    comptime nz:Int = Self.nz_
+    comptime tile_size:Int = Self.tile_size_
+    comptime lattice_model = Self.lattice_model_
+
+    # comptime float_dtype:DType = Self.float_dtype
     comptime Float_Scalar = Scalar[Self.float_dtype]
     comptime __shapes = set_block_shape_and_grid_dim[Self.nx,Self.ny,Self.nz,Self.D,Self.tile_size]()
     comptime BLOCK_SHAPE =  Self.__shapes[0]
