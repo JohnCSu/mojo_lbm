@@ -61,7 +61,7 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     
     ctx.synchronize()
     #Compile Functions
-    comptime LBM_kernel_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,config]
+    comptime LBM_kernel_ = LBM_kernel[f_layout,bc_layout,flag_layout,grid,config]
     LBM_func = ctx.compile_function[LBM_kernel_,LBM_kernel_]()
     ctx.synchronize()
     
