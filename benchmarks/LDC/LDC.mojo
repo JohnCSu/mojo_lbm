@@ -16,6 +16,8 @@ from src.lbm.geometry.primatives import add_sphere,add_box
 from src.visualization import pyvista_viewer_import,grid_viewer
 
 from std.collections import Set
+
+
 comptime float_dtype = DType.float32
 comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
