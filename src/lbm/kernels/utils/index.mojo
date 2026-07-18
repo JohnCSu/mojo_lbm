@@ -23,7 +23,7 @@ def get_indices_and_flags
     var neighbor_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
     comptime for q in range(Q):
         comptime direction = directions[q]
-        neighbor_indices[q] = get_adjacent_idx[D,shift](index,grid_shape,direction) # Pulling Scheme
+        neighbor_indices[q] = get_adjacent_idx[shift = shift](index,grid_shape,direction) # Pulling Scheme
         neighbor_flags[q] = flags.load(coord[DType.int32]((neighbor_indices[q][0],neighbor_indices[q][1],neighbor_indices[q][2])))[0]
     
     return neighbor_indices^,neighbor_flags^
