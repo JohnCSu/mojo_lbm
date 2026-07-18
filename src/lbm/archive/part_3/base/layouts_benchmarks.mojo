@@ -94,9 +94,9 @@ def benchmark_func_col_tile_row_tiler[
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = col_major[tile_size,tile_size,1]()
-    comptime f_tile = col_major[tile_size,tile_size,1,Q]()
-    comptime bc_tile = col_major[tile_size,tile_size,1,D+1]()
+    comptime flag_tile = col_major[tile_size,tile_size,tile_size]()
+    comptime f_tile = col_major[tile_size,tile_size,tile_size,Q]()
+    comptime bc_tile = col_major[tile_size,tile_size,tile_size,D+1]()
         
     comptime flag_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
     comptime f_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
@@ -132,9 +132,9 @@ def benchmark_func_row_tile_col_tiler[
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = row_major[tile_size,tile_size,1]()
-    comptime f_tile = row_major[tile_size,tile_size,1,Q]()
-    comptime bc_tile = row_major[tile_size,tile_size,1,D+1]()
+    comptime flag_tile = row_major[tile_size,tile_size,tile_size]()
+    comptime f_tile = row_major[tile_size,tile_size,tile_size,Q]()
+    comptime bc_tile = row_major[tile_size,tile_size,tile_size,D+1]()
         
     comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
     comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
@@ -170,9 +170,9 @@ def benchmark_func_row_tile_row_tiler[
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = row_major[tile_size,tile_size,1]()
-    comptime f_tile = row_major[tile_size,tile_size,1,Q]()
-    comptime bc_tile = row_major[tile_size,tile_size,1,D+1]()
+    comptime flag_tile = row_major[tile_size,tile_size,tile_size]()
+    comptime f_tile = row_major[tile_size,tile_size,tile_size,Q]()
+    comptime bc_tile = row_major[tile_size,tile_size,tile_size,D+1]()
         
     comptime flag_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
     comptime f_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
@@ -207,9 +207,10 @@ def benchmark_func_col_tile_col_tiler[
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = col_major[tile_size,tile_size,1]()
-    comptime f_tile = col_major[tile_size,tile_size,1,Q]()
-    comptime bc_tile = col_major[tile_size,tile_size,1,D+1]()
+    
+    comptime flag_tile = col_major[tile_size,tile_size,tile_size]()
+    comptime f_tile = col_major[tile_size,tile_size,tile_size,Q]()
+    comptime bc_tile = col_major[tile_size,tile_size,tile_size,D+1]()
         
     comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
     comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()

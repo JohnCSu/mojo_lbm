@@ -10,9 +10,8 @@ from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,set_exterior_walls,calculate_
 from src.lbm.lattice_models import get_D3Q19
 
 from src.lbm.archive.part_3.base import LBM_kernel
-
 from src.utils import Vector,ContextTileTensor
-from src.lbm.moments import copy_4D_to_rowMajor_layout
+
 comptime float_dtype = DType.float32
 comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
