@@ -1,15 +1,44 @@
 
-comptime fp32 = DType.float32
-comptime uint16 = DType.uint16
 from .constants import Flags,_FlagSet
 from std.collections import Set
 
-struct LBM_Config():
+
+comptime fp32 = DType.float32
+comptime uint16 = DType.uint16
+
+trait ConfigLike: 
+    '''
+    Not a binding trait until option for implicit parameterization or some way of
+    automatically treating parameters as trait comptime members
+    '''
+    # comptime DDF_shift:Bool
+    # comptime LES:Bool
+    # comptime KBC:Bool
+    # comptime use_float16c:Bool
+    # comptime f_dtype: Optional[DType]
+    # comptime INCLUDED_BCs: Set[UInt8]
+    # comptime second_moment:Bool
+    @staticmethod
+    @always_inline
+    def fp32_to_fp16c(val:Scalar[fp32]) -> Scalar[uint16]:
+        return Float16C.to_fp16c(val)
+
+    @staticmethod
+    @always_inline
+    def fp16c_to_fp32(val:UInt16) -> Scalar[fp32]: 
+        return Float16C.to_fp32(val)
+        
+    def set_f_dtype(self,float_dtype_for_math_ops:DType) -> DType:
+        ...
+        # return Self.f_dtype.value() if Self.f_dtype is not None else float_dtype
+    
+
+struct LBM_Config(ConfigLike):    
     var DDF_shift:Bool
     var LES:Bool
     var KBC:Bool
     var use_float16c:Bool
-    var f_dtype: Optional[DType]
+    var f_dtype:Optional[DType]
     var INCLUDED_BCs: Set[UInt8]
     var second_moment:Bool
 
@@ -20,17 +49,17 @@ struct LBM_Config():
         BCs:Set[UInt8] = {},
         DDF_shift:Bool = False,
         use_float16c:Bool = False,
-        f_dtype: Optional[DType] = None
+        f_dtype:Optional[DType] = None,
         ):
         self.DDF_shift = DDF_shift        
-        # self.use_float16c = use_float16c
         self.LES = LES
         self.KBC = False
-        self.use_float16c = use_float16c
-        self.f_dtype = DType.uint16 if use_float16c else f_dtype
-        
         self.second_moment = True if (LES) else False
 
+        self.use_float16c = use_float16c
+        self.f_dtype = DType.uint16 if use_float16c else f_dtype
+        if self.use_float16c and self.f_dtype is not None:
+            print('WARNING: Float16c set to True and f_dtype was also specified. Float16c overides the given dtype')
 
         # Boundary Condition Check
         if len(BCs) == 0:
@@ -44,7 +73,9 @@ struct LBM_Config():
     def implies_f_noneq(self) -> Bool:
         return self.LES
     
-    # def implies_
+    def set_f_dtype(self,float_dtype_for_math_ops:DType) -> DType:
+        return self.f_dtype.value() if self.f_dtype is not None else float_dtype_for_math_ops
+
 
 
     @always_inline
@@ -66,6 +97,8 @@ struct LBM_Config():
     def fp16c_to_fp32[dtype:DType](val:Scalar[dtype]) -> Scalar[fp32] where dtype == uint16: 
         return Float16C.to_fp32(val)
         
+
+
 
 from std.memory import bitcast
 struct Float16C():
