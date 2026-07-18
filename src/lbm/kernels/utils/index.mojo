@@ -50,7 +50,7 @@ def is_index_valid(index:InlineArray[Int,3],grid_shape:InlineArray[Int,3]) -> Bo
 
 
 @always_inline
-def get_adjacent_idx[int_dtype:DType,//,D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[int_dtype,D],) -> InlineArray[Int,3]:
+def get_adjacent_idx[int_dtype:DType,D:Int,//,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[int_dtype,D],) -> InlineArray[Int,3]:
     comptime assert D <= 3 
     adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
