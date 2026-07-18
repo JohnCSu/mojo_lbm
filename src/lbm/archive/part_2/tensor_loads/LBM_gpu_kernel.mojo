@@ -3,9 +3,9 @@ from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from std.gpu.memory import AddressSpace
-from src.lbm.lattice_models import LatticeModel
-from src.lbm.LBM import LBM_Grid
-from src.lbm.constants import SOLID_NODE,FLUID_NODE
+from src.lbm import LatticeModel
+from src.lbm import LBM_Grid
+from src.lbm import SOLID_NODE,FLUID_NODE
 from src.utils import Vector,ContextTileTensor
 
 
