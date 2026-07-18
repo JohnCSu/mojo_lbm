@@ -1,8 +1,8 @@
 """Provides the SRT LBM benchmark harness.
 
 `run_benchmark` allocates flag, `bc`, `f`, and `f_out` buffers for a given
-grid and layout, applies a lid-driven-cavity-style wall setup, compiles the
-deprecated `LBM_kernel`, and times one in-place time step using the Mojo
+grid and layout, applies a lid-driven-cavity-style wall setup, compiles
+`double_buffer_kernel`, and times one in-place time step using the Mojo
 benchmarking framework.
 """
 from std.gpu.host import DeviceContext
@@ -27,7 +27,7 @@ from src.lbm import (
     set_exterior_walls,
     LBM_Config,
 )
-from .LBM_gpu_kernel import LBM_kernel
+from src.lbm.kernels.double_buffer import double_buffer_kernel
 from src.utils import Vector, ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep, run
 from std.utils import Variant
@@ -67,7 +67,7 @@ def run_benchmark[
     Allocates the flag, `bc`, `f`, and `f_out` buffers, fills `f` with a
     uniform rest distribution, applies four solid exterior walls (with a
     moving `+Y` lid at velocity `U`), copies the buffers to the GPU, compiles
-    `LBM_kernel`, and times one in-place step.
+    `double_buffer_kernel`, and times one in-place step.
 
     Parameters:
         grid: The compile-time `LBM_Grid` describing the domain.
@@ -124,7 +124,7 @@ def run_benchmark[
 
     ctx.synchronize()
     # Compile Functions
-    comptime LBM_kernel_ = LBM_kernel[
+    comptime LBM_kernel_ = double_buffer_kernel[
         f_layout, bc_layout, flag_layout, grid, config
     ]
     LBM_func = ctx.compile_function[LBM_kernel_, LBM_kernel_]()

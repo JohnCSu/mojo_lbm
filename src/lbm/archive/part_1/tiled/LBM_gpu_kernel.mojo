@@ -30,7 +30,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 )
                 where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
-    From reorderThreads. This uses layout_tensor to abstract away the complicated nested layout
+    From reorderThreads. This uses layout_tensor to abstract away the complicated nested layout.
     ''' 
     # Convience Variable Names and constants
     comptime weights = lattice_model.weights

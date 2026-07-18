@@ -27,7 +27,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 inv_tau:Scalar[float_dtype]
                 ):
     '''
-    Code is the same but Thread Index are swapped so thread.x is mapped to fastet changing index. Tensors are Row major so for 2D, y is fastest and 3D z is fastest
+    Code is the same but Thread Index are swapped so thread.x is mapped to fastet changing index. Tensors are Row major so for 2D, y is fastest and 3D z is fastest.
     '''
     # Checks For TileTenosor Indexing
     comptime assert f_in.flat_rank == 4 and f_in.flat_rank == f_out.flat_rank and f_in.static_shape[0] == Q 

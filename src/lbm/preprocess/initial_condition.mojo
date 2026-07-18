@@ -67,6 +67,8 @@ def initialize_fluid_at_rest[
     Parameters:
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
+        f_dtype: The storage `DType` for `f` (defaults to the config's
+            `f_dtype` or `float_dtype`).
 
     Args:
         f: The distribution function tile tensor to fill.

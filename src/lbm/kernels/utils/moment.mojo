@@ -14,7 +14,7 @@ from .index import get_adjacent_idx,is_index_out_of_bounds
 def get_density_and_velocity_for_eq_BC[
     float_dtype:DType,D:Int,Q:Int,int_dtype:DType,//,
     float_directions:InlineArray[Vector[float_dtype,D],Q],
-    int_directions:InlineArray[Vector[int_dtype,D>,Q],
+    int_directions:InlineArray[Vector[int_dtype,D],Q],
     DDF_shift:Bool = False]
     (
         f_vec:Vector[float_dtype,Q],
@@ -108,7 +108,7 @@ def get_density[
 @always_inline
 def get_velocity[
     float_dtype:DType,D:Int,Q:Int,//,
-    float_directions:InlineArray[Vector[float_dtype,D>,Q],
+    float_directions:InlineArray[Vector[float_dtype,D],Q],
     ]
     (
     f_vec:Vector[float_dtype,Q],

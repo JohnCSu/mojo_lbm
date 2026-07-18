@@ -34,7 +34,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 )
                 where tile_size >= 1 and Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
-    Shared Memory Load all flags in local threads to shared memory. Boundaries we just pull from global
+    Shared Memory Load all flags in local threads to shared memory. Boundaries we just pull from global.
     ''' 
     # Convience Variable Names and constants
     comptime assert Flaglayout.flat_rank == 3 or Flaglayout.flat_rank == 6

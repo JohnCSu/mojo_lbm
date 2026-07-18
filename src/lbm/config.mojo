@@ -75,20 +75,8 @@ struct LBM_Config(ConfigLike):
 
     Records whether DDF shifting, Smagorinsky LES, KBC, and Float16C are
     enabled, the optional storage `DType` for the distribution function, and
-    the set of boundary-condition flags the run expects to encounter.
-
-    Parameters:
-        DDF_shift: When `True`, store shifted distributions for improved
-            numerical stability with Float16C.
-        LES: When `True`, enable the Smagorinsky large-eddy simulation
-            model, which also enables second-moment computation.
-        KBC: Reserved for the Karlin-Bösch-Chikatamarsha collision. Currently
-            always `False`.
-        use_float16c: When `True`, store `f` as Float16C `uint16` values.
-        f_dtype: Optional override for the `DType` of `f`. Ignored when
-            `use_float16c` is `True`.
-        INCLUDED_BCs: The set of boundary-condition flags the run expects.
-            `FLUID` and `SOLID` are always added.
+    the set of boundary-condition flags the run expects to encounter. Each
+    member is documented alongside its declaration below.
     """
 
     var DDF_shift: Bool

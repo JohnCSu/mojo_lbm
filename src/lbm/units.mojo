@@ -81,11 +81,11 @@ struct UnitSystem[float_dtype: DType, D: Int](ImplicitlyCopyable & Writable):
     var dt: Self.Float_Scalar
     """The physical time step per lattice step."""
 
-    var Mass: Self.Unit_
+    var mass: Self.Unit_
     """The unit mass for the configured dimension."""
-    var Force: Self.Unit_
+    var force: Self.Unit_
     """The unit force for the configured dimension."""
-    var Pressure: Self.Unit_
+    var pressure: Self.Unit_
     """The unit pressure for the configured dimension."""
 
     def __init__(

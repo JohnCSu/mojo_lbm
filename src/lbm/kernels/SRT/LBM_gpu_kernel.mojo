@@ -61,9 +61,14 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     exposes the same behavior with a safer double-buffer interface.
 
     Parameters:
+        Flayout: The compile-time `Layout` of the distribution function.
+        BClayout: The compile-time `Layout` of the boundary-condition tensor.
+        Flaglayout: The compile-time `Layout` of the `uint8` flag tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` selecting DDF shift, Float16C, LES, and the
             valid boundary-condition flags.
+        f_dtype: The storage `DType` for `f` (defaults to the config's
+            `f_dtype` or `float_dtype`).
 
     Args:
         f_out: The output distribution function tile tensor (rank 4).

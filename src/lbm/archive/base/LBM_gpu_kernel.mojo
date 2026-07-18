@@ -27,7 +27,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 inv_tau:Scalar[float_dtype]
                 ):
     '''
-    Baseline LBM Kernel
+    Baseline LBM Kernel.
     '''
     # Checks For TileTenosor Indexing
     comptime assert f_in.flat_rank == 4 and f_in.flat_rank == f_out.flat_rank and f_in.static_shape[0] == Q 

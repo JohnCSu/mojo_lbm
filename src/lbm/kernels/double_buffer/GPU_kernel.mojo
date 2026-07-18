@@ -55,6 +55,9 @@ def double_buffer_kernel[
     `f_in` and `f_out` between calls.
 
     Parameters:
+        Flayout: The compile-time `Layout` of the distribution function.
+        BClayout: The compile-time `Layout` of the boundary-condition tensor.
+        Flaglayout: The compile-time `Layout` of the `uint8` flag tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` selecting DDF shift, Float16C, LES, and the
             valid boundary-condition flags.

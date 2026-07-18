@@ -29,7 +29,7 @@ def benchmark_func_row_tile[
     ]
     (mut b:Bencher) capturing raises:
     '''
-    Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles Are Row Major
+    Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles Are Row Major.
     '''
     comptime assert (nx % tile_size) == 0 ,'Grid must be a multiple of tilesize'
     comptime assert nx == ny and nz == 1,'Benchmark is for a 2D square grid'
@@ -107,7 +107,7 @@ def benchmark_func_col_tile[
     ]
     (mut b:Bencher) capturing raises:
     '''
-    Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles are col major
+    Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles are col major.
     '''
     comptime assert (nx % tile_size) == 0 ,'Grid must be a multiple of tilesize'
     comptime assert nx == ny and nz == 1,'Benchmark is for a 2D square grid'

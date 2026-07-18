@@ -94,7 +94,7 @@ def get_velocity_gradient[
 
 @always_inline
 def get_adj_finite_difference[
-    float_dtype:DType//,
+    float_dtype:DType,//,
     dx:Scalar[float_dtype],
     side:StaticString = 'right',
     ]

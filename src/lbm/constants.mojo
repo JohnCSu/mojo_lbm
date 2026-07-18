@@ -6,12 +6,6 @@ flags consumed by `LBM_Config`.
 """
 
 
-comptime FLUID_NODE: Scalar[DType.uint8] = 0
-"""Flag value for a fluid node."""
-comptime SOLID_NODE: Scalar[DType.uint8] = 1
-"""Flag value for a solid (wall) node."""
-
-
 comptime cs = (1.0 / 3.0) ** 0.5
 """The lattice speed of sound, $$\\sqrt{1/3}$$."""
 comptime cs_squared = (1.0 / 3.0)
@@ -37,3 +31,9 @@ struct Flags:
 
 comptime _FlagSet = {Flags.FLUID, Flags.SOLID, Flags.EQUILIBRIUM}
 """The set of valid boundary-condition flags accepted by `LBM_Config`."""
+
+
+comptime FLUID_NODE: Scalar[DType.uint8] = Flags.FLUID
+"""Flag value for a fluid node."""
+comptime SOLID_NODE: Scalar[DType.uint8] = Flags.SOLID
+"""Flag value for a solid (wall) node."""

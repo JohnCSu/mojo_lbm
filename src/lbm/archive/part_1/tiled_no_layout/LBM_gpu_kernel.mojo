@@ -28,7 +28,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 )
                 where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
-    From reorderThreads. This uses tiletensor Indexing. This example is used to compare speed to converting to layout tensor (which should be zero cost)
+    From reorderThreads. This uses tiletensor Indexing. This example is used to compare speed to converting to layout tensor (which should be zero cost).
 
     ''' 
 

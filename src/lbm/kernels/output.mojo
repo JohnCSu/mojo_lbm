@@ -55,8 +55,16 @@ def calculate_rho_and_velocity[
     output tensors instead.
 
     Parameters:
+        Flayout: The compile-time `Layout` of the distribution function `f`.
+        BClayout: The compile-time `Layout` of the boundary-condition tensor.
+        Flaglayout: The compile-time `Layout` of the `uint8` flag tensor.
+        RhoLayout: The compile-time `Layout` of the density output tensor.
+        VelocityLayout: The compile-time `Layout` of the velocity output
+            tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
+        f_dtype: The storage `DType` for `f` (defaults to the config's
+            `f_dtype` or `float_dtype`).
 
     Args:
         density: The output density tile tensor (rank 3).
@@ -132,8 +140,15 @@ def calculate_Q_criterion[
     $$Q = 0.25 \\|\\omega\\|^2 - 0.5 \\|S\\|_F^2$$.
 
     Parameters:
+        Flayout: The compile-time `Layout` of the distribution function `f`.
+        FlagLayout: The compile-time `Layout` of the `uint8` flag tensor.
+        VelocityLayout: The compile-time `Layout` of the velocity input
+            tensor, indexed as `[x, y, z, D]`.
+        QLayout: The compile-time `Layout` of the Q-criterion output tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
+        f_dtype: The storage `DType` for `f` (defaults to the config's
+            `f_dtype` or `float_dtype`).
 
     Args:
         Q_tensor: The output Q-criterion tile tensor (rank 3).
@@ -308,8 +323,12 @@ def calculate_drag_around_object[
     written into `force_tensor[tid, i]` for each dimension `i`.
 
     Parameters:
+        FLayout: The compile-time `Layout` of the distribution function `f`.
+        FlagLayout: The compile-time `Layout` of the `uint8` flag tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
+        f_dtype: The storage `DType` for `f` (defaults to the config's
+            `f_dtype` or `float_dtype`).
 
     Args:
         f: The input distribution function tile tensor (rank 4).
