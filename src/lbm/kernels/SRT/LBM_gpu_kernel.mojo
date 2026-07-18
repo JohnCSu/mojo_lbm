@@ -77,7 +77,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         # Pull Stream Step # This is different for methods
         comptime for q in range(Q):
             comptime direction = directions[q]
-            pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
+            pull_index = get_adjacent_idx[-1](index,grid_shape,direction) # Pulling Scheme
             f_new[q] =  load_f_from_xyzq(f_in,pull_index,q)
         
 
@@ -85,11 +85,11 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         # Bounce Back AND PULL FLAGS
         comptime for q in range(Q):
             comptime direction = directions[q]
+            pull_index = get_adjacent_idx[-1](index,grid_shape,direction) # Pulling Scheme
             comptime if q > 0: # we pulled the flag[0] earlier
                 pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
 
-            if pull_flags[q] == SOLID_NODE:
-                pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
+            if pull_flags[q] == SOLID_NODE:    
                 opp_q = Int(opposite_index[q]) 
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
