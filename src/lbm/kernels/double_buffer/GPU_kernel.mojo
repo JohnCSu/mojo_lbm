@@ -7,7 +7,7 @@ from std.gpu.memory import AddressSpace
 from std.utils.numerics import nan,isnan
 from std.math import sqrt
 
-from src.lbm import LBM_Config,LatticeModel,GridLike,ConfigLike
+from src.lbm import LBM_Config,LatticeModel,GridLike,LBM_Grid
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
 from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
@@ -23,22 +23,22 @@ from src.lbm.kernels.utils.turbulence import get_Smagorinsky_LES_tau
 from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec
 
 def double_buffer_kernel[
-    GridType:GridLike,
-    //,
-    FlayoutType:TensorLayout,
-    BClayoutType:TensorLayout,
-    FlaglayoutType:TensorLayout,
-    grid: GridType,
+    # GridType:GridLike,
+    # //,
+    Flayout:Layout,
+    BClayout:Layout,
+    Flaglayout:Layout,
+    grid: LBM_Grid,
     config:LBM_Config,
     ]
     (
-    f_out:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,MutAnyOrigin],
-    f_in:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,ImmutAnyOrigin],
-    bc:TileTensor[grid.float_dtype,FlaglayoutType,ImmutAnyOrigin],
-    flags:TileTensor[DType.uint8,FlaglayoutType,ImmutAnyOrigin],
+    f_out:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(Flayout),MutAnyOrigin],
+    f_in:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(Flayout),ImmutAnyOrigin],
+    bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
+    flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
     tau:Scalar[grid.float_dtype],
     )
-    where FlayoutType.rank == 4 and BClayoutType.rank == 4 and FlaglayoutType.rank == 3:
+    where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
     Base LBM to also handle 3D and non_square Grids. Key assumption is that block dim == tile-size 
     i.e. grid can be non-square but block is squre (same block dim in each x,y,z).
