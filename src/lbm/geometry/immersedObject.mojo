@@ -19,9 +19,9 @@ struct ImmersedObject[
     nx:Int,ny:Int,nz:Int,
     tile_size:Int,
     D:Int,Q:Int,
-    latticeModel:LatticeModel[D,Q,float_dtype,int_dtype],
+    lattice_model:LatticeModel[D,Q,float_dtype,int_dtype],
     //,
-    grid:LBM_Grid[latticeModel,nx,ny,nz,tile_size]
+    grid:LBM_Grid[lattice_model,nx,ny,nz,tile_size]
     ]():
     """Collects the fluid boundary nodes adjacent to an immersed solid.
 
@@ -39,7 +39,7 @@ struct ImmersedObject[
         tile_size: The tile size of the grid.
         D: The spatial dimension of the grid.
         Q: The number of discrete velocities per node.
-        latticeModel: The compile-time lattice model.
+        lattice_model: The compile-time lattice model.
         grid: The compile-time `LBM_Grid` describing the domain.
     """
     comptime Int_Scalar = Scalar[Self.int_dtype]

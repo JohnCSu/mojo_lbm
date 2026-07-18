@@ -61,6 +61,7 @@ comptime benchmark_9 = SRT.layouts_benchmarks.benchmark_func_3D[tiled_grid,U,tau
 comptime benchmark_10 = SRT.layouts_benchmarks.benchmark_func_3D[tiled_grid,U,tau,LBM_Config(use_float16c = True,DDF_shift = True)]
 comptime benchmark_11 = SRT.layouts_benchmarks.benchmark_func_3D[tiled_grid,U,tau,LBM_Config(LES = True,DDF_shift = True)]
 comptime benchmark_12 = SRT.layouts_benchmarks.benchmark_func_3D[tiled_grid,U,tau,LBM_Config(LES = True,DDF_shift = True,use_float16c = True)]
+
 def main() raises:
     ctx = DeviceContext()
     total_bytes =  Q*num_points*2*4 + num_points*(D+1)*4 + num_points # 4btes per Q (fp32) , 4 byters per bc (fp32) , 1 byte per flag (fp) 

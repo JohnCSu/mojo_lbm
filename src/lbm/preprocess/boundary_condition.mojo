@@ -22,11 +22,11 @@ def set_exterior_walls[float_dtype:DType,
                     bc_origin:Origin[mut=True],
                     nx:Int,ny:Int,nz:Int,
                     D:Int,Q:Int,
-                    latticeModel:LatticeModel[D,Q,float_dtype,DType.int32],
+                    lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
                     FlagLayoutType:TensorLayout,
                     BCLayoutType:TensorLayout,
                     //,
-                    grid:LBM_Grid[latticeModel,nx,ny,nz,_],
+                    grid:LBM_Grid[lattice_model,nx,ny,nz,_],
                     config:LBM_Config = LBM_Config()
                     ]
                     (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
@@ -133,7 +133,6 @@ def set_exterior_walls[float_dtype:DType,
                 comptime for i in range(D):
                     bc.store(coord[DType.int32]((x,y,z,i)),velocity[i])
                 bc.store(coord[DType.int32]((x,y,z,D)),density)
-
 
 
 def set_exterior_walls_with_func[
