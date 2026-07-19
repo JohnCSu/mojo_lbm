@@ -201,7 +201,7 @@ def main() raises:
             print('step = {}, time = {} max ={} avg = {}'.format(2*t,2.*Scalar[float_dtype](t)*dt,u_np.max(),u_np.mean()))
             force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
             Fx,Fy = force_np.sum(axis=0)[0],force_np.sum(axis=0)[1]
-            Fx,Fy = units.Force.C_lat_to_phys()*Fx,units.Force.C_lat_to_phys()*Fy
+            Fx,Fy = units.force.C_lat_to_phys()*Fx,units.force.C_lat_to_phys()*Fy
             Cx = float_scalar(py=2*Fx/(U_phs**2*(2*radius)))
             Cy = float_scalar(py=2*Fy/(U_phs**2*(2*radius)))
             
@@ -215,7 +215,7 @@ def main() raises:
     ctx.enqueue_function(calculate_drag,f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
     force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
     Fx,Fy = force_np.sum(axis=0)[0],force_np.sum(axis=0)[1]
-    Fx,Fy = units.Force.C_lat_to_phys()*Fx,units.Force.C_lat_to_phys()*Fy
+    Fx,Fy = units.force.C_lat_to_phys()*Fx,units.force.C_lat_to_phys()*Fy
 
     Cx = float_scalar(py=2*Fx/(U_phs**2*(2*radius)))
     Cy = float_scalar(py=2*Fy/(U_phs**2*(2*radius)))
