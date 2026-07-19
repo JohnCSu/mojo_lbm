@@ -24,3 +24,4 @@ dev = [
 
 [tool.poe.tasks]
 build-LBM = {script = "buildLBM:main"}
+compiletest = {script = "compiletest:main"}
