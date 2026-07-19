@@ -128,18 +128,18 @@ struct UnitSystem[float_dtype: DType, D: Int](ImplicitlyCopyable & Writable):
         self.kinematic_viscosity = Self.Unit_(kinematic_viscosity, v_lat)
 
         # Useful for analysing drag and mass flow
-        self.Mass = Self.Unit_(
+        self.mass = Self.Unit_(
             self.density.C_lat_to_phys() * (self.L.C_lat_to_phys() ** Self.D),
             1.0,
         )
-        self.Force = Self.Unit_(
+        self.force = Self.Unit_(
             self.density.C_lat_to_phys()
             * self.L.C_lat_to_phys() ** (Self.D - 1)
             * self.U.C_lat_to_phys() ** 2,
             1.0,
         )  # unit Force
-        self.Pressure = Self.Unit_(
-            self.Force.C_lat_to_phys() / self.L.C_lat_to_phys() ** (Self.D - 1),
+        self.pressure = Self.Unit_(
+            self.force.C_lat_to_phys() / self.L.C_lat_to_phys() ** (Self.D - 1),
             1.0,
         )  # Unit Pressure
 
