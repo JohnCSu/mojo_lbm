@@ -8,6 +8,8 @@ from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.lbm import LBM_Grid,LBM_Config
+from src.utils import Vector
+from .index import get_adjacent_idx
 
 @always_inline
 def store_f[
@@ -67,7 +69,7 @@ def load_f[
         non_temporal:Bool = False,
         ]
         (
-        f:TileTensor[f_dtype,FlayoutType,ImmutAnyOrigin],
+        f:TileTensor[f_dtype,FlayoutType,_],
         index:InlineArray[Int,3],q:Int
         ) -> Scalar[float_dtype]:
         """Loads a single distribution value from `(x, y, z, q)`.
@@ -102,3 +104,97 @@ def load_f[
                 pulled_f = Scalar[float_dtype](f.load[non_temporal = non_temporal](coord[DType.uint32]((index[0],index[1],index[2],q)))[0])
 
         return pulled_f
+
+
+
+@always_inline
+def esoteric_pull_load_f_vec[
+    f_dtype:DType,
+    int_dtype:DType,
+    Q:Int,
+    D:Int,
+    f_layout:TensorLayout,
+    //,
+    float_dtype:DType,
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    is_even_time_step:Bool,
+    use_float16c:Bool,
+    ]
+    (
+    f:TileTensor[f_dtype,f_layout,_],
+    index:InlineArray[Int,3],
+    grid_shape:InlineArray[Int,3],
+    ) -> Vector[float_dtype,Q]:
+    # We always pull the 0th idx
+    comptime load_f_from_xyzq = load_f[float_dtype,use_float16c]
+    
+    f_vec = Vector[float_dtype,Q](uninitialized = True)
+
+    f_vec[0] = load_f_from_xyzq(f,index,0)
+    comptime if is_even_time_step:
+        # Pull Positive from current node and pull negatives using standard pull scheme
+        comptime for pos_q in range(1,Q-1,2):
+            comptime neg_q = pos_q + 1
+            f_vec[pos_q] = load_f_from_xyzq(f,index,pos_q)
+
+            comptime direction = directions[neg_q]
+            pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
+            f_vec[neg_q] =  load_f_from_xyzq(f,pull_index,neg_q)
+
+    else:
+        comptime for pos_q in range(1,Q-1,2):
+            comptime neg_q = pos_q + 1
+            # Using Push Scheme along positive directions and store in negative dir. For pos_q we get the value at current index in neg_q
+            comptime direction = directions[pos_q]
+            push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction) # Pulling Scheme
+
+            f_vec[neg_q] = load_f_from_xyzq(f,push_index,pos_q)
+            f_vec[pos_q] = load_f_from_xyzq(f,index,neg_q)
+
+    return f_vec
+
+def esoteric_pull_store_f_vec[
+    f_dtype:DType,
+    int_dtype:DType,
+    Q:Int,
+    D:Int,
+    f_layout:TensorLayout,
+    float_dtype:DType,
+    //,
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    is_even_time_step:Bool,
+    use_float16c:Bool,
+    ]
+    (
+    f:TileTensor[f_dtype,f_layout,MutAnyOrigin],
+    f_vec:Vector[float_dtype,Q],
+    index:InlineArray[Int,3],
+    grid_shape:InlineArray[Int,3],
+    ): 
+
+    store_f[use_float16c](f,f_vec[0],index,0)
+
+    comptime if is_even_time_step:
+        # Store f back to Global
+        #  WE stroe the negative directions in to the positve current index
+        comptime for neg_q in range(2,Q,2):
+            comptime pos_q = neg_q -1
+            
+            store_f[use_float16c](f,f_vec[neg_q],index,pos_q)
+
+            comptime direction = directions[neg_q]
+            pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Get the original index
+            store_f[use_float16c](f,f_vec[pos_q],pull_index,neg_q) # We store it in the pull direction place
+
+    else:
+        # We store Negatives at their respective locations at index
+        comptime for neg_q in range(2,Q,2):
+            comptime pos_q = neg_q -1
+            store_f[use_float16c](f,f_vec[neg_q],index,neg_q)
+
+            # We store Positives in their push directions
+            comptime direction = directions[pos_q]
+            push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction) # Get the original index
+            store_f[use_float16c](f,f_vec[pos_q],push_index,pos_q) # We store it in the pull direction place
+        
+
