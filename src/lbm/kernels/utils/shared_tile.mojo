@@ -34,9 +34,6 @@ def get_global_index_for_shared_memory[D:Int,tile_size:Int]
     Returns:
         The global `(x, y, z)` lattice index.
     """
-    '''
-    Assumes Halo Region of 1
-    '''
 
     comptime shift:InlineArray[Int,3] = [1,1 if D >= 2 else 0, 1 if D == 3 else 0]
 

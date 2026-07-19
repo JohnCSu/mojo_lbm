@@ -31,7 +31,9 @@ def get_velocity_gradient[
     differences. When the neighbor on a side is solid, the effective `dx` is
     doubled so the difference skips the wall. Periodicity is not handled;
     one-sided differences are used at the domain boundary.
-
+    
+    TODO: Check for periodicity (Assume one sided finite difference at boundary currently)
+    
     Parameters:
         float_dtype: The `DType` of the computation.
         sharedType: The compile-time layout of `shared_u`; must be flat-rank 4.
@@ -50,9 +52,7 @@ def get_velocity_gradient[
     Returns:
         The weighted velocity gradient `du/d(axis)`.
     """
-    '''
-    TODO: Check for periodicity (Assume one sided finite difference at boundary currently)
-    '''
+
     comptime assert shared_u.flat_rank == 4
     comptime assert flags.rank == 3
     comptime inv_dx = 1/dx

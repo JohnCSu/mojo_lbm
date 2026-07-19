@@ -69,10 +69,6 @@ def double_buffer_kernel[
         flags: The `uint8` tile tensor labeling each node (rank 3).
         tau: The base SRT relaxation time.
     """
-    '''
-    Base LBM to also handle 3D and non_square Grids. Key assumption is that block dim == tile-size
-    i.e. grid can be non-square but block is squre (same block dim in each x,y,z).
-    '''
     # Convience Variable Names and constants
     comptime nx = grid.nx
     comptime ny = grid.ny

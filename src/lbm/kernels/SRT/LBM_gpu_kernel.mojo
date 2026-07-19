@@ -77,10 +77,6 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         flags: The `uint8` tile tensor labeling each node (rank 3).
         tau: The base SRT relaxation time.
     """
-    '''
-    Base LBM to also handle 3D and non_square Grids. Key assumption is that block dim == tile-size
-    i.e. grid can be non-square but block is squre (same block dim in each x,y,z).
-    '''
     # Convience Variable Names and constants
     comptime assert f_out.flat_rank == 8
     comptime weights = lattice_model.weights
