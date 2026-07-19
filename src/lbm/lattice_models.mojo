@@ -84,6 +84,24 @@ struct LatticeModel[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
                     self.opposite_indices[i] = self.int_scalar(k)
                     break
 
+    def is_valid_for_esoteric_pull(self) -> Bool:
+
+        for q in range(1,Self.Q-1,2):
+            dir_q = self.directions[q]
+            opp_dir_q = self.directions[q+1]
+            # print(q,q+1,dir_q,opp_dir_q)
+            if (dir_q + opp_dir_q).sum() != 0: # If not equal to zero then the adjacent direction is not the opposite direction
+                return False
+
+        # All must hold the condition to return True
+        return True
+                
+                
+
+
+            
+
+
 
 def get_D3Q27[
     float_dtype: DType = DType.float32, int_dtype: DType = DType.int32
@@ -287,12 +305,12 @@ def get_D2Q9[
     float_directions_list: List[List[Scalar[float_dtype]]] = [
         [0, 0],  # 0: Center (rest)
         [1, 0],  # 1: East
-        [0, 1],  # 2: North
         [-1, 0],  # 3: West
+        [0, 1],  # 2: North
         [0, -1],  # 4: South
         [1, 1],  # 5: North-East
-        [-1, 1],  # 6: North-West
         [-1, -1],  # 7: South-West
+        [-1, 1],  # 6: North-West
         [1, -1],  # 8: South-East
     ]
     float_directions = InlineArray[float_vector, Q](uninitialized=True)
@@ -302,12 +320,12 @@ def get_D2Q9[
     directions_list: List[List[Scalar[int_dtype]]] = [
         [0, 0],  # 0: Center (rest)
         [1, 0],  # 1: East
-        [0, 1],  # 2: North
         [-1, 0],  # 3: West
+        [0, 1],  # 2: North
         [0, -1],  # 4: South
         [1, 1],  # 5: North-East
-        [-1, 1],  # 6: North-West
         [-1, -1],  # 7: South-West
+        [-1, 1],  # 6: North-West
         [1, -1],  # 8: South-East
     ]
 
