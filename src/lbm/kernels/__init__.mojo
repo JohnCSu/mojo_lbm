@@ -6,3 +6,4 @@ differences, and shared-memory tile loading, plus post-processing kernels for
 density, velocity, Q-criterion, and drag.
 """
 from .double_buffer import double_buffer_kernel
+from .esoteric_pull import esoteric_pull_kernel
