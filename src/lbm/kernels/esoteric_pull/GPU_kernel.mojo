@@ -27,7 +27,7 @@ from src.lbm.kernels.utils.moment import (
                                             get_non_eq_second_order_moment,
                                             get_density_and_velocity_for_eq_BC)
 from src.lbm.kernels.utils.turbulence import get_Smagorinsky_LES_tau
-from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec
+from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec,f_eq
 
 def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
                 lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
@@ -124,7 +124,7 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
         rho = get_density[config.DDF_shift](f_new)
         velocity = get_velocity[float_directions](f_new,rho)
         tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
-        f_eq = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_new,rho,velocity)
+        # f_eq = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_new,rho,velocity)
 
         # Collision Term
         u_dot_u = velocity.dot(velocity)
@@ -132,7 +132,9 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
 
         # Collide
         comptime for q in range(Q):
-            f_new[q] -= inv_tau*(f_new[q]- f_eq[q])
+            comptime direction = float_directions[q]
+            comptime weight = weights[q]
+            f_new[q] -= inv_tau*(f_new[q]- f_eq[config.DDF_shift](weight,rho,velocity,u_dot_u,direction) )
 
         esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_new,index,grid_shape)
         
