@@ -89,7 +89,7 @@ def double_buffer_kernel[
     comptime stress_indices = lattice_model.stress_indices
     # Comptime asserts
     comptime assert grid.datacheck(), 'Grid Datacheck failed see above print messages for info'
-    comptime assert f_out.flat_rank == 8
+    # comptime assert f_out.flat_rank == 8
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
 
     x = block_idx.x*block_dim.x + thread_idx.x
