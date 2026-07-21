@@ -34,6 +34,7 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
                 nx:Int,ny:Int,nz:Int,tile_size:Int,
                 //,
                 is_even_time_step:Bool,
+                implicitBounceBackOnly:Bool,
                 Flayout:Layout[...],
                 BClayout:Layout[...],
                 Flaglayout:Layout[...],
@@ -76,7 +77,6 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
         tau: The base SRT relaxation time.
     """
     # Convience Variable Names and constants
-    comptime assert f.flat_rank == 8
     comptime weights = lattice_model.weights
     comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
@@ -103,25 +103,28 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
         var velocity = Vector[float_dtype,D](uninitialized = True)
         var rho:Scalar[float_dtype] = 0
 
-        f_new = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
-
-        # Regular LBM
-        comptime for q in range(Q):
-            comptime direction = directions[q]
-            pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
-            comptime if q > 0: # we pulled the flag[0] earlier
+        f_new: Vector[float_dtype,Q] = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
+        
+        # # Regular LBM
+        comptime if not implicitBounceBackOnly: # We have moving walls
+            comptime for q in range(1,Q):
+                comptime direction = directions[q]
+                pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
+                # comptime if q > 0: # we pulled the flag[0] earlier
                 pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
+                # var correction:Scalar[float_dtype] = 0.
+                if pull_flags[q] == Flags.SOLID:
+                    float_direction = (float_directions[q])
+                    weight = weights[q]
+                    comptime for ii in range(D):
+                        velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
+                    rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
+                    f_new[q] += 2.*3.*weight*rho*(float_direction.dot(velocity))
 
-            if pull_flags[q] == SOLID_NODE:
-                opp_q = Int(opposite_index[q])
-                comptime for ii in range(D):
-                    velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
-                rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
-                comptime float_direction = (float_directions[q])
-                f_new[q] += 2.*3.*weights[q]*rho*(float_direction.dot(velocity)) # Implicit BounceBack
-
+        # var velocity = Vector[float_dtype,D](uninitialized = True)
+        # var rho:Scalar[float_dtype] = 0
         # Get Velocity and Density
-        rho = get_density[config.DDF_shift](f_new)
+        rho = get_density[config.DDF_shift](f_new) 
         velocity = get_velocity[float_directions](f_new,rho)
         tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
         # f_eq = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_new,rho,velocity)
@@ -134,7 +137,7 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
         comptime for q in range(Q):
             comptime direction = float_directions[q]
             comptime weight = weights[q]
-            f_new[q] -= inv_tau*(f_new[q]- f_eq[config.DDF_shift](weight,rho,velocity,u_dot_u,direction) )
+            f_new[q] -= inv_tau*(f_new[q]- f_eq[config.DDF_shift](weight,rho,velocity,u_dot_u,direction))
 
         esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_new,index,grid_shape)
         
