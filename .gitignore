@@ -11,3 +11,6 @@ test*.mojo
 debug*.mojo
 tests
 documentationMojoStyle.md
+EsotericPullLDC.mojo
+ncu_cmds.md
+test.py
