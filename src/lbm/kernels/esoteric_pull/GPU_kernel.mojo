@@ -17,7 +17,7 @@ from std.math import sqrt
 from src.lbm import LBM_Grid,LBM_Config,LatticeModel
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
 from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec
+from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec,esoteric_pull_load_f
 
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.moment import (
@@ -99,12 +99,10 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
     pull_flags[0] = flags.load(coord[DType.uint32]((x,y,z)))[0]
     comptime load_f_from_xyzq = load_f[float_dtype,config.use_float16c]
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]) and pull_flags[0] != SOLID_NODE: # Basic Guard
-        
         var velocity = Vector[float_dtype,D](uninitialized = True)
         var rho:Scalar[float_dtype] = 0
-
-        f_new: Vector[float_dtype,Q] = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
         
+        f_new: Vector[float_dtype,Q] = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
         # # Regular LBM
         comptime if not implicitBounceBackOnly: # We have moving walls
             comptime for q in range(1,Q):
@@ -114,16 +112,14 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
                 pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
                 # var correction:Scalar[float_dtype] = 0.
                 if pull_flags[q] == Flags.SOLID:
-                    float_direction = (float_directions[q])
-                    weight = weights[q]
+                    comptime float_direction = (float_directions[q])
+                    comptime weight = weights[q]
                     comptime for ii in range(D):
                         velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
                     rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
                     f_new[q] += 2.*3.*weight*rho*(float_direction.dot(velocity))
 
-        # var velocity = Vector[float_dtype,D](uninitialized = True)
-        # var rho:Scalar[float_dtype] = 0
-        # Get Velocity and Density
+        
         rho = get_density[config.DDF_shift](f_new) 
         velocity = get_velocity[float_directions](f_new,rho)
         tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
