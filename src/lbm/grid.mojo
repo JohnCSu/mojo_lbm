@@ -107,6 +107,10 @@ struct LBM_Grid[
     comptime n_tiles_x = Self.nx // Self.tile_size
     comptime n_tiles_y = Self.ny // Self.tile_size if Self.D >= 2 else 1
     comptime n_tiles_z = Self.nz // Self.tile_size if Self.D == 3 else 1
+    comptime x_tile = Self.tile_size
+    comptime y_tile = Self.tile_size if Self.D >= 2 else 1
+    comptime z_tile = Self.tile_size if Self.D == 3 else 1
+
 
     var dx: Self.Float_Scalar
     """The lattice spacing in physical units."""
