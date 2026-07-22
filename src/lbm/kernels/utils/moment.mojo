@@ -13,8 +13,7 @@ from .index import get_adjacent_idx,is_index_out_of_bounds
 @always_inline
 def get_density_and_velocity_for_eq_BC[
     float_dtype:DType,D:Int,Q:Int,int_dtype:DType,//,
-    float_directions:InlineArray[Vector[float_dtype,D],Q],
-    int_directions:InlineArray[Vector[int_dtype,D],Q],
+    directions:InlineArray[Vector[int_dtype,D],Q],
     DDF_shift:Bool = False]
     (
         f_vec:Vector[float_dtype,Q],
@@ -59,7 +58,7 @@ def get_density_and_velocity_for_eq_BC[
             rest_f = weights[q]
 
         is_oob = False
-        comptime pull_direction = -int_directions[q]
+        comptime pull_direction = -directions[q]
         comptime for i in range(3):
             comptime if i < D:
                 comptime pull_i = Int(pull_direction[i])
@@ -69,7 +68,8 @@ def get_density_and_velocity_for_eq_BC[
         # We set unknown fs (i.e from out of bounds/wrapped around fs) to rest value
         fq = rest_f if is_oob else f_vec[q]
         rho += fq
-        velocity += fq*float_directions[q]
+        comptime float_direction = directions[q].cast_to[float_dtype]()
+        velocity += fq*float_direction
 
     comptime if DDF_shift:
         rho += 1
@@ -107,20 +107,22 @@ def get_density[
 
 @always_inline
 def get_velocity[
-    float_dtype:DType,D:Int,Q:Int,//,
-    float_directions:InlineArray[Vector[float_dtype,D],Q],
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
+    directions:InlineArray[Vector[int_dtype,D],Q],
     ]
     (
     f_vec:Vector[float_dtype,Q],
     density:Scalar[float_dtype],
-    ) -> Vector[float_dtype,D]:
+    ) -> Vector[float_dtype,D] 
+    :
+    
     """Returns the lattice velocity from a distribution vector.
 
     Parameters:
         float_dtype: The `DType` of the computation.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        float_directions: The compile-time float-valued directions.
+        directions: The compile-time int-valued directions.
 
     Args:
         f_vec: The distribution vector.
@@ -129,17 +131,19 @@ def get_velocity[
     Returns:
         The lattice velocity vector `u`.
     """
+    comptime assert not int_dtype.is_floating_point()
     velocity = Vector[float_dtype,D](fill =0)
     comptime for q in range(Q):
-        velocity += f_vec[q]*float_directions[q]
+        comptime float_direction = directions[q].cast_to[float_dtype]()
+        velocity += f_vec[q]*float_direction
     velocity /= density
     return velocity
 
 
 
 @always_inline
-def get_Qiab[float_dtype:DType,D:Int,Q:Int,//,
-    float_directions:InlineArray[Vector[float_dtype, D], Q]]
+def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
+    directions:InlineArray[Vector[int_dtype, D], Q]]
     (f_neq:Vector[float_dtype,Q],a:Int,b:Int)
     -> Scalar[float_dtype]:
 
@@ -161,8 +165,10 @@ def get_Qiab[float_dtype:DType,D:Int,Q:Int,//,
     """
     Qiab:Scalar[float_dtype] = 0.
     comptime for q in range(0,Q):
-        Qiab +=f_neq[q]*float_directions[q][a]*float_directions[q][b]
+        comptime direction_q = directions[q].cast_to[float_dtype]()
+        Qiab +=f_neq[q]*direction_q[q][a]*direction_q[q][b]
     return Qiab
+
 
 @always_inline
 def get_non_eq_second_order_moment[
@@ -172,7 +178,7 @@ def get_non_eq_second_order_moment[
     Q:Int,
     n_stress:Int,
     //,
-    float_directions:InlineArray[Vector[float_dtype, D], Q],
+    directions:InlineArray[Vector[int_dtype, D], Q],
     stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
     ]
     (
@@ -202,8 +208,8 @@ def get_non_eq_second_order_moment[
     comptime for n in range(n_stress):
         comptime alpha = Int(stress_indices[n][0])
         comptime beta  = Int(stress_indices[n][1])
-        Q_neq[n] = get_Qiab[float_directions](f_neq,alpha,beta)
-        # *(-1/(2*rho*cs_squared*(tau)))
+        Q_neq[n] = get_Qiab[directions](f_neq,alpha,beta)
+
     return Q_neq
 
 

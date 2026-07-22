@@ -64,15 +64,16 @@ def store_f[
 @always_inline
 def load_f[
         f_dtype:DType,
-        FlayoutType:TensorLayout,
+        # FlayoutType:TensorLayout,
         //,
         float_dtype:DType,
         use_float16c:Bool = False,
         non_temporal:Bool = False,
         ]
         (
-        f:TileTensor[f_dtype,FlayoutType,_],
-        index:InlineArray[Int,3],q:Int
+        f:TileTensor[f_dtype,...],
+        index:InlineArray[Int,3],
+        q:Int
         ) -> Scalar[float_dtype]:
         """Loads a single distribution value from `(x, y, z, q)`.
 
@@ -97,7 +98,7 @@ def load_f[
             The loaded distribution value as a `Scalar[float_dtype]`.
         """
         comptime to_compute_float = Scalar[float_dtype]
-        comptime assert FlayoutType.rank == 4, 'For all LBM grids we use i,j,k,q indexing'
+        comptime assert f.rank == 4, 'For all LBM grids we use i,j,k,q indexing'
         comptime if use_float16c:
                 comptime assert f_dtype == DType.uint16, 'Float16C requires the f tiletensors to be uint16 dtype'
                 pulled_f = to_compute_float(LBM_Config.fp16c_to_fp32( f.load[non_temporal = non_temporal](coord[DType.uint32]((index[0],index[1],index[2],q)))[0] ))
