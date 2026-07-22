@@ -93,6 +93,7 @@ struct LBM_Config(ConfigLike):
     """The set of boundary-condition flags valid for this run."""
     var second_moment: Bool
     """Whether the non-equilibrium second moment is computed each step."""
+    var include_moving_boundary:Bool
 
     def __init__(
         out self,
@@ -102,6 +103,7 @@ struct LBM_Config(ConfigLike):
         DDF_shift: Bool = False,
         use_float16c: Bool = False,
         f_dtype: Optional[DType] = None,
+        include_moving_boundary:Bool = False,
     ):
         """Constructs an `LBM_Config` from the supplied toggles.
 
@@ -123,8 +125,8 @@ struct LBM_Config(ConfigLike):
         self.DDF_shift = DDF_shift
         self.LES = LES
         self.KBC = False
+        self.includeMovingBoundary = includeMovingBoundary
         self.second_moment = True if (LES) else False
-
         self.use_float16c = use_float16c
         self.f_dtype = DType.uint16 if use_float16c else f_dtype
         if self.use_float16c and self.f_dtype is not None:
