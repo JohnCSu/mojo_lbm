@@ -125,7 +125,7 @@ struct LBM_Config(ConfigLike):
         self.DDF_shift = DDF_shift
         self.LES = LES
         self.KBC = False
-        self.includeMovingBoundary = includeMovingBoundary
+        self.include_moving_boundary = include_moving_boundary
         self.second_moment = True if (LES) else False
         self.use_float16c = use_float16c
         self.f_dtype = DType.uint16 if use_float16c else f_dtype
