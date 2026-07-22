@@ -151,6 +151,13 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
         comptime for i in range(Self.size):
             self.data[i] = Scalar[Self.dtype](list[i])
 
+    def cast_to[target_dtype:DType](self) -> Vector[target_dtype,Self.size]:
+        var out = Vector[target_dtype,Self.size](uninitialized = True)
+        comptime for i in range(Self.size):
+            out[i] = Scalar[target_dtype](self[i])
+        return out 
+        
+
 
     @always_inline
     def fill(mut self,value:Scalar[Self.dtype]):
