@@ -94,7 +94,7 @@ def calculate_rho_and_velocity[
                 f_vec[q] = load_f[float_dtype,config.use_float16c](f,index,q)
 
             rho = get_density[config.DDF_shift](f_vec)
-            u = get_velocity[lattice_model.float_directions](f_vec,rho)
+            u = get_velocity[lattice_model.directions](f_vec,rho)
         else:# Get the BC For that node
             comptime for ii in range(D):
                 u[ii] = bc.load(coord[DType.int32]((index[0],index[1],index[2],ii)))[0]
@@ -183,7 +183,7 @@ def calculate_esoteric_rho_and_velocity[
                 f_vec[q] = load_f[float_dtype,config.use_float16c](f,index,q)
 
             rho = get_density[config.DDF_shift](f_vec)
-            u = get_velocity[lattice_model.float_directions](f_vec,rho)
+            u = get_velocity[lattice_model.directions](f_vec,rho)
 
 
         else:# Get the BC For that node
@@ -300,7 +300,7 @@ def calculate_Q_criterion[
     #         print()
     #     print()
     comptime stress_indices = lattice_model.stress_indices
-    comptime float_directions = lattice_model.float_directions
+    comptime directions = lattice_model.directions
     comptime weights = lattice_model.weights
     comptime assert not config.LES, 'Q criterion currently assumes post-collision so doesnt work for LES'
     if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2] and flag != SOLID_NODE: # Basic Guard
@@ -333,11 +333,10 @@ def calculate_Q_criterion[
             f_vec[q] = load_f[float_dtype,config.use_float16c](f,index,q)
 
         var rho = get_density[config.DDF_shift](f_vec)
-        var u = get_velocity[lattice_model.float_directions](f_vec,rho)
+        var u = get_velocity[lattice_model.directions](f_vec,rho)
 
-        var f_eq = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_vec,rho,u)
-        var f_neq = get_f_noneq_vec[post_collision = True](f_vec,f_eq,tau)
-        var second_moment_neq = get_non_eq_second_order_moment[float_directions,stress_indices](f_neq)
+        var f_neq = get_f_noneq_vec[True,directions,weights,config.DDF_shift](f_vec,rho,u,tau)
+        var second_moment_neq = get_non_eq_second_order_moment[directions,stress_indices](f_neq)
         var strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau)
 
         ss_norm_sq = get_strain_rate_tensor_norm_squared[stress_indices](strain_rate)
@@ -466,7 +465,7 @@ def calculate_drag_around_object[
             var force_vec = Vector[float_dtype,D](fill = 0.)
             comptime for q in range(Q):
                 comptime direction = lattice_model.directions[q]
-                comptime float_dir = lattice_model.float_directions[q]
+                comptime float_direction = lattice_model.directions[q].cast_to[float_dtype]()
                 if push_flags[q] == SOLID_NODE:
                     var f_local = load_f[float_dtype,config.use_float16c](f,grid_index,q)
                     comptime if config.DDF_shift:
@@ -474,7 +473,7 @@ def calculate_drag_around_object[
                         f_link = f_local + weight
                     else:
                         f_link = f_local
-                    force_vec += (2*f_link)*lattice_model.float_directions[q] # Only stationary wall for now
+                    force_vec += (2*f_link)*float_direction # Only stationary wall for now
 
             # push to global
             comptime for i in range(D): # Overwrite
