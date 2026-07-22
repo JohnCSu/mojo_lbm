@@ -1,6 +1,6 @@
 from std.builtin.device_passable import DevicePassable
 
-struct RuntimeParams[float_dtype:DType](DevicePassable & ImplicitlyCopyable):
+struct RuntimeParams[float_dtype:DType](ImplicitlyCopyable & DevicePassable):
     comptime device_type:AnyType = Self
     comptime Float = Scalar[Self.float_dtype]
     var Cs:Self.Float
