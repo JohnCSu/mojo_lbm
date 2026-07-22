@@ -24,7 +24,7 @@ comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,1)
 comptime num_points = nx*ny*nz
 
-comptime tile_size = 16
+comptime tile_size = (16,16,1)
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx)
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
