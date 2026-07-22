@@ -78,7 +78,7 @@ struct LBM_Config(ConfigLike):
     the set of boundary-condition flags the run expects to encounter. Each
     member is documented alongside its declaration below.
     """
-
+    
     var DDF_shift: Bool
     """Whether DDF shifting is enabled for `f`."""
     var LES: Bool
@@ -94,10 +94,13 @@ struct LBM_Config(ConfigLike):
     var second_moment: Bool
     """Whether the non-equilibrium second moment is computed each step."""
     var include_moving_boundary:Bool
-
+    var collision_op:StaticString
+    var valid_collision_ops:Set[StaticString] 
+    
     def __init__(
         out self,
         *,
+        collision_op:StaticString = 'SRT',
         LES: Bool = False,
         BCs: Set[UInt8] = {},
         DDF_shift: Bool = False,
@@ -122,6 +125,11 @@ struct LBM_Config(ConfigLike):
                 (defaults to `False`).
             f_dtype: Optional override `DType` for `f` (defaults to `None`).
         """
+        
+        self.collision_op = collision_op
+        self.valid_collision_ops = {'SRT','TRT'}
+        assert collision_op in self.valid_collision_ops
+
         self.DDF_shift = DDF_shift
         self.LES = LES
         self.KBC = False
@@ -170,6 +178,11 @@ struct LBM_Config(ConfigLike):
             self.f_dtype.value() if self.f_dtype
             is not None else float_dtype_for_math_ops
         )
+
+    def collision_op_is_valid(self) -> Bool:
+        return self.collision_op in self.valid_collision_ops
+
+        
 
     @always_inline
     def enable_float16c(mut self):

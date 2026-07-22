@@ -17,4 +17,5 @@ from .kernels.output import calculate_rho_and_velocity,calculate_esoteric_rho_an
 from .config import LBM_Config, ConfigLike
 from .units import UnitSystem, Unit
 from .layoutstruct import TiledGridLayouts
+from .runtimeParams import RuntimeParams
 # from .grid import GridLike
