@@ -17,7 +17,7 @@ def SRT[
         comptime weight = weights[q]
         f_vec[q] -= inv_tau*(f_vec[q]- f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction))
 
-
+@always_inline
 def TRT[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     directions:InlineArray[Vector[int_dtype, D], Q],
@@ -41,7 +41,6 @@ def TRT[
 
     # Rest direction is just regular SRT
     f_vec[0] -= inv_tau_symm*(f_vec[0]- f_eq[DDF_shift](weights[0],rho,velocity,u_dot_u,direction0))
-    f_new = Vector[float_dtype,Q](uninitialized = True)
 
     comptime for q in range(1,Q,2):
         comptime direction = directions[q].cast_to[float_dtype]()
@@ -51,9 +50,7 @@ def TRT[
         
         f_symm = (f_vec[q] + f_vec[opp_q])*0.5 # We correct shift in feq
         f_asymm = (f_vec[q] - f_vec[opp_q])*0.5 # No shift 
-        
-
-        
+                
         f_eq_q = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction)
         f_eq_oppq = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,opp_direction)
 
