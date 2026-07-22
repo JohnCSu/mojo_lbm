@@ -23,7 +23,7 @@ comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D2Q9 = get_D2Q9()
 comptime D,Q = (2,9)
-comptime N = 1024
+comptime N = 512
 comptime L = 0.41
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (5*N,N,1)
@@ -70,6 +70,10 @@ def main() raises:
         Drag Force: 5.644561, Target: 5.579535 Abs Error: 0.06502581 Rel Error: 1.1654341%
         Lift Force: 0.013367771, Target: 0.010618948 Abs Error: 0.0027488228 Rel Error: 25.886017% 
 
+        TRT:
+        Drag Force: 5.6207423, Target: 5.579535 Abs Error: 0.041207314 Rel Error: 0.73854387%
+    
+    Lift Force: 0.013535484, Target: 0.010618948 Abs Error: 0.0029165354 Rel Error: 27.465387%
     2560 x 512:
     
         SRT:
