@@ -70,7 +70,6 @@ def equilibrium_bc[
     current_flag = pull_flags[0] # comptime assert gurantees this is the flag for the current node
     if current_flag  == Flags.EQUILIBRIUM:
         var velocity = Vector[float_dtype,D](uninitialized = True)
-        var rho:Scalar[float_dtype] = 0
         comptime for ii in range(D):
             velocity[ii] = bc.load(coord[DType.uint32]((index[0],index[1],index[2],ii)))[0]
         rho = bc.load(coord[DType.uint32]((index[0],index[1],index[2],D)))[0]
