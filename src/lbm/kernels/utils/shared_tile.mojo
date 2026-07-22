@@ -10,7 +10,7 @@ from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
 @always_inline
-def get_global_index_for_shared_memory[D:Int,tile_size:Int]
+def get_global_index_for_shared_memory[D:Int,tile_shape:Tuple[Int,Int,Int]]
                     (
                         local_index:InlineArray[Int,3],
                         block_index:InlineArray[Int,3],
@@ -20,11 +20,11 @@ def get_global_index_for_shared_memory[D:Int,tile_size:Int]
 
     Assumes a halo of one along each active axis, so a `local_index` of `0`
     maps to the previous tile's last element and a `local_index` of
-    `tile_size + 1` maps to the next tile's first element.
+    `tile_shape[d] + 1` maps to the next tile's first element.
 
     Parameters:
         D: The spatial dimension of the grid.
-        tile_size: The tile size used for tiled layouts.
+        tile_shape: The per-axis tile sizes used for tiled layouts.
 
     Args:
         local_index: The shared-memory local index.
@@ -42,14 +42,14 @@ def get_global_index_for_shared_memory[D:Int,tile_size:Int]
 
     comptime for d in range(D):
         shifted_index = (local_index[d]-shift[d])
-        adj_local_index[d] = shifted_index % tile_size # Modulo as we flip back
+        adj_local_index[d] = shifted_index % tile_shape[d]
         sign = -1 if shifted_index < 0 else 1
-        next_block =  shifted_index < 0 or shifted_index >= tile_size
+        next_block =  shifted_index < 0 or shifted_index >= tile_shape[d]
         adj_block_index[d] = (block_index[d] + (sign if next_block else 0)) % tiler_shape[d]
 
     global_index = InlineArray[Int,3](fill=0)
     comptime for d in range(D):
-        global_index[d] = adj_local_index[d] + adj_block_index[d]*tile_size
+        global_index[d] = adj_local_index[d] + adj_block_index[d]*tile_shape[d]
 
     return global_index
 
@@ -61,7 +61,7 @@ def sync_load_rank4_tensor_to_shared_with_halo[
     srcLayoutType:TensorLayout,
     srcOrigin:Origin,
     //,
-    tile_size:Int,
+    tile_shape:Tuple[Int,Int,Int],
     D:Int,
     ]
     (
@@ -84,7 +84,7 @@ def sync_load_rank4_tensor_to_shared_with_halo[
         srcLayoutType: The compile-time layout of the source tensor; must be
             rank 4 and either flat-rank 4 or 8.
         srcOrigin: The origin of the source tensor.
-        tile_size: The tile size used for the halo-padded shared tile.
+        tile_shape: The per-axis tile sizes used for the halo-padded shared tile.
         D: The spatial dimension of the grid.
 
     Args:
@@ -99,22 +99,20 @@ def sync_load_rank4_tensor_to_shared_with_halo[
 
     comptime is_nested = src_tensor.rank != src_tensor.flat_rank
     comptime src_N = src_tensor.static_shape[6]*src_tensor.static_shape[7] if is_nested else src_tensor.static_shape[3]
-    comptime N = shared_tile.static_shape[3] # Guranteed to be non-nested layout from assertion above
+    comptime N = shared_tile.static_shape[3]
     comptime assert N == src_N, 'The last dimension of the shared tile and soruce tensor must be <= to last dimension of src_tensor'
 
-    comptime SHARED_x = tile_size + 2
-    comptime SHARED_y = tile_size + 2 if D >= 2 else 1
-    comptime SHARED_z = tile_size + 2 if D == 3 else 1
-    comptime NUM_THREADS = tile_size**D
+    comptime SHARED_x = tile_shape[0] + 2
+    comptime SHARED_y = tile_shape[1] + 2 if D >= 2 else 1
+    comptime SHARED_z = tile_shape[2] + 2 if D == 3 else 1
+    comptime NUM_THREADS = tile_shape[0]*tile_shape[1]*tile_shape[2]
     comptime NUM_SHARED_XYZ_POINTS = SHARED_x*SHARED_y*SHARED_z
     var shared_local_index = InlineArray[Int,3](uninitialized = True)
-    for i in range(tid,NUM_SHARED_XYZ_POINTS,NUM_THREADS): # loop only iterates 1-2 per thread
-        # Indexes for shared array
+    for i in range(tid,NUM_SHARED_XYZ_POINTS,NUM_THREADS):
         shared_local_index[0] = i % SHARED_x
         shared_local_index[1] = (i % (SHARED_x*SHARED_y))//SHARED_x
         shared_local_index[2] = i // (SHARED_x * SHARED_y)
-        # Index for the current i threadindex
-        shared_global_index = get_global_index_for_shared_memory[D,tile_size](shared_local_index,block_index,tiler_shape)
+        shared_global_index = get_global_index_for_shared_memory[D,tile_shape](shared_local_index,block_index,tiler_shape)
         comptime for n in range(N):
             val = src_tensor.load(coord[DType.int32]((shared_global_index[0],shared_global_index[1],shared_global_index[2],n)))[0]
             shared_tile[shared_local_index[0],shared_local_index[1],shared_local_index[2],n] = val
