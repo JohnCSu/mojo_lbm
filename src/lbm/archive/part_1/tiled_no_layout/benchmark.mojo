@@ -16,9 +16,9 @@ from std.utils import Variant
 def benchmark_func_row_tile[
     float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
-    nx:Int,ny:Int,nz:Int,tile_size:Int,
+    nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
+    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
     GRID_DIM:Tuple[Int,Int,Int],
     BLOCK_SHAPE:Tuple[Int,Int,Int],
     U:Scalar[float_dtype],
@@ -30,6 +30,8 @@ def benchmark_func_row_tile[
     '''
     Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles Are Row Major.
     '''
+    comptime tile_size = grid.x_tile
+
     comptime assert (nx % tile_size) == 0 ,'Grid must be a multiple of tilesize'
     comptime assert nx == ny and nz == 1,'Benchmark is for a 2D square grid'
     comptime n_tiles = nx//tile_size
@@ -74,7 +76,7 @@ def benchmark_func_row_tile[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[LBM_kernel[grid,f_layout,bc_layout,flag_layout],LBM_kernel[grid,f_layout,bc_layout,flag_layout]]()
+    LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid],LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
     ctx.synchronize()
     
     @always_inline
@@ -93,9 +95,8 @@ def benchmark_func_col_tile[
     float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
-    tile_size:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
+    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
     GRID_DIM:Tuple[Int,Int,Int],
     BLOCK_SHAPE:Tuple[Int,Int,Int],
     U:Scalar[float_dtype],
@@ -107,6 +108,8 @@ def benchmark_func_col_tile[
     '''
     Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles are col major.
     '''
+    comptime tile_size = grid.x_tile
+
     comptime assert (nx % tile_size) == 0 ,'Grid must be a multiple of tilesize'
     comptime assert nx == ny and nz == 1,'Benchmark is for a 2D square grid'
     comptime n_tiles = nx//tile_size
@@ -152,7 +155,7 @@ def benchmark_func_col_tile[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[LBM_kernel[grid,f_layout,bc_layout,flag_layout],LBM_kernel[grid,f_layout,bc_layout,flag_layout]]()
+    LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid],LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
     ctx.synchronize()
     
     @always_inline

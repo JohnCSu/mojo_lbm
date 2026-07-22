@@ -17,9 +17,8 @@ def benchmark_func[
     float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
-    tile_size:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
+    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
     GRID_DIM:Tuple[Int,Int,Int],
     BLOCK_SHAPE:Tuple[Int,Int,Int],
     U:Scalar[float_dtype],
@@ -31,6 +30,8 @@ def benchmark_func[
     '''
     Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles are col major.
     '''
+    comptime tile_size = grid.x_tile
+
     comptime assert (nx % tile_size) == 0 ,'Grid must be a multiple of tilesize'
     comptime assert nx == ny and nz == 1,'Benchmark is for a 2D square grid'
     comptime n_tiles = nx//tile_size
@@ -78,7 +79,7 @@ def benchmark_func[
 
     ctx.synchronize()
     #Compile Functions
-    comptime LBM_kernel_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,simd_width,reorder_threads = reorder_threads]
+    comptime LBM_kernel_ = LBM_kernel[f_layout,bc_layout,flag_layout,grid,simd_width,reorder_threads = reorder_threads]
     LBM_func = ctx.compile_function[LBM_kernel_,LBM_kernel_]()
     ctx.synchronize()
     

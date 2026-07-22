@@ -15,9 +15,8 @@ from std.utils import Variant
 def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
-    tile_size:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
+    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     simd_width:Int,
@@ -26,7 +25,7 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     bc_layout:Layout[...],
     velocity_layout:Layout[...],
     density_layout:Layout[...],
-    ](mut b:Bencher) raises where tile_size >= 1 and f_layout.rank == 4 and flag_layout.rank == 3 and bc_layout.rank == 4 and velocity_layout.rank == 4 and density_layout.rank == 3:
+    ](mut b:Bencher) raises where f_layout.rank == 4 and flag_layout.rank == 3 and bc_layout.rank == 4 and velocity_layout.rank == 4 and density_layout.rank == 3:
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime Float = Scalar[float_dtype]
@@ -54,7 +53,7 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
 
     ctx.synchronize()
     #Compile Functions
-    comptime LBM_kernel_ = LBM_kernel[grid,f_layout,bc_layout,flag_layout,simd_width]
+    comptime LBM_kernel_ = LBM_kernel[f_layout,bc_layout,flag_layout,grid,simd_width]
     LBM_func = ctx.compile_function[LBM_kernel_,LBM_kernel_]()
     ctx.synchronize()
     

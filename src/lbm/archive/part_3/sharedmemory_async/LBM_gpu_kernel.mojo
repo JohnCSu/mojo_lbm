@@ -11,24 +11,21 @@ from src.utils import Vector,ContextTileTensor
 from std.algorithm.functional import vectorize
 from std.sys import simd_width_of
 
-def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
-                lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
-                nx:Int,ny:Int,nz:Int,tile_size:Int,
-                //,
-                grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
-                Flayout:Layout[...],
-                BClayout:Layout[...],
-                Flaglayout:Layout[...],
+def LBM_kernel[
+                Flayout:Layout,
+                BClayout:Layout,
+                Flaglayout:Layout,
+                grid: LBM_Grid,
                 simd_width:Int,
                 ]
                 (
-                f_out:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
-                f_in:TileTensor[float_dtype,type_of(Flayout),ImmutAnyOrigin],
-                bc:TileTensor[float_dtype,type_of(BClayout),ImmutAnyOrigin],
+                f_out:TileTensor[grid.float_dtype,type_of(Flayout),MutAnyOrigin],
+                f_in:TileTensor[grid.float_dtype,type_of(Flayout),ImmutAnyOrigin],
+                bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
-                inv_tau:Scalar[float_dtype]
+                inv_tau:Scalar[grid.float_dtype]
                 )
-                where tile_size >= 1 and Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
     Base LBM to also handle 3D and non_square Grids. Key assumption is that block dim == tile-size 
     i.e. grid can be non-square but block is squre (same block dim in each x,y,z).
@@ -36,6 +33,15 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     NOTE: THIS IS IN PROGRESS. ASYNC ONLY WORKS FOR NVIDIA AMPERE OR LATER. FOR TURING AN ERROR IS RETURNED
 
     ''' 
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime float_dtype = grid.float_dtype
+    comptime lattice_model = grid.lattice_model
+    comptime nx = grid.nx
+    comptime ny = grid.ny
+    comptime nz = grid.nz
+    comptime tile_size = grid.tile_shape[0]
+
     # Convience Variable Names and constants
     # comptime assert False,'This assertion is triggered as this funtions is Currently being implementated Do not use'
     comptime assert Flaglayout.flat_rank == 3 or Flaglayout.flat_rank == 6
@@ -43,7 +49,6 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
     comptime assert Flayout.static_shape[6] == Q
     comptime assert tile_size % 2 == 0 or tile_size == 1,'Tile size must be even or 1'
     comptime weights = lattice_model.weights
-    comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
     comptime opposite_index = lattice_model.opposite_indices
     comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
@@ -104,7 +109,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         
         comptime for q in range(Q):
             direction = directions[q]
-            pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
+            pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
             pulled_f = f_in.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
 
             local_flag_x = local_x + shift_x - Int(direction[0])
@@ -120,21 +125,21 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
                 rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
-                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity))
+                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(directions[q].cast_to[float_dtype]().dot(velocity))
                 
         # Get Velocity and Density
         velocity.fill(0)
         rho = 0
         comptime for q in range(Q):    
             rho += f_new[q]
-            velocity += f_new[q]*float_directions[q]
+            velocity += f_new[q]*directions[q].cast_to[float_dtype]()
 
         velocity /= rho
         # Collision Term
         u_dot_u = velocity.dot(velocity)
 
         comptime for q in range(Q):
-            f_eq = SRT(weights[q],rho,velocity,u_dot_u,float_directions[q])            
+            f_eq = SRT(weights[q],rho,velocity,u_dot_u,directions[q].cast_to[float_dtype]())            
             f_out.store(coord = coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
 
 @always_inline
@@ -243,7 +248,7 @@ def get_global_xyz_from_block_and_local_idx_old[D:Int,FlagLayoutType:TensorLayou
 
 
 @always_inline
-def get_adjacent_idx[D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[DType.int32,D],) -> InlineArray[Int,3]:
+def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[int_dtype,D],) -> InlineArray[Int,3]:
     comptime assert D <= 3 
     adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):

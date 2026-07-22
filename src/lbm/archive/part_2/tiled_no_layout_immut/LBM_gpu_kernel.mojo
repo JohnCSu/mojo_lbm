@@ -9,35 +9,37 @@ from src.lbm import SOLID_NODE,FLUID_NODE
 from src.utils import Vector,ContextTileTensor
 
 
-def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
-                lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
-                nx:Int,ny:Int,nz:Int,
-                tile_size:Int,
-                //,
-                grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
-                Flayout:Layout[...],
-                BClayout:Layout[...],
-                Flaglayout:Layout[...],
+def LBM_kernel[
+                Flayout:Layout,
+                BClayout:Layout,
+                Flaglayout:Layout,
+                grid: LBM_Grid,
                 ]
                 (
-                f_out:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
-                f_in:TileTensor[float_dtype,type_of(Flayout),ImmutAnyOrigin],
-                bc:TileTensor[float_dtype,type_of(BClayout),ImmutAnyOrigin],
+                f_out:TileTensor[grid.float_dtype,type_of(Flayout),MutAnyOrigin],
+                f_in:TileTensor[grid.float_dtype,type_of(Flayout),ImmutAnyOrigin],
+                bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
-                inv_tau:Scalar[float_dtype]
+                inv_tau:Scalar[grid.float_dtype]
                 )
                 where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
     From reorderThreads. This uses tiletensor Indexing. This example is used to compare speed to converting to layout tensor (which should be zero cost).
 
-    ''' 
+    '''
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime float_dtype = grid.float_dtype
+    comptime lattice_model = grid.lattice_model
+    comptime nx = grid.nx
+    comptime ny = grid.ny
+    comptime nz = grid.nz
 
     comptime assert Flayout.flat_rank == 8 and BClayout.flat_rank == 8 and Flaglayout.flat_rank == 6
     comptime tile_size = Flaglayout.static_shape[0] # For now lets assime tile size is the same
 
     # Convience Variable Names and constants
     comptime weights = lattice_model.weights
-    comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
     comptime opposite_index = lattice_model.opposite_indices
     comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
@@ -67,7 +69,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
         comptime for q in range(Q):
             f_opp = f_in[0,opposite_index[q],   local_x,block_x,    local_y,block_y,    local_z,block_z] # Need (local_idx,block_idx)
             direction = directions[q]
-            pull_local,pull_block = get_adjacent_idx[D,Flaglayout,tile_size,-1](local_index,block_index,direction) # Pulling Scheme
+            pull_local,pull_block = get_adjacent_idx[_,D,Flaglayout,tile_size,-1](local_index,block_index,direction) # Pulling Scheme
 
             pulled_f = f_in[0,q,pull_local[0],pull_block[0],     pull_local[1],pull_block[1],   pull_local[2],pull_block[2]]
             pulled_flag = flags[pull_local[0],pull_block[0],     pull_local[1],pull_block[1],   pull_local[2],pull_block[2]]
@@ -78,28 +80,28 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 comptime for ii in range(D):
                     velocity[ii] = bc[pull_local[0],pull_block[0],     pull_local[1],pull_block[1],   pull_local[2],pull_block[2],   ii,0]
                 rho = bc[pull_local[0],pull_block[0],     pull_local[1],pull_block[1],   pull_local[2],pull_block[2],   D,0]
-                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity))
+                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(directions[q].cast_to[float_dtype]().dot(velocity))
             # f_new[q] = pulled_f if pulled_flag == FLUID_NODE else f_new[q]
             #  # BounceBack with moving wall BC put together (2nd term is 0 if stationary wall)
             # comptime for ii in range(D):
             #     velocity[ii] = bc[pull_local[0],pull_block[0],     pull_local[1],pull_block[1],   pull_local[2],pull_block[2],   ii,0]
             # rho = bc[pull_local[0],pull_block[0],     pull_local[1],pull_block[1],   pull_local[2],pull_block[2],   D,0]
-            # f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity)) if pulled_flag == SOLID_NODE else f_new[q]
+            # f_new[q] = f_opp + 2.*3.*weights[q]*rho*(directions[q].cast_to[float_dtype]().dot(velocity)) if pulled_flag == SOLID_NODE else f_new[q]
 
         velocity.fill(0)
         rho = 0
         comptime for q in range(Q):
             rho += f_new[q]
-            velocity += f_new[q]*float_directions[q]
+            velocity += f_new[q]*directions[q].cast_to[float_dtype]()
         velocity /= rho
         # Collision Term
         comptime for q in range(Q):
-            f_eq = SRT(weights[q],rho,velocity,float_directions[q])            
+            f_eq = SRT(weights[q],rho,velocity,directions[q].cast_to[float_dtype]())            
             f_out[0,q,   local_x,block_x,    local_y,block_y,    local_z,block_z] = f_new[q] -  inv_tau*(f_new[q]- f_eq)
 
 @always_inline
-def get_adjacent_idx[D:Int,flag_layout:Layout[...],tile_size:Int,shift:Int = 1]
-                    (local_index:InlineArray[Int,3],block_index:InlineArray[Int,3],direction:Vector[DType.int32,D]) -> Tuple[InlineArray[Int,3],InlineArray[Int,3]]:
+def get_adjacent_idx[int_dtype:DType,D:Int,flag_layout:Layout[...],tile_size:Int,shift:Int = 1]
+                    (local_index:InlineArray[Int,3],block_index:InlineArray[Int,3],direction:Vector[int_dtype,D]) -> Tuple[InlineArray[Int,3],InlineArray[Int,3]]:
     comptime assert flag_layout.flat_rank == 6 and flag_layout.rank == 3
     adj_local_index = InlineArray[Int,3](fill =0)
     adj_block_index = InlineArray[Int,3](fill =0)
@@ -114,11 +116,11 @@ def get_adjacent_idx[D:Int,flag_layout:Layout[...],tile_size:Int,shift:Int = 1]
 
 
 
-def get_adjacent_idx[D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[DType.int32,D],) -> Vector[DType.int32,3]:
+def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[int_dtype,D],) -> Vector[DType.int32,3]:
     comptime assert D <= 3 
     adj_index = Vector[DType.int32,3](uninitialized = True)
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*direction[d]) % grid_shape[d]
+        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
     return adj_index
 
 @always_inline

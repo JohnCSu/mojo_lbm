@@ -9,26 +9,31 @@ from src.lbm import SOLID_NODE,FLUID_NODE
 from src.utils import Vector,ContextTileTensor
 
 
-def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
-                lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
-                nx:Int,ny:Int,nz:Int,
-                tile_size:Int,
-                //,
-                grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size], 
-                Flayout:Layout[...],
-                BClayout:Layout[...],
-                Flaglayout:Layout[...],
+def LBM_kernel[
+                Flayout:Layout,
+                BClayout:Layout,
+                Flaglayout:Layout,
+                grid: LBM_Grid,
                 ]
                 ( 
-                f_out:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
-                f_in:TileTensor[float_dtype,type_of(Flayout),MutAnyOrigin],
-                bc:TileTensor[float_dtype,type_of(BClayout),MutAnyOrigin],
+                f_out:TileTensor[grid.float_dtype,type_of(Flayout),MutAnyOrigin],
+                f_in:TileTensor[grid.float_dtype,type_of(Flayout),MutAnyOrigin],
+                bc:TileTensor[grid.float_dtype,type_of(BClayout),MutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),MutAnyOrigin],
-                inv_tau:Scalar[float_dtype]
-                ):
+                inv_tau:Scalar[grid.float_dtype]
+                )
+                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     '''
     Code is the same but Thread Index are swapped so thread.x is mapped to fastet changing index. Tensors are Row major so for 2D, y is fastest and 3D z is fastest.
     '''
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime float_dtype = grid.float_dtype
+    comptime lattice_model = grid.lattice_model
+    comptime nx = grid.nx
+    comptime ny = grid.ny
+    comptime nz = grid.nz
+
     # Checks For TileTenosor Indexing
     comptime assert f_in.flat_rank == 4 and f_in.flat_rank == f_out.flat_rank and f_in.static_shape[0] == Q 
     comptime assert bc.flat_rank == 4
@@ -36,7 +41,6 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
 
     # Convience Variable Names and constants
     comptime weights = lattice_model.weights
-    comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
     comptime opposite_index = lattice_model.opposite_indices
     comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
@@ -63,7 +67,7 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
             f_opp = f_in[opposite_index[q],x,y,z]
             direction = directions[q]
             
-            pull_index = get_adjacent_idx[D,-1](index,grid_shape,direction) # Pulling Scheme
+            pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
             pulled_f = f_in[q,pull_index[0],pull_index[1],pull_index[2]]            
             pulled_flag = flags[pull_index[0],pull_index[1],pull_index[2]]
 
@@ -73,26 +77,26 @@ def LBM_kernel[ float_dtype:DType,D:Int,Q:Int,
                 comptime for ii in range(D):
                     velocity[ii] = bc[pull_index[0],pull_index[1],pull_index[2],ii]
                 rho = bc[pull_index[0],pull_index[1],pull_index[2],D]
-                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(float_directions[q].dot(velocity))
+                f_new[q] = f_opp + 2.*3.*weights[q]*rho*(directions[q].cast_to[float_dtype]().dot(velocity))
         # Get Velocity and Density
         velocity.fill(0)
         rho = 0
         for q in range(Q):
             rho += f_new[q]
-            velocity += f_new[q]*float_directions[q]
+            velocity += f_new[q]*directions[q].cast_to[float_dtype]()
         velocity /= rho
         # Collision Term
         for q in range(Q):
-            f_eq = SRT(weights[q],rho,velocity,float_directions[q])            
+            f_eq = SRT(weights[q],rho,velocity,directions[q].cast_to[float_dtype]())            
             f_out[q,x,y,z] = f_new[q] -  inv_tau*(f_new[q]- f_eq)
 
 
 
-def get_adjacent_idx[D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[DType.int32,D],) -> Vector[DType.int32,3]:
+def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[int_dtype,D],) -> Vector[DType.int32,3]:
     comptime assert D <= 3 
     adj_index = Vector[DType.int32,3](uninitialized = True)
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*direction[d]) % grid_shape[d]
+        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
     return adj_index
 
 

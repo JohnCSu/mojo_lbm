@@ -15,15 +15,16 @@ def benchmark_func[
     float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
-    tile_size:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
+    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
     GRID_DIM:Tuple[Int,Int,Int],
     BLOCK_SHAPE:Tuple[Int,Int,Int],
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype], 
     ]
     (mut b:Bencher) capturing raises:
+    comptime tile_size = grid.x_tile
+
     # This can be stored in LBM Grid
     comptime flag_layout = row_major[nx,ny,nz]()
     comptime f_layout = row_major[Q,nx,ny,nz]()
@@ -55,7 +56,7 @@ def benchmark_func[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[LBM_kernel[grid,f_layout,bc_layout,flag_layout],LBM_kernel[grid,f_layout,bc_layout,flag_layout]]()
+    LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid],LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
     ctx.synchronize()
     
     @always_inline
