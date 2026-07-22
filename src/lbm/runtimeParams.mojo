@@ -1,7 +1,6 @@
-# from std.builtin.device_passable import DevicePassable,DeviceTypeEncode
-from std.builtin.device_passable import DevicePassable #DeviceTypeEncoder
+from std.builtin.device_passable import DevicePassable
 
-struct RuntimeParams[float_dtype:DType]():
+struct RuntimeParams[float_dtype:DType](DevicePassable & ImplicitlyCopyable):
     comptime device_type:AnyType = Self
     comptime Float = Scalar[Self.float_dtype]
     var Cs:Self.Float
@@ -22,10 +21,10 @@ struct RuntimeParams[float_dtype:DType]():
             "RuntimeParams[",
             reflect[type_of(Self.float_dtype)]().name(),
             "]")
+   
+    def _to_device_type(
+        self, target: MutOpaquePointer[_]):
+        target.bitcast[Self.device_type]()[] = self.copy()
 
     def tau_asymm(self,tau:Self.Float) -> Self.Float:
         return 0.5 + self.TRT_magic_param/(tau-0.5)
-
-    # def _to_device_type(
-    #     self, mut encoder: Some[DeviceTypeEncoder], target: MutOpaquePointer[_]):
-    #     encoder.encode(self,target)
