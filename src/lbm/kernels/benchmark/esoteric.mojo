@@ -78,7 +78,7 @@ def run_benchmark[
 
     comptime GRID_DIM: Tuple[Int, Int, Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE: Tuple[Int, Int, Int] = grid.BLOCK_SHAPE
-    print('Kernel dims: ',GRID_DIM,BLOCK_SHAPE)
+    # print('Kernel dims: ',GRID_DIM,BLOCK_SHAPE)
     comptime Float = Scalar[float_dtype]
     comptime f_dtype = config.f_dtype.value() if config.f_dtype else float_dtype
     ctx = DeviceContext()
