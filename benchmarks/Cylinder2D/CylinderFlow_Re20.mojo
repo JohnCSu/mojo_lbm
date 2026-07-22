@@ -7,30 +7,30 @@ from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
                     LBM_Grid,LBM_Config,
                     get_D2Q9,set_exterior_walls,calculate_rho_and_velocity,set_exterior_walls_with_func,
-                    UnitSystem
+                    UnitSystem,TiledGridLayouts,RuntimeParams
                     )
 
 from src.lbm.kernels.double_buffer import double_buffer_kernel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.geometry.primatives import add_sphere,add_box
 from src.lbm.geometry import ImmersedObject
-from src.lbm import TiledGridLayouts
 from src.visualization import pyvista_viewer_import,grid_viewer
 from src.lbm.kernels.output import calculate_drag_around_object
+
 
 comptime float_dtype = DType.float32
 comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D2Q9 = get_D2Q9()
 comptime D,Q = (2,9)
-comptime N = 16
+comptime N = 256
 comptime L = 0.41
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (5*N,N,1)
-comptime tile_size = (8,8,1)
+comptime tile_size = (16,16,1)
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx,[0.,0.,0.])
 comptime valid_bcs = {Flags.EQUILIBRIUM}
-comptime config = LBM_Config(BCs = valid_bcs,DDF_shift = True)
+comptime config = LBM_Config(BCs = valid_bcs,DDF_shift = False,collision_op = 'TRT')
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM
@@ -65,7 +65,7 @@ def main() raises:
     The lift force requries as much finer mesh to get good agreement as drag force approximately cancel out and so is much more
     sensitive to the staircase effect
 
-    Results (DDF shifting Turned on) after 800K iterations
+    Results (DDF shifting Turned on) after 800K iterations. Values may change and vary
     1024 x 256:
         Drag Force: 5.644561, Target: 5.579535 Abs Error: 0.06502581 Rel Error: 1.1654341%
         Lift Force: 0.013367771, Target: 0.010618948 Abs Error: 0.0027488228 Rel Error: 25.886017% 
@@ -116,7 +116,7 @@ def main() raises:
         f.fill(0.)
         f_out.fill(0.)
 
-
+    params = RuntimeParams[float_dtype]()
     # Boundary Conditions----------------------------
 
     cyl = ImmersedObject[grid]()
@@ -136,8 +136,6 @@ def main() raises:
 
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+X',Flags.EQUILIBRIUM,[],1.)
     set_exterior_walls_with_func[grid,config,u = inlet](flags.cpu(),bc.cpu(),'-X',Flags.SOLID,units,1.)
-
-
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-Y',Flags.SOLID,[0,0],1.)
     set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+Y',Flags.SOLID,[0,0],1.)
     
@@ -180,7 +178,7 @@ def main() raises:
     # pv_mesh.set_animation('Cylinder.gif')
     # pv_mesh.show()
    
-    comptime MAX_ITERS = 1000
+    comptime MAX_ITERS = 400_000
     # Run Simulation
     for t in range(MAX_ITERS):
         ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
@@ -204,8 +202,8 @@ def main() raises:
 
     ctx.synchronize()
     # Get Final U and rho
-    
     ctx.enqueue_function(calculate_drag,f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
+    ctx.synchronize()
     force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
     Fx,Fy = force_np.sum(axis=0)[0],force_np.sum(axis=0)[1]
     Fx,Fy = units.force.C_lat_to_phys()*Fx,units.force.C_lat_to_phys()*Fy
