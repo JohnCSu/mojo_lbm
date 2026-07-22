@@ -32,8 +32,6 @@ struct LatticeModel[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
     comptime n_stress_components = Self.D * (Self.D + 1) // 2
     var directions: InlineArray[Self.int_vector, Self.Q]
     """The integer-valued discrete velocity directions."""
-    var float_directions: InlineArray[Self.float_vector, Self.Q]
-    """The float-valued discrete velocity directions."""
     var stress_indices: InlineArray[
         InlineArray[Self.int_scalar, 2], Self.n_stress_components
     ]
@@ -46,7 +44,7 @@ struct LatticeModel[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
     def __init__(
         out self,
         directions: InlineArray[Self.int_vector, Self.Q],
-        float_directions: InlineArray[Self.float_vector, Self.Q],
+        # float_directions: InlineArray[Self.float_vector, Self.Q],
         weights: Vector[Self.float_dtype, Self.Q],
     ):
         """Constructs a `LatticeModel` from its directions and weights.
@@ -62,7 +60,7 @@ struct LatticeModel[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
         self.directions = directions
         self.weights = weights
         self.opposite_indices = InlineArray[self.int_scalar, Self.Q](fill=0)
-        self.float_directions = float_directions
+        # self.float_directions = float_directions
         self.stress_indices = get_stress_indices[Self.D, self.int_dtype]()
 
         self._get_opposite_indices()
@@ -155,9 +153,9 @@ def get_D3Q27[
         [-1, 1, 1],
         [1, -1, -1],
     ]
-    float_directions = InlineArray[float_vector, Q](uninitialized=True)
-    for i in range(Q):
-        float_directions[i].fill_and_cast_from_list(directions_list[i])
+    # float_directions = InlineArray[float_vector, Q](uninitialized=True)
+    # for i in range(Q):
+    #     float_directions[i].fill_and_cast_from_list(directions_list[i])
 
     directions = InlineArray[int_vector, Q](uninitialized=True)
     for i in range(Q):
@@ -198,7 +196,7 @@ def get_D3Q27[
     )
 
     return LatticeModel[D, Q, float_dtype, int_dtype](
-        directions, float_directions, weights
+        directions, weights
     )
 
 
@@ -245,9 +243,9 @@ def get_D3Q19[
         [0, 1, -1],
         [0, -1, 1],
     ]
-    float_directions = InlineArray[float_vector, Q](uninitialized=True)
-    for i in range(Q):
-        float_directions[i].fill_and_cast_from_list(directions_list[i])
+    # float_directions = InlineArray[float_vector, Q](uninitialized=True)
+    # for i in range(Q):
+    #     float_directions[i].fill_and_cast_from_list(directions_list[i])
 
     directions = InlineArray[int_vector, Q](uninitialized=True)
     for i in range(Q):
@@ -279,7 +277,7 @@ def get_D3Q19[
     )
 
     return LatticeModel[D, Q, float_dtype, int_dtype](
-        directions, float_directions, weights
+        directions, weights
     )
 
 
@@ -301,21 +299,6 @@ def get_D2Q9[
     comptime Q = 9
     comptime int_vector = Vector[int_dtype, D]
     comptime float_vector = Vector[float_dtype, D]
-
-    float_directions_list: List[List[Scalar[float_dtype]]] = [
-        [0, 0],  # 0: Center (rest)
-        [1, 0],  # 1: East
-        [-1, 0],  # 3: West
-        [0, 1],  # 2: North
-        [0, -1],  # 4: South
-        [1, 1],  # 5: North-East
-        [-1, -1],  # 7: South-West
-        [-1, 1],  # 6: North-West
-        [1, -1],  # 8: South-East
-    ]
-    float_directions = InlineArray[float_vector, Q](uninitialized=True)
-    for i in range(Q):
-        float_directions[i].fill(float_directions_list[i])
 
     directions_list: List[List[Scalar[int_dtype]]] = [
         [0, 0],  # 0: Center (rest)
@@ -346,7 +329,7 @@ def get_D2Q9[
     )
 
     return LatticeModel[D, Q, float_dtype, int_dtype](
-        directions, float_directions, weights
+        directions, weights
     )
 
 
