@@ -34,19 +34,19 @@ from src.lbm.kernels.ops import SRT,wall_bc
 
 def esoteric_pull_kernel[ 
                 is_even_time_step:Bool,
-                Flayout:Layout,
-                BClayout:Layout,
-                Flaglayout:Layout,
+                F_layout:Layout,
+                BC_layout:Layout,
+                Flag_layout:Layout,
                 grid: LBM_Grid,
                 config:LBM_Config,
                 ]
                 (
-                f:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(Flayout),MutAnyOrigin],
-                bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
-                flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
+                f:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(F_layout),MutAnyOrigin],
+                bc:TileTensor[grid.float_dtype,type_of(BC_layout),ImmutAnyOrigin],
+                flags:TileTensor[DType.uint8,type_of(Flag_layout),ImmutAnyOrigin],
                 tau:Scalar[grid.float_dtype],
                 )
-                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+                where F_layout.rank == 4 and BC_layout.rank == 4 and Flag_layout.rank == 3:
     """Runs one esoteric-pull SRT LBM time step in place (incomplete).
 
     Intended to perform the pull-scheme streaming and collision in place by
@@ -103,7 +103,7 @@ def esoteric_pull_kernel[
         f_new: Vector[float_dtype,Q] = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
 
         # Apply BC
-        comptime if config.includeMovingBoundary: # We have moving walls
+        comptime if config.include_moving_boundary: # We have moving walls
             comptime include_bounceback = False
             wall_bc[include_bounceback,directions,opposite_indices,weights,config.use_float16c](f_new,pull_flags,f,flags,bc,index,grid_shape)
 
