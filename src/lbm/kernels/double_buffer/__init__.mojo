@@ -5,4 +5,3 @@ populations to `f_out`, allowing the caller to swap buffers between time
 steps without an in-place dependency.
 """
 from .GPU_kernel import double_buffer_kernel
-from .benchmark import benchmark_func_3D
