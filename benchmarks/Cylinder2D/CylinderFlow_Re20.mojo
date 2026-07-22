@@ -23,14 +23,14 @@ comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D2Q9 = get_D2Q9()
 comptime D,Q = (2,9)
-comptime N = 256
+comptime N = 1024
 comptime L = 0.41
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (5*N,N,1)
 comptime tile_size = (16,16,1)
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx,[0.,0.,0.])
 comptime valid_bcs = {Flags.EQUILIBRIUM}
-comptime config = LBM_Config(BCs = valid_bcs,DDF_shift = False,collision_op = 'TRT')
+comptime config = LBM_Config(BCs = valid_bcs,DDF_shift = True,collision_op = 'TRT')
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM
@@ -71,8 +71,15 @@ def main() raises:
         Lift Force: 0.013367771, Target: 0.010618948 Abs Error: 0.0027488228 Rel Error: 25.886017% 
 
     2560 x 512:
+    
+        SRT:
         Drag Force: 5.58883, Target: 5.579535 Abs Error: 0.009294987 Rel Error: 0.1665907%
         Lift Force: 0.011819623, Target: 0.010618948 Abs Error: 0.001200675 Rel Error: 11.3069105%
+
+        TRT:
+        Drag Force: 5.5817976, Target: 5.579535 Abs Error: 0.0022625923 Rel Error: 0.04055163%
+        Lift Force: 0.012483776, Target: 0.010618948 Abs Error: 0.0018648272 Rel Error: 17.561317%
+
 
     5120 x 1024:
         Drag Force: 5.5599337, Target: 5.579535 Abs Error: 0.019601345 Rel Error: 0.35130787%
