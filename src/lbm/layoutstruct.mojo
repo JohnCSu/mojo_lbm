@@ -58,3 +58,6 @@ struct TiledGridLayouts[grid: LBM_Grid]:
     """The tiled layout for the distribution function field."""
     comptime bc_layout = blocked_product(Self._bc_tile, Self._bc_tiler)
     """The tiled layout for the boundary-condition field."""
+
+    def __init__(out self):
+        pass

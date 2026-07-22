@@ -14,6 +14,7 @@ from src.lbm.kernels.double_buffer import double_buffer_kernel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.geometry.primatives import add_sphere,add_box
 from src.lbm.geometry import ImmersedObject
+from src.lbm import TiledGridLayouts
 from src.visualization import pyvista_viewer_import,grid_viewer
 from src.lbm.kernels.output import calculate_drag_around_object
 
@@ -22,11 +23,11 @@ comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D2Q9 = get_D2Q9()
 comptime D,Q = (2,9)
-comptime N = 1024
+comptime N = 16
 comptime L = 0.41
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (5*N,N,1)
-comptime tile_size = 1
+comptime tile_size = (8,8,1)
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx,[0.,0.,0.])
 comptime valid_bcs = {Flags.EQUILIBRIUM}
 comptime config = LBM_Config(BCs = valid_bcs,DDF_shift = True)
@@ -34,18 +35,11 @@ comptime config = LBM_Config(BCs = valid_bcs,DDF_shift = True)
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM
 
-comptime flag_tile = col_major[tile_size,tile_size,1]()
-comptime f_tile = col_major[tile_size,tile_size,1,Q]()
-comptime bc_tile = col_major[tile_size,tile_size,1,D+1]()
+comptime layouts = TiledGridLayouts[grid]()
 
-comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
-comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
-comptime bc_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
-
-# comptime flag_layout = blocked_product(flag_tile,flag_tiler)
-comptime flag_layout = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
-comptime f_layout = blocked_product(f_tile,f_tiler)
-comptime bc_layout = blocked_product(bc_tile,bc_tiler)
+comptime f_layout = layouts.f_layout
+comptime bc_layout = layouts.bc_layout
+comptime flag_layout = layouts.flag_layout
 
 comptime density_layout = row_major[nx,ny,nz]()
 comptime velocity_layout = row_major[D,nx,ny,nz]()
@@ -86,11 +80,10 @@ def main() raises:
      
     '''
 
-    comptime assert N % tile_size == 0 , 'tile_size must divide N'
     print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
     print('Grid Dim: ',GRID_DIM)
     print('BLOCK_SHAPE: ', BLOCK_SHAPE)
-    assert N % tile_size == 0, 'Tile Size must Divide N' 
+    
     print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
 
     comptime U_phs:float_scalar = 0.2
@@ -187,12 +180,12 @@ def main() raises:
     # pv_mesh.set_animation('Cylinder.gif')
     # pv_mesh.show()
    
-    comptime MAX_ITERS = 400_000
+    comptime MAX_ITERS = 1000
     # Run Simulation
     for t in range(MAX_ITERS):
         ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         ctx.enqueue_function(LBM_func,f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
-        if (t % (MAX_ITERS//10)) == 0:
+        if (t % (MAX_ITERS//100)) == 0:
             ctx.synchronize()
             # ctx.enqueue_function(calc_rho_and_u_gpu,rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
             ctx.enqueue_function(calculate_drag,f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
