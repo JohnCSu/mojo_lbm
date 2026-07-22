@@ -133,7 +133,7 @@ def double_buffer_kernel[
         elif config.collision_op == 'TRT':
             comptime TRT_magic_param = 3./16.
             tau_asymm = 0.5 + TRT_magic_param/(tau_local-0.5)
-            TRT[directions,weights,opposite_indices,config.DDF_shift](f_new,velocity,rho,tau_local,tau_asymm)
+            TRT[directions,weights,config.DDF_shift](f_new,velocity,rho,tau_local,tau_asymm)
         
 
 
