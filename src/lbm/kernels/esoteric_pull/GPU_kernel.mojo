@@ -26,30 +26,27 @@ from src.lbm.kernels.utils.moment import (
                                             get_strain_rate_tensor,
                                             get_non_eq_second_order_moment,
                                             get_density_and_velocity_for_eq_BC)
-from src.lbm.kernels.utils.turbulence import get_Smagorinsky_LES_tau
+# from src.lbm.kernels.utils.turbulence import get_Smagorinsky_LES_tau
+
 from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec,f_eq
 
-def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
-                lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
-                nx:Int,ny:Int,nz:Int,tile_size:Int,
-                //,
+from src.lbm.kernels.ops import SRT,wall_bc
+
+def esoteric_pull_kernel[ 
                 is_even_time_step:Bool,
-                implicitBounceBackOnly:Bool,
-                Flayout:Layout[...],
-                BClayout:Layout[...],
-                Flaglayout:Layout[...],
-                grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
-                config:LBM_Config = LBM_Config(),
-                *,
-                f_dtype:DType = config.f_dtype.value() if config.f_dtype is not None else float_dtype
+                Flayout:Layout,
+                BClayout:Layout,
+                Flaglayout:Layout,
+                grid: LBM_Grid,
+                config:LBM_Config,
                 ]
                 (
-                f:TileTensor[f_dtype,type_of(Flayout),MutAnyOrigin],
-                bc:TileTensor[float_dtype,type_of(BClayout),ImmutAnyOrigin],
+                f:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(Flayout),MutAnyOrigin],
+                bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
                 flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
-                tau:Scalar[float_dtype],
+                tau:Scalar[grid.float_dtype],
                 )
-                where tile_size >= 1 and Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     """Runs one esoteric-pull SRT LBM time step in place (incomplete).
 
     Intended to perform the pull-scheme streaming and collision in place by
@@ -77,14 +74,17 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
         tau: The base SRT relaxation time.
     """
     # Convience Variable Names and constants
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime float_dtype = grid.float_dtype
+    comptime int_dtype = grid.int_dtype
+    comptime lattice_model = grid.lattice_model
     comptime weights = lattice_model.weights
-    comptime float_directions = lattice_model.float_directions
     comptime directions = lattice_model.directions
-    comptime opposite_index = lattice_model.opposite_indices
-    comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
-    comptime non_temporal = True
-    comptime load_f_from_xyzq = load_f[float_dtype,config.use_float16c,non_temporal]
+    comptime opposite_indices = lattice_model.opposite_indices
     comptime stress_indices = lattice_model.stress_indices
+    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    
     # Comptime asserts
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
     comptime assert lattice_model.is_valid_for_esoteric_pull(),'Except the first direction, velocitys direction should be followed by their opposite direction'
@@ -95,45 +95,25 @@ def esoteric_pull_kernel[ float_dtype:DType,D:Int,Q:Int,
 
     var index:InlineArray[Int,3] = [x,y,z]
     var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
-    # var pull_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
     pull_flags[0] = flags.load(coord[DType.uint32]((x,y,z)))[0]
-    comptime load_f_from_xyzq = load_f[float_dtype,config.use_float16c]
-    if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]) and pull_flags[0] != SOLID_NODE: # Basic Guard
-        var velocity = Vector[float_dtype,D](uninitialized = True)
-        var rho:Scalar[float_dtype] = 0
-        
-        f_new: Vector[float_dtype,Q] = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
-        # # Regular LBM
-        comptime if not implicitBounceBackOnly: # We have moving walls
-            comptime for q in range(1,Q):
-                comptime direction = directions[q]
-                pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
-                # comptime if q > 0: # we pulled the flag[0] earlier
-                pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
-                # var correction:Scalar[float_dtype] = 0.
-                if pull_flags[q] == Flags.SOLID:
-                    comptime float_direction = (float_directions[q])
-                    comptime weight = weights[q]
-                    comptime for ii in range(D):
-                        velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
-                    rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
-                    f_new[q] += 2.*3.*weight*rho*(float_direction.dot(velocity))
+    
 
-        
+    if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]) and pull_flags[0] != SOLID_NODE: # Basic Guard
+        # Load and Stream From Global
+        f_new: Vector[float_dtype,Q] = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
+
+        # Apply BC
+        comptime if config.includeMovingBoundary: # We have moving walls
+            comptime include_bounceback = False
+            wall_bc[include_bounceback,directions,opposite_indices,weights,config.use_float16c](f_new,pull_flags,f,flags,bc,index,grid_shape)
+
+        # Get Local Variables moments
         rho = get_density[config.DDF_shift](f_new) 
-        velocity = get_velocity[float_directions](f_new,rho)
+        velocity = get_velocity[directions](f_new,rho)
         tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
-        # f_eq = get_f_eq_vec[float_directions,weights,config.DDF_shift](f_new,rho,velocity)
 
         # Collision Term
-        u_dot_u = velocity.dot(velocity)
-        inv_tau = 1./tau_local # This is faster by 0.4 ms on the 256^3 benchmark
-
-        # Collide
-        comptime for q in range(Q):
-            comptime direction = float_directions[q]
-            comptime weight = weights[q]
-            f_new[q] -= inv_tau*(f_new[q]- f_eq[config.DDF_shift](weight,rho,velocity,u_dot_u,direction))
-
-        esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_new,index,grid_shape)
+        SRT[directions,weights,config.DDF_shift](f_new,velocity,rho,tau_local)
         
+        # Store To Global
+        esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_new,index,grid_shape)

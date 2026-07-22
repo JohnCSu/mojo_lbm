@@ -41,15 +41,13 @@ def benchmark_func_3D[
     float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
-    tile_size:Int,
     //,
-    implicitBounceBackOnly:Bool,
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
+    grid: LBM_Grid[lattice_model,nx,ny,nz,...],
     config:LBM_Config = LBM_Config(),
     ]
-    (mut b:Bencher) capturing raises where tile_size >= 1:
+    (mut b:Bencher) capturing raises:
     """Benchmarks one SRT LBM time step on a 3D tiled layout.
 
     Builds column-major `(tile_size, tile_size, tile_size[, Q|D+1])` tiles
@@ -67,16 +65,16 @@ def benchmark_func_3D[
     Args:
         b: The `Bencher` used to time the kernel.
     """
-    comptime assert tile_size > 1 and D == 3
+    comptime assert D == 3
     # This can be stored in LBM Grid
 
     #(32,32,64), (8,8,4)
     
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = col_major[tile_size,tile_size,tile_size]()
-    comptime f_tile = col_major[tile_size,tile_size,tile_size,Q]()
-    comptime bc_tile = col_major[tile_size,tile_size,tile_size,D+1]()
+    comptime flag_tile = col_major[grid.tile_shape[0],grid.tile_shape[1],grid.tile_shape[2]]()
+    comptime f_tile = col_major[grid.tile_shape[0],grid.tile_shape[1],grid.tile_shape[2],Q]()
+    comptime bc_tile = col_major[grid.tile_shape[0],grid.tile_shape[1],grid.tile_shape[2],D+1]()
 
     comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
     comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
@@ -89,24 +87,20 @@ def benchmark_func_3D[
     comptime density_layout = row_major[nx,ny,nz]()
     comptime velocity_layout = row_major[D,nx,ny,nz]()
 
-    run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config,implicitBounceBackOnly](b)
+    run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config](b)
 
 @always_inline
 def benchmark_func_3D_non_tiled[
     float_dtype:DType,D:Int,Q:Int,
     lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
-    tile_size:Int,
     //,
-    implicitBounceBackOnly:Bool,
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
-    grid: LBM_Grid[lattice_model,nx,ny,nz,tile_size],
+    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
     config:LBM_Config = LBM_Config(),
-    *,
-    reorder_threads:Bool = True
     ]
-    (mut b:Bencher) capturing raises where tile_size >= 1:
+    (mut b:Bencher) capturing raises:
     """Benchmarks one SRT LBM time step on a 3D tiled layout.
 
     Builds column-major `(tile_size, tile_size, tile_size[, Q|D+1])` tiles
@@ -124,7 +118,7 @@ def benchmark_func_3D_non_tiled[
     Args:
         b: The `Bencher` used to time the kernel.
     """
-    comptime assert tile_size >= 1 and D == 3
+    comptime assert D == 3
     # This can be stored in LBM Grid
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
@@ -136,7 +130,7 @@ def benchmark_func_3D_non_tiled[
     comptime density_layout = row_major[nx,ny,nz]()
     comptime velocity_layout = row_major[D,nx,ny,nz]()
 
-    run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config,implicitBounceBackOnly](b)
+    run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config](b)
 
 
 
@@ -152,9 +146,8 @@ def run_benchmark[
     nx: Int,
     ny: Int,
     nz: Int,
-    tile_size: Int,
     //,
-    grid: LBM_Grid[lattice_model, nx, ny, nz, tile_size],
+    grid: LBM_Grid[lattice_model, nx, ny, nz,_],
     U: Scalar[float_dtype],
     tau: Scalar[float_dtype],
     simd_width: Int,
@@ -164,10 +157,8 @@ def run_benchmark[
     velocity_layout: Layout[...],
     density_layout: Layout[...],
     config: LBM_Config,
-    implicitBounceBackOnly:Bool,
 ](mut b: Bencher) raises where (
-    tile_size >= 1
-    and f_layout.rank == 4
+    f_layout.rank == 4
     and flag_layout.rank == 3
     and bc_layout.rank == 4
     and velocity_layout.rank == 4
@@ -194,12 +185,12 @@ def run_benchmark[
 
     Args:
         b: The `Bencher` used to time the kernel.
-    """
-    comptime GRID_DIM:Tuple[Int,Int,Int] = (grid.GRID_DIM[0],grid.GRID_DIM[1],grid.GRID_DIM[2]*2)
-    comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = (grid.BLOCK_SHAPE[0],grid.BLOCK_SHAPE[1],grid.BLOCK_SHAPE[2]//2)
+    # """
+    # comptime GRID_DIM:Tuple[Int,Int,Int] = (grid.GRID_DIM[0],grid.GRID_DIM[1],grid.GRID_DIM[2]*2)
+    # comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = (grid.BLOCK_SHAPE[0],grid.BLOCK_SHAPE[1],grid.BLOCK_SHAPE[2]//2)
 
-    # comptime GRID_DIM: Tuple[Int, Int, Int] = grid.GRID_DIM
-    # comptime BLOCK_SHAPE: Tuple[Int, Int, Int] = grid.BLOCK_SHAPE
+    comptime GRID_DIM: Tuple[Int, Int, Int] = grid.GRID_DIM
+    comptime BLOCK_SHAPE: Tuple[Int, Int, Int] = grid.BLOCK_SHAPE
     print('Kernel dims: ',GRID_DIM,BLOCK_SHAPE)
     comptime Float = Scalar[float_dtype]
     comptime f_dtype = config.f_dtype.value() if config.f_dtype else float_dtype
@@ -221,8 +212,8 @@ def run_benchmark[
     _ = f.gpu()
 
     #Compile Functions
-    comptime LBM_Even = esoteric_pull_kernel[True,implicitBounceBackOnly,f_layout,bc_layout,flag_layout,grid,config]
-    comptime LBM_Odd = esoteric_pull_kernel[False,implicitBounceBackOnly,f_layout,bc_layout,flag_layout,grid,config]
+    comptime LBM_Even = esoteric_pull_kernel[True,f_layout,bc_layout,flag_layout,grid,config]
+    comptime LBM_Odd = esoteric_pull_kernel[False,f_layout,bc_layout,flag_layout,grid,config]
     LBM_even_step = ctx.compile_function[LBM_Even,LBM_Even]()
     LBM_odd_step = ctx.compile_function[LBM_Odd,LBM_Odd]()
 
