@@ -14,14 +14,7 @@ from src.utils import ContextTileTensor
 from std.gpu.host import DeviceContext
 
 struct ImmersedObject[
-    float_dtype:DType,
-    int_dtype:DType,
-    nx:Int,ny:Int,nz:Int,
-    tile_size:Int,
-    D:Int,Q:Int,
-    lattice_model:LatticeModel[D,Q,float_dtype,int_dtype],
-    //,
-    grid:LBM_Grid[lattice_model,nx,ny,nz,tile_size]
+    grid:LBM_Grid
     ]():
     """Collects the fluid boundary nodes adjacent to an immersed solid.
 
@@ -31,17 +24,10 @@ struct ImmersedObject[
     `to_ContextTileTensor`.
 
     Parameters:
-        float_dtype: The `DType` of the solid coordinates.
-        int_dtype: The `DType` of the stored linear indices.
-        nx: The number of lattice nodes along `x`.
-        ny: The number of lattice nodes along `y`.
-        nz: The number of lattice nodes along `z`.
-        tile_size: The tile size of the grid.
-        D: The spatial dimension of the grid.
-        Q: The number of discrete velocities per node.
-        lattice_model: The compile-time lattice model.
         grid: The compile-time `LBM_Grid` describing the domain.
     """
+    comptime float_dtype = Self.grid.float_dtype
+    comptime int_dtype = Self.grid.int_dtype
     comptime Int_Scalar = Scalar[Self.int_dtype]
 
     var fluid_boundary_list:List[Self.Int_Scalar]

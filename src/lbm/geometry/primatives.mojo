@@ -17,20 +17,14 @@ from std.collections import Set
 def get_sphere_boundary_indices[
     flag_origin:Origin[mut=True],
     FlagLayoutType:TensorLayout,
-    float_dtype:DType,
-    int_dtype:DType,
-    nx:Int,ny:Int,nz:Int,
-    D:Int,Q:Int,
-    tile_size:Int,
-    latticeModel:LatticeModel[D,Q,float_dtype,int_dtype],
     //,
-    grid:LBM_Grid[latticeModel,nx,ny,nz,tile_size]
+    grid:LBM_Grid
     ]
     (
         flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
-        center:List[Scalar[float_dtype]],
-        radius:Scalar[float_dtype],
-        ) raises -> List[Scalar[int_dtype]]:
+        center:List[Scalar[grid.float_dtype]],
+        radius:Scalar[grid.float_dtype],
+        ) raises -> List[Scalar[grid.int_dtype]]:
     """Marks a sphere solid and returns the linear indices of adjacent fluid nodes.
 
     Writes `Flags.SOLID` into `flags` for every node inside the sphere, then
@@ -41,15 +35,6 @@ def get_sphere_boundary_indices[
     Parameters:
         flag_origin: The origin of the `flags` tile tensor.
         FlagLayoutType: The compile-time layout of `flags`.
-        float_dtype: The `DType` of the sphere coordinates.
-        int_dtype: The `DType` of the returned linear indices.
-        nx: The number of lattice nodes along `x`.
-        ny: The number of lattice nodes along `y`.
-        nz: The number of lattice nodes along `z`.
-        D: The spatial dimension of the grid.
-        Q: The number of discrete velocities per node.
-        tile_size: The tile size of the grid.
-        latticeModel: The compile-time lattice model.
         grid: The compile-time `LBM_Grid` describing the domain.
 
     Args:
@@ -64,20 +49,23 @@ def get_sphere_boundary_indices[
     Raises:
         Error: If `center` does not have exactly three elements.
     """
-    # comptime (nx,ny,nz) = (grid.nx,grid.ny,grid.nz)
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime float_dtype = grid.float_dtype
+    comptime int_dtype = grid.int_dtype
+    comptime latticeModel = grid.lattice_model
 
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
-    # b:Tuple[Int,Int,Int] = (0,0,0)
     var bounding_box:List[List[Int]] = []
 
     for i in range(3):
         if i < D:
             a_min,a_max = center[i] - radius, center[i] + radius
             n_min,n_max = max(0,Int((a_min-grid.origin[i])//grid.dx)), min(grid.shape[i],Int((a_max-grid.origin[i])//grid.dx + 1))
-            bounding_box.append([n_min,n_max+1]) # Add 1 as we need to also have search for bounding box of fluid elements
+            bounding_box.append([n_min,n_max+1])
         else:
-            bounding_box.append([0,1]) # This means loop is just set to 0 index
+            bounding_box.append([0,1])
 
     comptime vec3 = Vector[float_dtype,3]
     comptime float = Scalar[float_dtype]
@@ -86,15 +74,14 @@ def get_sphere_boundary_indices[
     def inside_boundary(coord_vec:vec3,center_vec:vec3,radius:float) -> Bool:
         return ((coord_vec - center_vec)**2).sum() <= radius**2
 
-    # Search Bounding box For candidate NOT In sphere but in Bounding Box
     candidate_indices:Set[Tuple[Int,Int,Int]] = {}
     for nx in range(bounding_box[0][0],bounding_box[0][1]):
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
                 coord_vec = index_to_coord((nx,ny,nz),grid.dx,grid.origin)
-                if inside_boundary(coord_vec,center_vec,radius): # If inside boundary set to 1
+                if inside_boundary(coord_vec,center_vec,radius):
                     flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
-                else: # If Outside add to possible candidate
+                else:
                     candidate_indices.add((nx,ny,nz))
 
     indices =  List[Scalar[int_dtype]](length = len(candidate_indices),fill = (-1))
@@ -103,18 +90,18 @@ def get_sphere_boundary_indices[
     for idx in candidate_indices:
         x,y,z = idx
         crd = coord[int_dtype]((x,y,z))
-        for q in range(Q): # We iterate and check if adjacent index is inside boundary and break if true
+        for q in range(Q):
             test_direction:InlineArray[Int,3] = [x,y,z]
             comptime for i in range(D):
                 test_direction[i] += Int(latticeModel.directions[q][i])
             coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,grid.origin)
-            if inside_boundary(coord_test,center_vec,radius): # If any direction Q touches a solid mark current point as solid
-                indices[num_boundary_indices] = flags.layout[linear_idx_type = int_dtype](crd) # Using the flag's layout to calculate the linear idx mem
+            if inside_boundary(coord_test,center_vec,radius):
+                indices[num_boundary_indices] = flags.layout[linear_idx_type = int_dtype](crd)
                 num_boundary_indices += 1
                 break
 
     indices.shrink(num_boundary_indices)
-    return (indices)^ # Trnsfer Ownership of data
+    return (indices)^
 
 
 def index_to_coord[float_dtype:DType]
@@ -144,15 +131,11 @@ def index_to_coord[float_dtype:DType]
 
 
 def add_sphere[
-    float_dtype:DType,
     flag_origin:Origin[mut=True],
-    nx:Int,ny:Int,nz:Int,
-    D:Int,
-    latticeModel:LatticeModel[D,_,float_dtype,...],
     FlagLayoutType:TensorLayout,
     //,
-    grid:LBM_Grid[latticeModel,nx,ny,nz,_]]
-    (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[float_dtype]],radius:Scalar[float_dtype]) raises:
+    grid:LBM_Grid]
+    (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[grid.float_dtype]],radius:Scalar[grid.float_dtype]) raises:
     """Marks a sphere (circle in 2D, ball in 3D) solid in the flag field.
 
     Writes `Flags.SOLID` into `flags` for every node whose physical coordinate
@@ -169,10 +152,11 @@ def add_sphere[
     Raises:
         Error: If `center` does not have exactly three elements.
     """
+    comptime D = grid.D
+    comptime float_dtype = grid.float_dtype
     comptime assert FlagLayoutType.rank == 3
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
-    # b:Tuple[Int,Int,Int] = (0,0,0)
     var bounding_box:List[List[Int]] = []
 
 
@@ -182,13 +166,7 @@ def add_sphere[
             n_min,n_max = max(0,Int((a_min-grid.origin[i])//grid.dx)), min(grid.shape[i],Int((a_max-grid.origin[i])//grid.dx + 1))
             bounding_box.append([n_min,n_max])
         else:
-            bounding_box.append([0,1]) # This means loop is just set to 0 index
-
-    print(bounding_box)
-    # bounding_box.append([0,nx])
-    # bounding_box.append([0,ny])
-    # bounding_box.append([0,nz])
-
+            bounding_box.append([0,1])
 
     comptime vec3 = Vector[float_dtype,3]
     comptime float = Scalar[float_dtype]
@@ -206,14 +184,12 @@ def add_sphere[
                     flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
 
 def add_circle[
-    float_dtype:DType,
     flag_origin:Origin[mut=True],
     FlagLayoutType:TensorLayout,
-    latticeModel:LatticeModel[_,_,float_dtype,...],
     //,
-    grid:LBM_Grid[latticeModel,...],
+    grid:LBM_Grid
     ]
-    (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[float_dtype]],radius:Scalar[float_dtype]) raises:
+    (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[grid.float_dtype]],radius:Scalar[grid.float_dtype]) raises:
 
     """Alias of `add_sphere` constrained to 2D grids.
 
@@ -225,23 +201,18 @@ def add_circle[
         center: The physical `(x, y, z)` coordinates of the circle center.
         radius: The physical radius of the circle.
     """
-    comptime assert float_dtype == grid.lattice_model.float_dtype
     comptime assert grid.lattice_model.D == 2,'Circle only valid for 2D'
     return add_sphere[grid](flags,center,radius)
 
 
 
 def add_box[
-    float_dtype:DType,
     flag_origin:Origin[mut=True],
-    nx:Int,ny:Int,nz:Int,
-    D:Int,Q:Int,
-    latticeModel:LatticeModel[D,Q,float_dtype,DType.int32],
-    tile_size:Int,
     FlagLayoutType:TensorLayout,
     //,
-    grid:LBM_Grid[latticeModel,nx,ny,nz,tile_size]]
-    (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[float_dtype]],box_radius:List[Scalar[float_dtype]]) raises:
+    grid:LBM_Grid
+    ]
+    (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],center:List[Scalar[grid.float_dtype]],box_radius:List[Scalar[grid.float_dtype]]) raises:
     """Marks an axis-aligned box solid in the flag field.
 
     Writes `Flags.SOLID` into `flags` for every node whose physical coordinate
@@ -259,13 +230,14 @@ def add_box[
         Error: If `center` does not have exactly three elements.
         Error: If `box_radius` does not have exactly three elements.
     """
+    comptime D = grid.D
+    comptime float_dtype = grid.float_dtype
     comptime assert FlagLayoutType.rank == 3
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
 
     if len(box_radius) != 3:
         raise Error('lengths must be a list of 3 floats got a len of {} instead'.format(len(box_radius)))
-    # b:Tuple[Int,Int,Int] = (0,0,0)
     var bounding_box:List[List[Int]] = []
 
 
@@ -275,17 +247,13 @@ def add_box[
             n_min,n_max = max(0,Int((a_min-grid.origin[i])//grid.dx)), min(grid.shape[i],Int((a_max-grid.origin[i])//grid.dx + 1))
             bounding_box.append([n_min,n_max])
         else:
-            bounding_box.append([0,1]) # This means loop is just set to 0 index
+            bounding_box.append([0,1])
 
-    # bounding_box.append([0,nx])
-    # bounding_box.append([0,ny])
-    # bounding_box.append([0,nz])
     comptime vec3 = Vector[float_dtype,3]
-    comptime vec3_bool = Vector[float_dtype,3]
     comptime float = Scalar[float_dtype]
     var center_vec = vec3(center)
     var coord_vec = vec3(fill=0.)
-    var box_radius_vec = vec3_bool(box_radius)
+    var box_radius_vec = vec3(box_radius)
 
     for nx in range(bounding_box[0][0],bounding_box[0][1]):
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
