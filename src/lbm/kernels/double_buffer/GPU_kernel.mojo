@@ -13,7 +13,7 @@ from std.gpu import block_dim,block_idx,thread_idx,barrier
 from std.gpu.memory import AddressSpace
 from std.math import sqrt
 
-from src.lbm import LBM_Config,LatticeModel,GridLike,LBM_Grid
+from src.lbm import LBM_Config,LatticeModel,GridLike,LBM_Grid,RuntimeParams
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
 from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
@@ -27,8 +27,7 @@ from src.lbm.kernels.utils.moment import (
                                             get_density_and_velocity_for_eq_BC)
 from src.lbm.kernels.ops.turbulence import get_Smagorinsky_LES_tau
 from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec
-from src.lbm.kernels.ops import wall_bc,equilibrium_bc,SRT
-
+from src.lbm.kernels.ops import wall_bc,equilibrium_bc,SRT,TRT
 
 def double_buffer_kernel[
     Flayout:Layout,
@@ -43,6 +42,7 @@ def double_buffer_kernel[
     bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
     flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
     tau:Scalar[grid.float_dtype],
+    # params:RuntimeParams[grid.float_dtype]
     )
     where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
     """Runs one SRT LBM time step from `f_in` into `f_out`.
@@ -127,10 +127,15 @@ def double_buffer_kernel[
                 tau_local += tau_eddy
 
         # Collision Term
-        u_dot_u = velocity.dot(velocity)
-        inv_tau = 1./tau_local # This is faster by 0.4 ms on the 256^3 benchmark
+        # comptime assert config.collision_op_is_valid(), 'Collision operator must be either SRT or TRT'
+        comptime if config.collision_op == 'SRT':
+            SRT[directions,weights,config.DDF_shift](f_new,velocity,rho,tau_local)
+        elif config.collision_op == 'TRT':
+            comptime TRT_magic_param = 3./16.
+            tau_asymm = 0.5 + TRT_magic_param/(tau_local-0.5)
+            TRT[directions,weights,opposite_indices,config.DDF_shift](f_new,velocity,rho,tau_local,tau_asymm)
+        
 
-        SRT[directions,weights,config.DDF_shift](f_new,velocity,rho,tau_local)
 
         # Store f back to Global
         comptime for q in range(Q):
