@@ -7,7 +7,7 @@ from std.math import ceildiv
 from std.collections import InlineArray
 from src.lbm import SOLID_NODE,FLUID_NODE,set_exterior_walls,LBM_Grid,get_D3Q19,get_D3Q27,LBM_Config
 from src.lbm.archive.part_3 import base
-from src.lbm.kernels import double_buffer,esoteric_pull
+from src.lbm.kernels.benchmark import benchmark_func_tiled_3D,benchmark_func_3D_non_tiled
 
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
@@ -20,7 +20,7 @@ comptime N = 256
 comptime L = 1.
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,N)
-comptime tile_size = 4
+comptime tile_size = (8,8,4)
 
 # For D3Q19
 comptime D3Q19 = get_D3Q19[float_dtype,DType.int32]()
@@ -54,15 +54,15 @@ comptime benchmark_5 = base.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
 comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
 
 
-comptime benchmark_9 = double_buffer.benchmark_func_3D[tiled_grid,U,tau,LBM_Config()]
-comptime benchmark_10 = double_buffer.benchmark_func_3D[tiled_grid,U,tau,LBM_Config(use_float16c = True,DDF_shift = True)]
-comptime benchmark_11 = double_buffer.benchmark_func_3D[tiled_grid,U,tau,LBM_Config(LES = True,DDF_shift = True)]
+comptime benchmark_9 = benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,LBM_Config()]
+comptime benchmark_10 =benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,LBM_Config(use_float16c = True,DDF_shift = True)]
+comptime benchmark_11 =benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,LBM_Config(LES = True,DDF_shift = True)]
 
 
-comptime benchmark_12 = esoteric_pull.benchmark_func_3D[tiled_grid,U,tau,LBM_Config()]
-comptime benchmark_13 = esoteric_pull.benchmark_func_3D[tiled_grid,U,tau,LBM_Config(use_float16c = True,DDF_shift = True)]
-# comptime benchmark_14 = esoteric_pull.benchmark_func_3D[tiled_grid,U,tau,LBM_Config(LES = True,DDF_shift = True)]
-comptime benchmark_15 = esoteric_pull.benchmark_func_3D_non_tiled[non_tiled_grid,U,tau,LBM_Config(LES = True,DDF_shift = True)]
+comptime benchmark_12 = benchmark_func_tiled_3D['esoteric pull',U,tau,tiled_grid,LBM_Config()]
+comptime benchmark_13 = benchmark_func_tiled_3D['esoteric pull',U,tau,tiled_grid,LBM_Config(use_float16c = True,DDF_shift = True)]
+comptime benchmark_14 = benchmark_func_3D_non_tiled['esoteric pull',U,tau,non_tiled_grid,LBM_Config(LES = True,DDF_shift = True)]
+comptime benchmark_15 = benchmark_func_3D_non_tiled['esoteric pull',U,tau,non_tiled_grid,LBM_Config(use_float16c = True,LES = True,DDF_shift = True)]
 
 def main() raises:
     ctx = DeviceContext()
@@ -79,20 +79,21 @@ def main() raises:
 
     var bench_config = BenchConfig(max_iters=2, num_warmup_iters=1)
     var bench = Bench(bench_config.copy())
-    # bench.bench_function[benchmark_1](BenchId('1. Base Row Major AoS'))
-    # bench.bench_function[benchmark_2](BenchId('2. Base Col Major SoA'))
-    # bench.bench_function[benchmark_3](BenchId('3. Tile Col, Tiler Row'))
-    # bench.bench_function[benchmark_4](BenchId('4. Tile Row, Tile Col'))
-    # bench.bench_function[benchmark_5](BenchId('5. Tile Col, Tiler Col'))
-    # bench.bench_function[benchmark_6](BenchId('6. Tile Row, Tiler Row'))
+    bench.bench_function[benchmark_1](BenchId('1. Base Row Major AoS'))
+    bench.bench_function[benchmark_2](BenchId('2. Base Col Major SoA'))
+    bench.bench_function[benchmark_3](BenchId('3. Tile Col, Tiler Row'))
+    bench.bench_function[benchmark_4](BenchId('4. Tile Row, Tile Col'))
+    bench.bench_function[benchmark_5](BenchId('5. Tile Col, Tiler Col'))
+    bench.bench_function[benchmark_6](BenchId('6. Tile Row, Tiler Row'))
     # bench.bench_function[benchmark_7](BenchId('7. Shared Memory For Flags tile, Global Pull For boundary'))
     # bench.bench_function[benchmark_8](BenchId('8. Map Flags + Halo region to Shared'))
-    # bench.bench_function[benchmark_9](BenchId('9. LBM with Default LBM_Config'))
-    # bench.bench_function[benchmark_10](BenchId('10. LBM float16c + DDF_shift'))
-    # bench.bench_function[benchmark_11](BenchId('11. LES + DDF_Shift'))
 
-    # bench.bench_function[benchmark_12](BenchId('12. Esoteric Pull LBM with Default LBM_Config'))
-    bench.bench_function[benchmark_13](BenchId('13. Esoteric Pull LBM float16c + DDF_shift'))
-    # bench.bench_function[benchmark_14](BenchId('14. Esoteric Pull LES + DDF_Shift'))
-    # bench.bench_function[benchmark_15](BenchId('15. float16c + DDF_Shift Col Major'))
+    bench.bench_function[benchmark_9](BenchId('9. Double Buffer LBM with Default LBM_Config'))
+    bench.bench_function[benchmark_10](BenchId('10. Double Buffer  LBM float16c + DDF_shift'))
+    bench.bench_function[benchmark_11](BenchId('11. Double Buffer  LES + DDF_Shift'))
+
+    bench.bench_function[benchmark_12](BenchId('12. Esoteric Pull + LBM with Default LBM_Config'))
+    bench.bench_function[benchmark_13](BenchId('13. Esoteric Pull + LBM float16c + DDF_shift'))
+    bench.bench_function[benchmark_14](BenchId('14. Esoteric Pull + DDF_Shift + Non Tiled Col Major'))
+    bench.bench_function[benchmark_15](BenchId('15. Esoteric Pull + Float16c + DDF_Shift + Non Tiled Col Major'))
     print(bench)
