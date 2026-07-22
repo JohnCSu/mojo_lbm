@@ -14,6 +14,41 @@ from std.collections import Set, Dict
 from src.utils import Vector, ContextTileTensor
 from std.utils.numerics import nan, isnan
 from .units import UnitSystem
+from std.utils import Variant
+
+
+comptime Int_Or_Tuple_Of_Ints = Variant[Int,Tuple[Int,Int,Int]]
+
+def set_tile_shape(x:Int_Or_Tuple_Of_Ints,D:Int) -> Tuple[Int,Int,Int]:
+    if x.isa[Int]():
+        tile_size = x[Int]
+        return (tile_size,tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
+    else:
+        return x[Tuple[Int,Int,Int]]
+
+
+def set_default_block_shape[tile_shape:Tuple[Int,Int,Int],D:Int]() -> Tuple[Int,Int,Int]:
+    comptime if tile_shape == (1,1,1):
+        if D == 1:
+            return (256,1,1)
+        elif D == 2:
+            return (16,16,1)
+        else:
+            return (8,8,4)
+    else:
+        comptime for i in range(3):
+            comptime assert tile_shape[i] > 1 if i < D else tile_shape[i] == 1
+        return tile_shape
+
+
+def set_grid_dims[nx:Int,ny:Int,nz:Int,block_shape:Tuple[Int,Int,Int]]() -> Tuple[Int,Int,Int]:
+    comptime assert (
+                (nx % block_shape[0] == 0 or nx == 1)
+            and (ny % block_shape[1] == 0 or ny == 1)
+            and (nz % block_shape[2] == 0 or nz == 1)
+        ),'The grid shape along nx,ny and nz should be either equal to 1 or divisible by the block shape'
+    
+    return (nx//block_shape[0],ny//block_shape[1],nz//block_shape[2])
 
 
 trait GridLike:
@@ -31,25 +66,11 @@ trait GridLike:
     comptime nx: Int
     comptime ny: Int
     comptime nz: Int
-    comptime tile_size: Int
+    comptime tile_shape: Tuple[Int,Int,Int]
     comptime lattice_model: LatticeModel[
         Self.D, Self.Q, Self.float_dtype, Self.int_dtype
     ]
-
-    @staticmethod
-    def datacheck() -> Bool:
-        """Verifies that the tile size evenly divides each active axis.
-
-        Returns:
-            `True` when the tile size divides `nx`, `ny`, and `nz` (or the
-            axis is length 1).
-        """
-        comptime assert (
-            (Self.nx % Self.tile_size == 0 or Self.nx == 1)
-            and (Self.ny % Self.tile_size == 0 or Self.ny == 1)
-            and (Self.nz % Self.tile_size == 0 or Self.nz == 1)
-        )
-        return True
+    comptime shape: InlineArray[Int, 3]
 
 
 struct LBM_Grid[
@@ -62,7 +83,8 @@ struct LBM_Grid[
     nx_: Int,
     ny_: Int,
     nz_: Int,
-    tile_size_: Int,
+    tile_shape_:Int_Or_Tuple_Of_Ints,
+    
 ](ImplicitlyCopyable & GridLike):
     """Describes an LBM simulation domain and its GPU launch parameters.
 
@@ -83,7 +105,7 @@ struct LBM_Grid[
         nz_: The number of lattice nodes along `z`.
         tile_size_: The tile size used for tiled layouts and GPU blocking.
     """
-
+    
     comptime float_dtype: DType = Self.float_dtype_
     comptime int_dtype: DType = Self.int_dtype_
     comptime D: Int = Self.D_
@@ -91,25 +113,23 @@ struct LBM_Grid[
     comptime nx: Int = Self.nx_
     comptime ny: Int = Self.ny_
     comptime nz: Int = Self.nz_
-    comptime tile_size: Int = Self.tile_size_
+    comptime tile_size: Int = 8
+    comptime tile_shape = set_tile_shape(Self.tile_shape_,Self.D)
+
     comptime lattice_model = Self.lattice_model_
 
     # comptime float_dtype:DType = Self.float_dtype
     comptime Float_Scalar = Scalar[Self.float_dtype]
-    comptime __shapes = set_block_shape_and_grid_dim[
-        Self.nx, Self.ny, Self.nz, Self.D, Self.tile_size
-    ]()
-    comptime BLOCK_SHAPE = Self.__shapes[0]
-    comptime GRID_DIM = Self.__shapes[1]
-    comptime THREADS_PER_BLOCK = Self.BLOCK_SHAPE[0] * Self.BLOCK_SHAPE[
-        1
-    ] * Self.BLOCK_SHAPE[2]
-    comptime n_tiles_x = Self.nx // Self.tile_size
-    comptime n_tiles_y = Self.ny // Self.tile_size if Self.D >= 2 else 1
-    comptime n_tiles_z = Self.nz // Self.tile_size if Self.D == 3 else 1
-    comptime x_tile = Self.tile_size
-    comptime y_tile = Self.tile_size if Self.D >= 2 else 1
-    comptime z_tile = Self.tile_size if Self.D == 3 else 1
+    comptime BLOCK_SHAPE = set_default_block_shape[Self.tile_shape,Self.D]()
+    comptime GRID_DIM = set_grid_dims[Self.nx,Self.ny,Self.nz,Self.BLOCK_SHAPE]()
+    comptime THREADS_PER_BLOCK = Self.BLOCK_SHAPE[0] * Self.BLOCK_SHAPE[1] * Self.BLOCK_SHAPE[2]
+
+    comptime n_tiles_x = Self.nx // Self.tile_shape[0]
+    comptime n_tiles_y = Self.ny // Self.tile_shape[1] if Self.D >= 2 else 1
+    comptime n_tiles_z = Self.nz // Self.tile_shape[2] if Self.D == 3 else 1
+    comptime x_tile = Self.tile_shape[0]
+    comptime y_tile = Self.tile_shape[1]
+    comptime z_tile = Self.tile_shape[2]
 
 
     var dx: Self.Float_Scalar
@@ -122,7 +142,7 @@ struct LBM_Grid[
     """The area of one lattice cell (`dx**2`)."""
     var volume: Self.Float_Scalar
     """The volume of one lattice cell (`dx**3`)."""
-    var shape: InlineArray[Int, 3]
+    comptime shape: InlineArray[Int, 3] = [Self.nx,Self.ny,Self.nz]
     """The `[nx, ny, nz]` node counts per axis."""
     var num_points: Int
     """The total number of lattice nodes."""
@@ -151,7 +171,7 @@ struct LBM_Grid[
         self.dx = dx
         self.area = dx**2
         self.volume = dx**3
-        self.shape = [Self.nx, Self.ny, Self.nz]
+        
         self.num_points = Self.nx * Self.ny * Self.nz
         self.f_field_size = Self.Q * self.num_points
         self.vel_field_size = Self.D * self.num_points
