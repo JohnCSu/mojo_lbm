@@ -237,6 +237,20 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
                     return False
         return True
 
+    @always_inline
+    def any_true(self) -> Bool:
+        """Returns `True` if any element is truthy, otherwise `False`.
+
+        For non-boolean vectors, any non-zero value is treated as `True`.
+
+        Returns:
+            `True` when every element is truthy, `False` otherwise.
+        """
+        comptime for i in range(Self.size):
+            if Bool(self.data[i]):
+                    return True
+        return False
+
 
     def __neg__(self) -> Self:
         """Returns the element-wise negation of the vector."""
