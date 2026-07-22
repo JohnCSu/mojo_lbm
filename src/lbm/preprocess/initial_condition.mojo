@@ -137,7 +137,7 @@ def initialize_f_from_func[
         tau: The relaxation time used by the non-equilibrium correction.
     """
     comptime weights = lattice_model.weights
-    comptime float_directions = lattice_model.float_directions
+    comptime directions = lattice_model.directions
     # TODO: Add Parallel Code For This for very large elements
     for i in range(nx):
         for j in range(ny):
@@ -154,26 +154,28 @@ def initialize_f_from_func[
                 # comptime assert D == 2,'adding neq only works for 2D for now'
 
                 comptime for q in range(Q):
-                    f_i = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_directions[q])
+                    comptime float_direction = directions[q].cast_to[float_dtype]()
+                    f_i = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_direction)
                     comptime if deriv_u:
                         comptime u_func = deriv_u.value()
                         grad = u_func(grid_indices[0],grid_indices[1],grid_indices[2],velocity.copy())
                         if unitSystem:
                             comptime for d in range(D): # Scale Gradient to lattice units
                                 grad[d] *= unitSystem.value().U.C_phys_to_lat()/unitSystem.value().L.C_phys_to_lat()
-                        f_i += fi_neq(q,weights[q],rho,tau,grad,float_directions)
+                        f_i += fi_neq[directions](q,weights[q],rho,tau,grad)
                     store_f[config.use_float16c](f,f_i,index,q)
 
 
 def fi_neq[
-    float_dtype:DType,D:Int,Q:Int
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
+    directions: InlineArray[Vector[int_dtype, D],Q]
     ](
     i:Int,
     weight:Scalar[float_dtype],
     rho:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     grad:List[Vector[float_dtype,D]],
-    float_directions: InlineArray[Vector[float_dtype, D],Q]
+    
     ) -> Scalar[float_dtype]:
 
     """Returns the non-equilibrium correction to `f_i` for a velocity gradient.
@@ -203,11 +205,12 @@ def fi_neq[
         The non-equilibrium correction `f_i^{neq}`.
     """
     fi_neq: Scalar[float_dtype] = 0.
+    direction = directions[i].cast_to[float_dtype]()
 
     comptime for alpha in range(D):
         comptime for beta in range(D):
             Sab = calculate_Sab(grad,alpha,beta)
-            Qiab = float_directions[i][alpha]*float_directions[i][beta]
+            Qiab = direction[i][alpha]*direction[i][beta]
             comptime if alpha == beta:
                 Qiab -= cs_squared
             fi_neq += Qiab*Sab
