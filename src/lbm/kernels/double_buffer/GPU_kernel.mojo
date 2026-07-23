@@ -13,7 +13,7 @@ from std.gpu import block_dim,block_idx,thread_idx,barrier
 from std.gpu.memory import AddressSpace
 from std.math import sqrt
 
-from src.lbm import LBM_Config,LatticeModel,GridLike,LBM_Grid,RuntimeParams
+from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
 from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f

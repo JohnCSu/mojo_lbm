@@ -5,7 +5,7 @@ domain by writing `Flags.SOLID` into the flag tile tensor for every node
 inside the shape, and `get_sphere_boundary_indices` collects the fluid nodes
 adjacent to a sphere for use by force computations.
 """
-from src.lbm import LBM_Grid,LatticeModel
+from src.lbm import LBM_Grid,Lattice
 from src.lbm.constants import Flags
 from std.gpu.host import DeviceContext
 from layout import TileTensor,LayoutTensor,coord

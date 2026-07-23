@@ -11,7 +11,7 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from layout.tile_tensor import stack_allocation
 from std.gpu.memory import AddressSpace
 
-from src.lbm import LBM_Grid,LBM_Config,LatticeModel
+from src.lbm import LBM_Grid,LBM_Config,Lattice
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
 from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec

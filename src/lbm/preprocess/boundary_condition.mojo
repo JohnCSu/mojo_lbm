@@ -14,7 +14,7 @@ from std.collections import Set,Dict
 from src.utils import Vector,ContextTileTensor
 from std.utils.numerics import nan,isnan
 from src.lbm import UnitSystem
-from src.lbm import LBM_Grid,LatticeModel
+from src.lbm import LBM_Grid,Lattice
 
 
 def set_exterior_walls[float_dtype:DType,
@@ -22,7 +22,7 @@ def set_exterior_walls[float_dtype:DType,
                     bc_origin:Origin[mut=True],
                     nx:Int,ny:Int,nz:Int,
                     D:Int,Q:Int,
-                    lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+                    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
                     FlagLayoutType:TensorLayout,
                     BCLayoutType:TensorLayout,
                     //,
@@ -141,7 +141,7 @@ def set_exterior_walls_with_func[
                     bc_origin:Origin[mut=True],
                     nx:Int,ny:Int,nz:Int,
                     D:Int,Q:Int,
-                    latticeModel:LatticeModel[D,Q,float_dtype,DType.int32],
+                    latticeModel:Lattice[D,Q,float_dtype,DType.int32],
                     FlagLayoutType:TensorLayout,
                     BCLayoutType:TensorLayout,
                     //,

@@ -27,7 +27,7 @@ from src.lbm import (
     FLUID_NODE,
     LBM_Grid,
     get_D2Q9,
-    LatticeModel,
+    Lattice,
     set_exterior_walls,
     LBM_Config,
 )
@@ -43,7 +43,7 @@ from . import double_buffer
 @always_inline
 def benchmark_func_tiled_3D[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
     lbm_method:StaticString,
@@ -101,7 +101,7 @@ def benchmark_func_tiled_3D[
 @always_inline
 def benchmark_func_3D_non_tiled[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
     lbm_method:StaticString,

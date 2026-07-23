@@ -14,7 +14,7 @@ from src.lbm import (
     FLUID_NODE,
     LBM_Grid,
     get_D2Q9,
-    LatticeModel,
+    Lattice,
     set_exterior_walls,
     LBM_Config,
 )
@@ -28,7 +28,7 @@ def run_benchmark[
     float_dtype: DType,
     D: Int,
     Q: Int,
-    lattice_model: LatticeModel[D, Q, float_dtype, DType.int32],
+    lattice_model: Lattice[D, Q, float_dtype, DType.int32],
     nx: Int,
     ny: Int,
     nz: Int,

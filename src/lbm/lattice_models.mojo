@@ -1,6 +1,6 @@
-"""Defines `LatticeModel` and constructors for the D2Q9, D3Q19, and D3Q27 lattices.
+"""Defines `Lattice` and constructors for the D2Q9, D3Q19, and D3Q27 lattices.
 
-A `LatticeModel` packages the discrete velocities, weights, opposite-index
+A `Lattice` packages the discrete velocities, weights, opposite-index
 map, and stress-tensor index pairs for a given lattice. The constructor
 functions build the standard lattice models with the requested float and
 integer dtypes.
@@ -8,7 +8,7 @@ integer dtypes.
 from src.utils import Vector
 
 
-struct LatticeModel[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
+struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
     ImplicitlyCopyable
 ):
     """Stores the discrete velocities and weights for an LBM lattice.
@@ -47,7 +47,7 @@ struct LatticeModel[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
         # float_directions: InlineArray[Self.float_vector, Self.Q],
         weights: Vector[Self.float_dtype, Self.Q],
     ):
-        """Constructs a `LatticeModel` from its directions and weights.
+        """Constructs a `Lattice` from its directions and weights.
 
         Computes the opposite-direction index map and the symmetric
         stress-index pairs at construction time.
@@ -103,8 +103,8 @@ struct LatticeModel[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
 
 def get_D3Q27[
     float_dtype: DType = DType.float32, int_dtype: DType = DType.int32
-]() -> LatticeModel[3, 27, float_dtype, int_dtype]:
-    """Returns a D3Q27 `LatticeModel` with the requested dtypes.
+]() -> Lattice[3, 27, float_dtype, int_dtype]:
+    """Returns a D3Q27 `Lattice` with the requested dtypes.
 
     Parameters:
         float_dtype: The `DType` for float directions and weights (defaults
@@ -113,7 +113,7 @@ def get_D3Q27[
             to `DType.int32`).
 
     Returns:
-        A populated `LatticeModel[3, 27, float_dtype, int_dtype]`.
+        A populated `Lattice[3, 27, float_dtype, int_dtype]`.
     """
     comptime D = 3
     comptime Q = 27
@@ -195,15 +195,15 @@ def get_D3Q27[
         1 / 216.0,
     )
 
-    return LatticeModel[D, Q, float_dtype, int_dtype](
+    return Lattice[D, Q, float_dtype, int_dtype](
         directions, weights
     )
 
 
 def get_D3Q19[
     float_dtype: DType = DType.float32, int_dtype: DType = DType.int32
-]() -> LatticeModel[3, 19, float_dtype, int_dtype]:
-    """Returns a D3Q19 `LatticeModel` with the requested dtypes.
+]() -> Lattice[3, 19, float_dtype, int_dtype]:
+    """Returns a D3Q19 `Lattice` with the requested dtypes.
 
     Parameters:
         float_dtype: The `DType` for float directions and weights (defaults
@@ -212,7 +212,7 @@ def get_D3Q19[
             to `DType.int32`).
 
     Returns:
-        A populated `LatticeModel[3, 19, float_dtype, int_dtype]`.
+        A populated `Lattice[3, 19, float_dtype, int_dtype]`.
     """
     comptime D = 3
     comptime Q = 19
@@ -276,15 +276,15 @@ def get_D3Q19[
         1.0 / 36.0,
     )
 
-    return LatticeModel[D, Q, float_dtype, int_dtype](
+    return Lattice[D, Q, float_dtype, int_dtype](
         directions, weights
     )
 
 
 def get_D2Q9[
     float_dtype: DType = DType.float32, int_dtype: DType = DType.int32
-]() -> LatticeModel[2, 9, float_dtype, int_dtype]:
-    """Returns a D2Q9 `LatticeModel` with the requested dtypes.
+]() -> Lattice[2, 9, float_dtype, int_dtype]:
+    """Returns a D2Q9 `Lattice` with the requested dtypes.
 
     Parameters:
         float_dtype: The `DType` for float directions and weights (defaults
@@ -293,7 +293,7 @@ def get_D2Q9[
             to `DType.int32`).
 
     Returns:
-        A populated `LatticeModel[2, 9, float_dtype, int_dtype]`.
+        A populated `Lattice[2, 9, float_dtype, int_dtype]`.
     """
     comptime D = 2
     comptime Q = 9
@@ -328,7 +328,7 @@ def get_D2Q9[
         1.0 / 36.0,  # 5-8: Diagonal
     )
 
-    return LatticeModel[D, Q, float_dtype, int_dtype](
+    return Lattice[D, Q, float_dtype, int_dtype](
         directions, weights
     )
 

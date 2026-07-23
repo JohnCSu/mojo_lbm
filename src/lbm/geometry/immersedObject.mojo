@@ -8,7 +8,7 @@ from std.memory import Pointer
 from layout import TileTensor,CoordLike
 from layout.tile_layout import TensorLayout,Layout
 from .primatives import add_box,add_sphere,get_sphere_boundary_indices
-from src.lbm import LBM_Grid,LatticeModel
+from src.lbm import LBM_Grid,Lattice
 from layout import TileTensor,row_major,col_major,coord
 from src.utils import ContextTileTensor
 from std.gpu.host import DeviceContext

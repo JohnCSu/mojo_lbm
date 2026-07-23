@@ -5,7 +5,7 @@ from std.python import Python, PythonObject
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,get_D2Q9,LatticeModel,set_exterior_walls
+from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,get_D2Q9,Lattice,set_exterior_walls
 from .LBM_gpu_kernel import LBM_kernel
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
@@ -15,7 +15,7 @@ from std.utils import Variant
 @always_inline
 def benchmark_func[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:LatticeModel[D,Q,float_dtype,DType.int32],
+    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
     grid: LBM_Grid[lattice_model,nx,ny,nz,_],

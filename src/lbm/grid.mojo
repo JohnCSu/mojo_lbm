@@ -56,7 +56,7 @@ trait GridLike:
 
     Conforming types expose the float and integer dtypes, dimension `D`,
     velocity count `Q`, per-axis extents, tile size, and the compile-time
-    `LatticeModel` used by the solver.
+    `Lattice` used by the solver.
     """
 
     comptime float_dtype: DType
@@ -67,7 +67,7 @@ trait GridLike:
     comptime ny: Int
     comptime nz: Int
     comptime tile_shape: Tuple[Int,Int,Int]
-    comptime lattice_model: LatticeModel[
+    comptime lattice_model: Lattice[
         Self.D, Self.Q, Self.float_dtype, Self.int_dtype
     ]
     comptime shape: InlineArray[Int, 3]
@@ -79,7 +79,7 @@ struct LBM_Grid[
     D_: Int,
     Q_: Int,
     //,
-    lattice_model_: LatticeModel[D_, Q_, float_dtype_, int_dtype_],
+    lattice_model_: Lattice[D_, Q_, float_dtype_, int_dtype_],
     nx_: Int,
     ny_: Int,
     nz_: Int,
@@ -99,7 +99,7 @@ struct LBM_Grid[
         int_dtype_: The integer `DType` used for indices and directions.
         D_: The spatial dimension of the grid.
         Q_: The number of discrete velocities per node.
-        lattice_model_: The compile-time `LatticeModel` for the grid.
+        lattice_model_: The compile-time `Lattice` for the grid.
         nx_: The number of lattice nodes along `x`.
         ny_: The number of lattice nodes along `y`.
         nz_: The number of lattice nodes along `z`.
@@ -340,6 +340,6 @@ def check_model_match_dim[D: Int, nx: Int, ny: Int, nz: Int]():
         1 if nz > 1 else 0
     )
     comptime assert D == grid_D, (
-        "The given dimension of the LatticeModel does not match that of the"
+        "The given dimension of the Lattice does not match that of the"
         " dimension of the grid"
     )
