@@ -27,7 +27,7 @@ def set_exterior_walls[float_dtype:DType,
                     BCLayoutType:TensorLayout,
                     //,
                     grid:LBM_Grid[lattice,nx,ny,nz,_],
-                    config:LBM_Config = LBM_Config()
+                    config:LBM_Config
                     ]
                     (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
                             bc:TileTensor[float_dtype,BCLayoutType,bc_origin],

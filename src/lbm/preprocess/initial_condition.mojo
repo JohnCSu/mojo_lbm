@@ -51,7 +51,7 @@ def initialize_fluid_at_rest[
     FLayoutType:TensorLayout,
     //,
     grid:LBM_Grid[lattice,nx,ny,nz,_],
-    config:LBM_Config = LBM_Config(),
+    config:LBM_Config,
     *,
     f_dtype:DType = config.f_dtype.value() if config.f_dtype else float_dtype
     ]
@@ -92,7 +92,7 @@ def initialize_f_from_func[
     FLayoutType:TensorLayout,
     //,
     grid:LBM_Grid[lattice,nx,ny,nz,_],
-    config:LBM_Config = LBM_Config(),
+    config:LBM_Config,
     *,
     u: def[float_dtype:DType,D:Int]
         (Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],mut Vector[float_dtype,D])
