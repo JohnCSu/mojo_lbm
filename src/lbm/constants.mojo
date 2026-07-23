@@ -1,16 +1,14 @@
-"""Defines compile-time constants shared across the LBM solver.
-
-Holds the flag values used to label lattice nodes (fluid, solid, equilibrium),
-the lattice speed of sound `cs`, and the set of valid boundary-condition
-flags consumed by `LBM_Config`.
-"""
-
+from std.collections import Set
 
 comptime cs = (1.0 / 3.0) ** 0.5
 """The lattice speed of sound, $$\\sqrt{1/3}$$."""
 comptime cs_squared = (1.0 / 3.0)
 """The square of the lattice speed of sound, $$1/3$$."""
 
+
+comptime DOUBLE_BUFFER:StaticString = 'double buffer'
+comptime ESOTERIC_PULL:StaticString = 'esoteric pull'
+comptime lbm_methods:Set[StaticString] = {DOUBLE_BUFFER,ESOTERIC_PULL}
 
 struct Flags:
     """Collects the boundary-condition flag values as compile-time constants.

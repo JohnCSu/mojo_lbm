@@ -8,11 +8,20 @@ in the FluidX3D reference.
 from .constants import Flags, _FlagSet
 from std.collections import Set
 from src.utils.custom_fp import Float16C
+from src.lbm.constants import lbm_methods,DOUBLE_BUFFER,ESOTERIC_PULL
 
 comptime fp32 = DType.float32
 """Alias for `DType.float32` used throughout the Float16C conversions."""
 comptime uint16 = DType.uint16
 """Alias for `DType.uint16` used throughout the Float16C conversions."""
+
+
+comptime DoubleBufferConfig = LBM_Config[DOUBLE_BUFFER]
+
+
+comptime EsotericPullConfig = LBM_Config[ESOTERIC_PULL]
+
+
 
 
 trait ConfigLike:
@@ -22,7 +31,6 @@ trait ConfigLike:
     comptime members; it currently only declares the Float16C conversion
     helpers that conforming configs must provide.
     """
-
     # comptime DDF_shift:Bool
     # comptime LES:Bool
     # comptime KBC:Bool
@@ -70,7 +78,8 @@ trait ConfigLike:
         # return Self.f_dtype.value() if Self.f_dtype is not None else float_dtype
 
 
-struct LBM_Config(ConfigLike):
+
+struct LBM_Config[lbm_method:StaticString](ConfigLike):
     """Holds the runtime toggles that parameterize an LBM run.
 
     Records whether DDF shifting, Smagorinsky LES, KBC, and Float16C are
@@ -96,7 +105,6 @@ struct LBM_Config(ConfigLike):
     var include_moving_boundary:Bool
     var collision_op:StaticString
     var valid_collision_ops:Set[StaticString] 
-    
     def __init__(
         out self,
         *,
@@ -125,7 +133,8 @@ struct LBM_Config(ConfigLike):
                 (defaults to `False`).
             f_dtype: Optional override `DType` for `f` (defaults to `None`).
         """
-        
+        comptime assert Self.lbm_method in lbm_methods
+
         self.collision_op = collision_op
         self.valid_collision_ops = {'SRT','TRT'}
         assert collision_op in self.valid_collision_ops
@@ -182,7 +191,6 @@ struct LBM_Config(ConfigLike):
     def collision_op_is_valid(self) -> Bool:
         return self.collision_op in self.valid_collision_ops
 
-        
 
     @always_inline
     def enable_float16c(mut self):

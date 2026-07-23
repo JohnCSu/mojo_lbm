@@ -71,7 +71,7 @@ trait GridLike:
         Self.D, Self.Q, Self.float_dtype, Self.int_dtype
     ]
     comptime shape: InlineArray[Int, 3]
-
+    
 
 struct LBM_Grid[
     float_dtype_: DType,
@@ -84,6 +84,7 @@ struct LBM_Grid[
     ny_: Int,
     nz_: Int,
     tile_shape_:Int_Or_Tuple_Of_Ints,
+    
     
 ](ImplicitlyCopyable & GridLike):
     """Describes an LBM simulation domain and its GPU launch parameters.
