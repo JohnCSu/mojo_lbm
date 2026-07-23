@@ -5,3 +5,4 @@ Currently empty; Q-criterion, drag, and velocity/density extraction live in
 """
 
 from .velocity import calculate_rho_and_velocity
+from .drag import calculate_drag_around_object
