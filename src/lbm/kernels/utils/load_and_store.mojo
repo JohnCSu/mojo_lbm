@@ -109,46 +109,58 @@ def load_f[
 
         return pulled_f
 
-from std.algorithm.functional import vectorize
-
 
 @always_inline
-def esoteric_pull_load_f[
-    f_dtype:DType,
+def get_flags
+    [
     int_dtype:DType,
-    Q:Int,
-    D:Int,
-    f_layout:TensorLayout,
+    Q:Int,D:Int,
+    flagLayoutType:TensorLayout,
     //,
-    q:Int,
-    float_dtype:DType,
     directions:InlineArray[Vector[int_dtype, D], Q],
-    is_even_time_step:Bool,
-    use_float16c:Bool,
-    non_temporal:Bool = False
-
+    shift:Int,
+    *,
+    start_idx:Int = 0,
     ]
     (
-    f:TileTensor[f_dtype,f_layout,_],
+    flags:TileTensor[DType.uint8,flagLayoutType,ImmutAnyOrigin],
     index:InlineArray[Int,3],
-    grid_shape:InlineArray[Int,3],
-    ) -> Scalar[float_dtype]:
+    grid_shape:InlineArray[Int,3]
+    )
+    -> InlineArray[UInt8,Q] where start_idx >= 0:
+    """Gathers the neighbor indices and flags around a lattice node.
+
+    For each discrete velocity, computes the neighbor index with the given
+    `shift` and loads the corresponding flag value.
+
+    Parameters:
+        int_dtype: The `DType` of the integer directions.
+        Q: The number of discrete velocities per node.
+        D: The spatial dimension.
+        flagLayoutType: The compile-time layout of `flags`.
+        directions: The compile-time discrete velocity directions.
+        shift: The shift applied to each direction (`-1` for pull, `1` for
+            push).
+
+    Args:
+        flags: The `uint8` tile tensor labeling each node.
+        index: The `(x, y, z)` index of the central node.
+        grid_shape: The `[nx, ny, nz]` shape of the grid.
+
+    Returns:
+        A tuple of `(neighbor_indices, neighbor_flags)` as `InlineArray`s
+        of length `Q`.
+    """
+    comptime assert flags.rank == 3
+    var neighbor_flags = InlineArray[UInt8,Q](uninitialized = True)
     
+    comptime for q in range(start_idx,Q):
+        comptime direction = directions[q]
+        neighbor_index = get_adjacent_idx[shift = shift](index,grid_shape,direction) # Pulling Scheme
+        neighbor_flags[q] = flags.load(coord[DType.int32]((neighbor_index[0],neighbor_index[1],neighbor_index[2])))[0]
 
+    return neighbor_flags^
 
-    comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
-    comptime if q == 0:
-        return load_f_from_xyzq(f,index,0)
-    else:
-        comptime if is_even_time_step:
-            idx_is_pos = q % 2 # If odd number then pos
-            idx = index if idx_is_pos else get_adjacent_idx[shift = -1](index,grid_shape,directions[q])
-            return load_f_from_xyzq(f,idx,q)
-        else:
-            idx_is_pos = q % 2 # If odd number then pos
-            load_q = q+1 if idx_is_pos else q-1 # If f_vec[pos_q] we pull from neg_q (q+1) and iof f_vec[neg_q] we pull from pos_q (q-1)
-            idx = index if idx_is_pos else  get_adjacent_idx[shift = 1](index,grid_shape,directions[q])
-            return load_f_from_xyzq(f,idx,load_q) 
 
 def esoteric_pull_load_f_vec[
     f_dtype:DType,
@@ -196,6 +208,8 @@ def esoteric_pull_load_f_vec[
 
     return f_vec
 
+
+
 def esoteric_pull_store_f_vec[
     f_dtype:DType,
     int_dtype:DType,
@@ -240,3 +254,28 @@ def esoteric_pull_store_f_vec[
             
             store_f[use_float16c,non_temporal](f,f_vec[pos_q],push_index,pos_q) # We store it in the pull direction place
             store_f[use_float16c,non_temporal](f,f_vec[neg_q],index,neg_q)
+
+
+
+@always_inline
+def double_buffer_pull_load_f[
+    int_dtype:DType,f_dtype:DType,D:Int,Q:Int,//,
+    float_dtype:DType,
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    use_float16c:Bool,
+    *,
+    non_temporal:Bool = False
+    ]
+    (
+    f:TileTensor[f_dtype,...,address_space = AddressSpace.GENERIC],
+    index:InlineArray[Int,3],
+    grid_shape:InlineArray[Int,3],
+    ) -> Vector[float_dtype,Q]: 
+    var f_vec = Vector[float_dtype,Q](uninitialized = True)
+    comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
+    comptime for q in range(Q):
+        comptime direction = directions[q]
+        pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
+        f_vec[q] =  load_f_from_xyzq(f,pull_index,q)
+
+    return f_vec 
