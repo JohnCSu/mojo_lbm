@@ -31,38 +31,6 @@ trait ConfigLike:
     comptime members; it currently only declares the Float16C conversion
     helpers that conforming configs must provide.
     """
-    # comptime DDF_shift:Bool
-    # comptime LES:Bool
-    # comptime KBC:Bool
-    # comptime use_float16c:Bool
-    # comptime f_dtype: Optional[DType]
-    # comptime INCLUDED_BCs: Set[UInt8]
-    # comptime second_moment:Bool
-    @staticmethod
-    @always_inline
-    def fp32_to_fp16c(val: Scalar[fp32]) -> Scalar[uint16]:
-        """Converts an `fp32` scalar to a Float16C `uint16` scalar.
-
-        Args:
-            val: The `fp32` value to convert.
-
-        Returns:
-            The Float16C-encoded value as a `uint16`.
-        """
-        return Float16C.to_fp16c(val)
-
-    @staticmethod
-    @always_inline
-    def fp16c_to_fp32(val: UInt16) -> Scalar[fp32]:
-        """Converts a Float16C `uint16` scalar back to an `fp32` scalar.
-
-        Args:
-            val: The Float16C-encoded `uint16` value.
-
-        Returns:
-            The decoded `fp32` value.
-        """
-        return Float16C.to_fp32(val)
 
     def set_f_dtype(self, float_dtype_for_math_ops: DType) -> DType:
         """Returns the `DType` to use for distribution-function math.
@@ -190,46 +158,3 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
 
     def collision_op_is_valid(self) -> Bool:
         return self.collision_op in self.valid_collision_ops
-
-
-    @always_inline
-    def enable_float16c(mut self):
-        """Enables Float16C storage and sets `f_dtype` to `uint16`."""
-        self.use_float16c = True
-        self.f_dtype = DType.uint16
-
-    def enable_DDF_shift(mut self):
-        """Enables DDF shifting for improved numerical stability."""
-        self.DDF_shift = True
-
-    @staticmethod
-    @always_inline
-    def fp32_to_fp16c(val: Scalar[fp32]) -> Scalar[uint16]:
-        """Converts an `fp32` scalar to a Float16C `uint16` scalar.
-
-        Args:
-            val: The `fp32` value to convert.
-
-        Returns:
-            The Float16C-encoded value as a `uint16`.
-        """
-        return Float16C.to_fp16c(val)
-
-    @staticmethod
-    @always_inline
-    def fp16c_to_fp32[
-        dtype: DType
-    ](val: Scalar[dtype]) -> Scalar[fp32] where dtype == uint16:
-        """Converts a Float16C `uint16` scalar back to an `fp32` scalar.
-
-        Parameters:
-            dtype: The `DType` of the input scalar; constrained to `uint16`.
-
-        Args:
-            val: The Float16C-encoded `uint16` value.
-
-        Returns:
-            The decoded `fp32` value.
-        """
-        return Float16C.to_fp32(val)
-

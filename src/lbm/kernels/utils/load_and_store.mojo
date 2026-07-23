@@ -53,7 +53,7 @@ def store_f[
         comptime if use_float16c:
             comptime assert f_dtype == DType.uint16
             f_next = Float32(val)
-            f_as_uint = Scalar[f_dtype](LBM_Config.fp32_to_fp16c(f_next))
+            f_as_uint = Scalar[f_dtype](Float16C.to_fp16c(f_next))
             f.store[non_temporal = non_temporal](coord = coord[DType.uint32]((index[0],index[1],index[2],q)),value = f_as_uint)
             # You can add your own logic here by adding an elif statement to the comptime conditional
         else:
@@ -101,7 +101,7 @@ def load_f[
         comptime assert f.rank == 4, 'For all LBM grids we use i,j,k,q indexing'
         comptime if use_float16c:
                 comptime assert f_dtype == DType.uint16, 'Float16C requires the f tiletensors to be uint16 dtype'
-                pulled_f = to_compute_float(LBM_Config.fp16c_to_fp32( f.load[non_temporal = non_temporal](coord[DType.uint32]((index[0],index[1],index[2],q)))[0] ))
+                pulled_f = to_compute_float(Float16C.to_fp32( f.load[non_temporal = non_temporal](coord[DType.uint32]((index[0],index[1],index[2],q)))[0] ))
 
             else:
                 comptime assert f_dtype == float_dtype
