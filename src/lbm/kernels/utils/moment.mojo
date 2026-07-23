@@ -166,7 +166,7 @@ def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     Qiab:Scalar[float_dtype] = 0.
     comptime for q in range(0,Q):
         comptime direction_q = directions[q].cast_to[float_dtype]()
-        Qiab +=f_neq[q]*direction_q[q][a]*direction_q[q][b]
+        Qiab +=f_neq[q]*direction_q[a]*direction_q[b]
     return Qiab
 
 

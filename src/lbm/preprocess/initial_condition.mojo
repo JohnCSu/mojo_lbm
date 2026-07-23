@@ -210,7 +210,7 @@ def fi_neq[
     comptime for alpha in range(D):
         comptime for beta in range(D):
             Sab = calculate_Sab(grad,alpha,beta)
-            Qiab = direction[i][alpha]*direction[i][beta]
+            Qiab = direction[alpha]*direction[beta]
             comptime if alpha == beta:
                 Qiab -= cs_squared
             fi_neq += Qiab*Sab
