@@ -58,20 +58,20 @@ def calculate_Q_criterion[
     QLayout:Layout[...],
     Flayout:Layout[...] ,
     FlagLayout:Layout[...] ,
-    VelocityLayout:Layout[...],
     BClayout:Layout[...],
+    VelocityLayout:Layout[...],
     grid: LBM_Grid,
     config:LBM_Config,
     *,
-    is_even_time_step:Optional[Bool] = None,
+    current_step_is_odd:Optional[Bool] = None,
     ]
     (
         Q_tensor:TileTensor[grid.float_dtype,type_of(QLayout),MutAnyOrigin],
 
         f:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(Flayout),ImmutAnyOrigin],
         flags:TileTensor[DType.uint8,type_of(FlagLayout),ImmutAnyOrigin],
-        velocity:TileTensor[grid.float_dtype,type_of(VelocityLayout),ImmutAnyOrigin],
         bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
+        velocity:TileTensor[grid.float_dtype,type_of(VelocityLayout),ImmutAnyOrigin],
         tau:Scalar[grid.float_dtype],
     )
     where velocity.rank == 4 and f.rank == 4 and Q_tensor.rank == 3 and flags.rank == 3:
@@ -142,28 +142,30 @@ def calculate_Q_criterion[
     comptime weights = lattice.weights
     comptime opposite_indices = lattice.opposite_indices
 
-    comptime assert not config.LES, 'Q criterion currently assumes post-collision so doesnt work for LES'
+    # comptime assert not config.LES, 'Q criterion currently assumes post-collision so doesnt work for LES'
     if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2] and flag != SOLID_NODE: # Basic Guard
         shared_local_index[0] = thread_idx.x + shift_x
         shared_local_index[1] = thread_idx.y + shift_y
         shared_local_index[2] = thread_idx.z + shift_z
         # Calculate Voricity shared_u,flags,shared_local_index,index,grid_shape
+        
         vorticity_vector = calculate_vorticity[D](shared_u,flags,shared_local_index,index,grid_shape)
         vort_norm_sq = vorticity_vector.norm_squared() # This is 2xRotation Tensor magnitude
-        
+        # vort_norm_sq:Scalar[float_dtype] = 1.
+
         var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
         pull_flags[0] = flag
 
         comptime if config.lbm_method == ESOTERIC_PULL:
-            comptime assert is_even_time_step, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
-            f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,is_even_time_step.value(),config.use_float16c](f,index,grid_shape)
+            comptime assert current_step_is_odd, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
+            f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,current_step_is_odd.value(),config.use_float16c](f,index,grid_shape)
             
         elif config.lbm_method == DOUBLE_BUFFER:
             f_vec = double_buffer_pull_load_f[float_dtype,directions,config.use_float16c](f,index,grid_shape)
         
         else:
             comptime assert False, 'lbm_method not valid'
-
+        
         comptime include_bounceback = False if config.lbm_method == ESOTERIC_PULL else True
         wall_bc[include_bounceback,directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,f,flags,bc,index,grid_shape)
 
