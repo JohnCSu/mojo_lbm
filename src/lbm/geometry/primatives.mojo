@@ -53,7 +53,7 @@ def get_sphere_boundary_indices[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
-    comptime latticeModel = grid.lattice_model
+    comptime latticeModel = grid.lattice
 
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
@@ -201,7 +201,7 @@ def add_circle[
         center: The physical `(x, y, z)` coordinates of the circle center.
         radius: The physical radius of the circle.
     """
-    comptime assert grid.lattice_model.D == 2,'Circle only valid for 2D'
+    comptime assert grid.lattice.D == 2,'Circle only valid for 2D'
     return add_sphere[grid](flags,center,radius)
 
 

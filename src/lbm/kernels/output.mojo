@@ -71,7 +71,7 @@ def calculate_rho_and_velocity[
     comptime D = grid.D
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
-    comptime lattice_model = grid.lattice_model
+    comptime lattice = grid.lattice
     comptime grid_shape:InlineArray[Int,3] = grid.shape
     comptime assert velocity.rank == velocity.flat_rank and density.rank == density.flat_rank, 'Velocity and Density Tensors should be non-nested and row-major or col-major'
 
@@ -93,7 +93,7 @@ def calculate_rho_and_velocity[
                 f_vec[q] = load_f[float_dtype,config.use_float16c](f,index,q)
 
             rho = get_density[config.DDF_shift](f_vec)
-            u = get_velocity[lattice_model.directions](f_vec,rho)
+            u = get_velocity[lattice.directions](f_vec,rho)
         else:# Get the BC For that node
             comptime for ii in range(D):
                 u[ii] = bc.load(coord[DType.int32]((index[0],index[1],index[2],ii)))[0]
@@ -159,7 +159,7 @@ def calculate_esoteric_rho_and_velocity[
     comptime D = grid.D
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
-    comptime lattice_model = grid.lattice_model
+    comptime lattice = grid.lattice
     comptime grid_shape:InlineArray[Int,3] = grid.shape
     comptime assert velocity.rank == velocity.flat_rank and density.rank == density.flat_rank, 'Velocity and Density Tensors should be non-nested and row-major or col-major'
 
@@ -177,12 +177,12 @@ def calculate_esoteric_rho_and_velocity[
     var u = Vector[float_dtype,D](fill=0)
     if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]: # Basic Guard
         if flag != SOLID_NODE:
-            f_vec = esoteric_pull_load_f_vec[float_dtype,lattice_model.directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
+            f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
             comptime for q in range(Q):
                 f_vec[q] = load_f[float_dtype,config.use_float16c](f,index,q)
 
             rho = get_density[config.DDF_shift](f_vec)
-            u = get_velocity[lattice_model.directions](f_vec,rho)
+            u = get_velocity[lattice.directions](f_vec,rho)
 
 
         else:# Get the BC For that node
@@ -253,7 +253,7 @@ def calculate_Q_criterion[
     comptime D = grid.D
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
-    comptime lattice_model = grid.lattice_model
+    comptime lattice = grid.lattice
     comptime tile_shape = grid.tile_shape
     comptime SHARED_x = tile_shape[0] + 2
     comptime SHARED_y = tile_shape[1] + 2 if D >= 2 else 1
@@ -286,9 +286,9 @@ def calculate_Q_criterion[
     var coord_index = coord[DType.int32]((index[0],index[1],index[2]))
     var flag = flags.load(coord_index)
 
-    comptime stress_indices = lattice_model.stress_indices
-    comptime directions = lattice_model.directions
-    comptime weights = lattice_model.weights
+    comptime stress_indices = lattice.stress_indices
+    comptime directions = lattice.directions
+    comptime weights = lattice.weights
     comptime assert not config.LES, 'Q criterion currently assumes post-collision so doesnt work for LES'
     if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2] and flag != SOLID_NODE: # Basic Guard
         shared_local_index[0] = thread_idx.x + shift_x
@@ -320,7 +320,7 @@ def calculate_Q_criterion[
             f_vec[q] = load_f[float_dtype,config.use_float16c](f,index,q)
 
         var rho = get_density[config.DDF_shift](f_vec)
-        var u = get_velocity[lattice_model.directions](f_vec,rho)
+        var u = get_velocity[lattice.directions](f_vec,rho)
 
         var f_neq = get_f_noneq_vec[True,directions,weights,config.DDF_shift](f_vec,rho,u,tau)
         var second_moment_neq = get_non_eq_second_order_moment[directions,stress_indices](f_neq)
@@ -397,7 +397,7 @@ def calculate_drag_around_object[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
-    comptime lattice_model = grid.lattice_model
+    comptime lattice = grid.lattice
     comptime tile_shape = grid.tile_shape
     # Should be a 1D based kernel loop
     tid = block_dim.x * block_idx.x + thread_idx.x
@@ -416,7 +416,7 @@ def calculate_drag_around_object[
                 grid_index[i] = Int(crd[i].value())
 
         comptime grid_shape:InlineArray[Int,3] = grid.shape
-        comptime opposite_index = lattice_model.opposite_indices
+        comptime opposite_index = lattice.opposite_indices
 
         if grid_index[0] < grid_shape[0] and grid_index[1] < grid_shape[1] and grid_index[2] < grid_shape[2]:
             var push_flags = InlineArray[UInt8,Q](uninitialized = True)
@@ -424,19 +424,19 @@ def calculate_drag_around_object[
 
             # Gather Neighboring Flags in PUSH direction not Pull
             comptime for q in range(Q):
-                comptime direction = lattice_model.directions[q]
+                comptime direction = lattice.directions[q]
                 push_indices[q] = get_adjacent_idx[1](grid_index,grid_shape,direction) # push Scheme as
                 push_flags[q] = flags.load(coord[DType.uint32]((push_indices[q][0],push_indices[q][1],push_indices[q][2])))[0]
 
             # Compute Forces
             var force_vec = Vector[float_dtype,D](fill = 0.)
             comptime for q in range(Q):
-                comptime direction = lattice_model.directions[q]
-                comptime float_direction = lattice_model.directions[q].cast_to[float_dtype]()
+                comptime direction = lattice.directions[q]
+                comptime float_direction = lattice.directions[q].cast_to[float_dtype]()
                 if push_flags[q] == SOLID_NODE:
                     var f_local = load_f[float_dtype,config.use_float16c](f,grid_index,q)
                     comptime if config.DDF_shift:
-                        comptime weight = lattice_model.weights[q]
+                        comptime weight = lattice.weights[q]
                         f_link = f_local + weight
                     else:
                         f_link = f_local

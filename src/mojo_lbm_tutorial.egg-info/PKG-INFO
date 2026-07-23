@@ -153,7 +153,7 @@ TileTensor on the cpu or gpu respecitively. Buffer copies between the 2 buffers 
 - [X] Add Layout Analysis
 
 ## Other
-- [X] Implement 3D lattices models
+- [X] Implement 3D lattice models
 - [] Implement Custom Floating Point
 - [] Equilibrium Conditions
 

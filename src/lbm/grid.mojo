@@ -67,7 +67,7 @@ trait GridLike:
     comptime ny: Int
     comptime nz: Int
     comptime tile_shape: Tuple[Int,Int,Int]
-    comptime lattice_model: Lattice[
+    comptime lattice: Lattice[
         Self.D, Self.Q, Self.float_dtype, Self.int_dtype
     ]
     comptime shape: InlineArray[Int, 3]
@@ -79,7 +79,7 @@ struct LBM_Grid[
     D_: Int,
     Q_: Int,
     //,
-    lattice_model_: Lattice[D_, Q_, float_dtype_, int_dtype_],
+    lattice_: Lattice[D_, Q_, float_dtype_, int_dtype_],
     nx_: Int,
     ny_: Int,
     nz_: Int,
@@ -99,7 +99,7 @@ struct LBM_Grid[
         int_dtype_: The integer `DType` used for indices and directions.
         D_: The spatial dimension of the grid.
         Q_: The number of discrete velocities per node.
-        lattice_model_: The compile-time `Lattice` for the grid.
+        lattice_: The compile-time `Lattice` for the grid.
         nx_: The number of lattice nodes along `x`.
         ny_: The number of lattice nodes along `y`.
         nz_: The number of lattice nodes along `z`.
@@ -116,7 +116,7 @@ struct LBM_Grid[
     comptime tile_size: Int = 8
     comptime tile_shape = set_tile_shape(Self.tile_shape_,Self.D)
 
-    comptime lattice_model = Self.lattice_model_
+    comptime lattice = Self.lattice_
 
     # comptime float_dtype:DType = Self.float_dtype
     comptime Float_Scalar = Scalar[Self.float_dtype]

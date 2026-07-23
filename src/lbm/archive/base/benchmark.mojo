@@ -13,10 +13,10 @@ from .LBM_gpu_kernel import LBM_kernel
 @always_inline
 def benchmark_func[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     GRID_DIM:Tuple[Int,Int,Int],
     BLOCK_SHAPE:Tuple[Int,Int,Int],
     U:Scalar[float_dtype],

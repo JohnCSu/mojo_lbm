@@ -31,15 +31,15 @@ def LBM_kernel[
     comptime D = grid.D
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
-    comptime lattice_model = grid.lattice_model
+    comptime lattice = grid.lattice
     comptime nx = grid.nx
     comptime ny = grid.ny
     comptime nz = grid.nz
 
     # Convience Variable Names and constants
-    comptime weights = lattice_model.weights
-    comptime directions = lattice_model.directions
-    comptime opposite_index = lattice_model.opposite_indices
+    comptime weights = lattice.weights
+    comptime directions = lattice.directions
+    comptime opposite_index = lattice.opposite_indices
     comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
 
     # Conversion to Layout Tensor as tiletensor.to_layout_tensor() does not support nested

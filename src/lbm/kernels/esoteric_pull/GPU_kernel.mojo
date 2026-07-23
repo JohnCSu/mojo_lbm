@@ -78,16 +78,16 @@ def esoteric_pull_kernel[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
-    comptime lattice_model = grid.lattice_model
-    comptime weights = lattice_model.weights
-    comptime directions = lattice_model.directions
-    comptime opposite_indices = lattice_model.opposite_indices
-    comptime stress_indices = lattice_model.stress_indices
+    comptime lattice = grid.lattice
+    comptime weights = lattice.weights
+    comptime directions = lattice.directions
+    comptime opposite_indices = lattice.opposite_indices
+    comptime stress_indices = lattice.stress_indices
     comptime grid_shape:InlineArray[Int,3] = grid.shape
     
     # Comptime asserts
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
-    comptime assert lattice_model.is_valid_for_esoteric_pull(),'Except the first direction, velocitys direction should be followed by their opposite direction'
+    comptime assert lattice.is_valid_for_esoteric_pull(),'Except the first direction, velocitys direction should be followed by their opposite direction'
 
     x = block_idx.x*block_dim.x + thread_idx.x
     y = block_idx.y*block_dim.y + thread_idx.y

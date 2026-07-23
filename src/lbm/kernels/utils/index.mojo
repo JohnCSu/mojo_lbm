@@ -60,13 +60,13 @@ def get_indices_and_flags
 comptime get_pulled_indices_and_flags = get_indices_and_flags[_,-1] # Need directions
 """Convenience alias of `get_indices_and_flags` with `shift = -1` (pull scheme).
 
-Pass `lattice_model.directions` to complete parameterization.
+Pass `lattice.directions` to complete parameterization.
 """
 
 comptime get_pushed_indices_and_flags = get_indices_and_flags[_,1] # Need directions
 """Convenience alias of `get_indices_and_flags` with `shift = 1` (push scheme).
 
-Pass `lattice_model.directions` to complete parameterization.
+Pass `lattice.directions` to complete parameterization.
 """
 
 

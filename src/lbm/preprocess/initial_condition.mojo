@@ -47,10 +47,10 @@ def initialize_fluid_at_rest[
     f_origin:Origin[mut=True],
     nx:Int,ny:Int,nz:Int,
     D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     FLayoutType:TensorLayout,
     //,
-    grid:LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid:LBM_Grid[lattice,nx,ny,nz,_],
     config:LBM_Config = LBM_Config(),
     *,
     f_dtype:DType = config.f_dtype.value() if config.f_dtype else float_dtype
@@ -88,10 +88,10 @@ def initialize_f_from_func[
     f_origin:Origin[mut=True],
     nx:Int,ny:Int,nz:Int,
     D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     FLayoutType:TensorLayout,
     //,
-    grid:LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid:LBM_Grid[lattice,nx,ny,nz,_],
     config:LBM_Config = LBM_Config(),
     *,
     u: def[float_dtype:DType,D:Int]
@@ -136,8 +136,8 @@ def initialize_f_from_func[
         rho: The lattice density to initialize with.
         tau: The relaxation time used by the non-equilibrium correction.
     """
-    comptime weights = lattice_model.weights
-    comptime directions = lattice_model.directions
+    comptime weights = lattice.weights
+    comptime directions = lattice.directions
     # TODO: Add Parallel Code For This for very large elements
     for i in range(nx):
         for j in range(ny):

@@ -73,14 +73,14 @@ def double_buffer_kernel[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
-    comptime lattice_model = grid.lattice_model
-    comptime weights = lattice_model.weights
-    comptime directions = lattice_model.directions
-    comptime opposite_indices = lattice_model.opposite_indices
+    comptime lattice = grid.lattice
+    comptime weights = lattice.weights
+    comptime directions = lattice.directions
+    comptime opposite_indices = lattice.opposite_indices
     comptime grid_shape:InlineArray[Int,3] = grid.shape
     comptime non_temporal = True
     comptime load_f_from_xyzq = load_f[float_dtype,config.use_float16c,non_temporal]
-    comptime stress_indices = lattice_model.stress_indices
+    comptime stress_indices = lattice.stress_indices
     # comptime assert f_out.flat_rank == 8
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
 

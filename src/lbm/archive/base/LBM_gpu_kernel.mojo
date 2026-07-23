@@ -3,7 +3,7 @@ from layout import TileTensor
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from std.gpu.memory import AddressSpace
-from src.lbm.lattice_models import Lattice
+from src.lbm.lattice import Lattice
 from src.lbm import LBM_Grid
 from src.lbm.constants import SOLID_NODE,FLUID_NODE
 from src.utils import Vector,ContextTileTensor
@@ -29,7 +29,7 @@ def LBM_kernel[
     comptime D = grid.D
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
-    comptime lattice_model = grid.lattice_model
+    comptime lattice = grid.lattice
     comptime nx = grid.nx
     comptime ny = grid.ny
     comptime nz = grid.nz
@@ -40,9 +40,9 @@ def LBM_kernel[
     comptime assert flags.flat_rank == 3
 
     # Convience Variable Names and constants
-    comptime weights = lattice_model.weights
-    comptime directions = lattice_model.directions
-    comptime opposite_index = lattice_model.opposite_indices
+    comptime weights = lattice.weights
+    comptime directions = lattice.directions
+    comptime opposite_index = lattice.opposite_indices
     comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
 
     x = block_dim.x * block_idx.x + thread_idx.x

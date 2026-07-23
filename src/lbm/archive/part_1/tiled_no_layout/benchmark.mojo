@@ -15,10 +15,10 @@ from std.utils import Variant
 @always_inline
 def benchmark_func_row_tile[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     GRID_DIM:Tuple[Int,Int,Int],
     BLOCK_SHAPE:Tuple[Int,Int,Int],
     U:Scalar[float_dtype],
@@ -93,10 +93,10 @@ def benchmark_func_row_tile[
 @always_inline
 def benchmark_func_col_tile[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     GRID_DIM:Tuple[Int,Int,Int],
     BLOCK_SHAPE:Tuple[Int,Int,Int],
     U:Scalar[float_dtype],

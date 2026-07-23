@@ -15,10 +15,10 @@ from std.utils import Variant
 @always_inline
 def benchmark_func_row_major_AoS[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     *,
@@ -44,10 +44,10 @@ def benchmark_func_row_major_AoS[
 @always_inline
 def benchmark_func_col_major_SoA[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     *,
@@ -75,10 +75,10 @@ def benchmark_func_col_major_SoA[
 @always_inline
 def benchmark_func_col_tile_row_tiler[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     *,
@@ -112,10 +112,10 @@ def benchmark_func_col_tile_row_tiler[
 @always_inline
 def benchmark_func_row_tile_col_tiler[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     *,
@@ -149,10 +149,10 @@ def benchmark_func_row_tile_col_tiler[
 @always_inline
 def benchmark_func_row_tile_row_tiler[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     *,
@@ -185,10 +185,10 @@ def benchmark_func_row_tile_row_tiler[
 @always_inline
 def benchmark_func_col_tile_col_tiler[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     *,

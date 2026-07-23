@@ -43,13 +43,13 @@ from . import double_buffer
 @always_inline
 def benchmark_func_tiled_3D[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
     lbm_method:StaticString,
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
-    grid: LBM_Grid[lattice_model,nx,ny,nz,...],
+    grid: LBM_Grid[lattice,nx,ny,nz,...],
     config:LBM_Config = LBM_Config(),
     ]
     (mut b:Bencher) capturing raises:
@@ -101,13 +101,13 @@ def benchmark_func_tiled_3D[
 @always_inline
 def benchmark_func_3D_non_tiled[
     float_dtype:DType,D:Int,Q:Int,
-    lattice_model:Lattice[D,Q,float_dtype,DType.int32],
+    lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
     lbm_method:StaticString,
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
-    grid: LBM_Grid[lattice_model,nx,ny,nz,_],
+    grid: LBM_Grid[lattice,nx,ny,nz,_],
     config:LBM_Config = LBM_Config(),
     ]
     (mut b:Bencher) capturing raises:
