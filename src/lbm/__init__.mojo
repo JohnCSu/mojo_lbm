@@ -6,6 +6,7 @@ GPU kernels that perform streaming, collision, and post-processing. A single
 SRT kernel serves all dimensions and lattice models through compile-time
 parameterization.
 """
+
 from .constants import *
 from .grid import LBM_Grid, GridLike
 from .preprocess.boundary_condition import (
@@ -14,7 +15,7 @@ from .preprocess.boundary_condition import (
 )
 from .lattice import get_D2Q9, get_D3Q19, get_D3Q27, Lattice
 from src.lbm.postprocess import calculate_rho_and_velocity
-from .config import LBM_Config, ConfigLike
+from .config import LBM_Config, ConfigLike,DoubleBufferConfig,EsotericPullConfig
 from .units import UnitSystem, Unit
 from .layoutstruct import TiledGridLayouts
 from .runtimeParams import RuntimeParams

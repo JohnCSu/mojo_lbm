@@ -5,11 +5,13 @@ from std.python import Python, PythonObject
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 from std.collections import InlineArray
-from src.lbm import SOLID_NODE,FLUID_NODE,set_exterior_walls,LBM_Grid,get_D2Q9,Lattice
+from src.lbm import SOLID_NODE,FLUID_NODE,set_exterior_walls,LBM_Grid,get_D2Q9,Lattice,DOUBLE_BUFFER,LBM_Config
 
 from .LBM_gpu_kernel import LBM_kernel
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
+
+comptime config = LBM_Config[DOUBLE_BUFFER]()
 
 @always_inline
 def benchmark_func[
@@ -43,10 +45,10 @@ def benchmark_func[
     f.fill(1./Scalar[float_dtype](Q))
     f_out.fill(1./Scalar[float_dtype](Q))
 
-    set_exterior_walls[grid](flags.cpu(),bc.cpu(),'+Y',SOLID_NODE,[U,0],1.)
-    set_exterior_walls[grid](flags.cpu(),bc.cpu(),'-Y',SOLID_NODE,[0,0],1.)
-    set_exterior_walls[grid](flags.cpu(),bc.cpu(),'-X',SOLID_NODE,[0,0],1.)
-    set_exterior_walls[grid](flags.cpu(),bc.cpu(),'+X',SOLID_NODE,[0,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+Y',SOLID_NODE,[U,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-Y',SOLID_NODE,[0,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'-X',SOLID_NODE,[0,0],1.)
+    set_exterior_walls[grid,config](flags.cpu(),bc.cpu(),'+X',SOLID_NODE,[0,0],1.)
 
     ctx.synchronize()
     # Copy To GPU()

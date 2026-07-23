@@ -17,7 +17,7 @@ from std.math import sqrt
 from src.lbm import LBM_Grid,LBM_Config,Lattice
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
 from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec,esoteric_pull_load_f
+from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec
 
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.moment import (

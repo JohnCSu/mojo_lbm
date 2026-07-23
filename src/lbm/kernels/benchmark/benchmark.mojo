@@ -50,7 +50,7 @@ def benchmark_func_tiled_3D[
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     grid: LBM_Grid[lattice,nx,ny,nz,...],
-    config:LBM_Config = LBM_Config(),
+    config:LBM_Config[lbm_method] = LBM_Config[lbm_method](),
     ]
     (mut b:Bencher) capturing raises:
     """Benchmarks one SRT LBM time step on a 3D tiled layout.
@@ -108,7 +108,7 @@ def benchmark_func_3D_non_tiled[
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     grid: LBM_Grid[lattice,nx,ny,nz,_],
-    config:LBM_Config = LBM_Config(),
+    config:LBM_Config[lbm_method] = LBM_Config[lbm_method](),
     ]
     (mut b:Bencher) capturing raises:
     """Benchmarks one SRT LBM time step on a 3D tiled layout.
