@@ -146,7 +146,7 @@ def set_exterior_walls_with_func[
                     BCLayoutType:TensorLayout,
                     //,
                     grid:LBM_Grid[latticeModel,nx,ny,nz,_],
-                    config:LBM_Config = LBM_Config(),
+                    config:LBM_Config,
                     *,
                     u: def[float_dtype:DType,D:Int]
                         (Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],mut InlineArray[Scalar[float_dtype],D])

@@ -13,7 +13,7 @@ from .preprocess.boundary_condition import (
     set_exterior_walls_with_func,
 )
 from .lattice import get_D2Q9, get_D3Q19, get_D3Q27, Lattice
-from src.lbm.postprocess import calculate_rho_and_velocity,calculate_esoteric_rho_and_velocity
+from src.lbm.postprocess import calculate_rho_and_velocity
 from .config import LBM_Config, ConfigLike
 from .units import UnitSystem, Unit
 from .layoutstruct import TiledGridLayouts

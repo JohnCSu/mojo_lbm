@@ -185,7 +185,7 @@ def calculate_drag_around_object[
     FLayout:Layout[...] ,
     FlagLayout:Layout[...],
     grid: LBM_Grid,
-    config:LBM_Config = LBM_Config(),
+    config:LBM_Config,
     *,
     f_dtype:DType = grid.float_dtype if config.f_dtype is None else config.f_dtype.value()
     ](
