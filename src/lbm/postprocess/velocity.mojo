@@ -18,7 +18,6 @@ from src.lbm.kernels.utils.equilibrium import get_f_eq_vec,get_f_noneq_vec
 
 
 def calculate_rho_and_velocity[
-    lbm_method:StaticString,
     Flayout:Layout[...],
     BClayout:Layout[...],
     Flaglayout:Layout[...],
@@ -27,7 +26,7 @@ def calculate_rho_and_velocity[
     grid: LBM_Grid,
     config:LBM_Config,
     *,
-    is_even_time_step:Optional[Bool] = None,
+    current_step_is_odd:Optional[Bool] = None,
     ]
     (
         density:TileTensor[grid.float_dtype,type_of(RhoLayout),MutAnyOrigin],
@@ -67,7 +66,6 @@ def calculate_rho_and_velocity[
         bc: The boundary-condition tile tensor (rank 4).
         flags: The `uint8` tile tensor labeling each node (rank 3).
     """
-    comptime assert lbm_method in lbm_methods
     comptime D = grid.D
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
@@ -96,8 +94,8 @@ def calculate_rho_and_velocity[
             var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
             pull_flags[0] = flag
             comptime if config.lbm_method == ESOTERIC_PULL:
-                comptime assert is_even_time_step, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
-                f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,is_even_time_step.value(),config.use_float16c](f,index,grid_shape)
+                comptime assert current_step_is_odd, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
+                f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,current_step_is_odd.value(),config.use_float16c](f,index,grid_shape)
             
             elif config.lbm_method == DOUBLE_BUFFER:
                 f_vec = double_buffer_pull_load_f[float_dtype,directions,config.use_float16c](f,index,grid_shape)
