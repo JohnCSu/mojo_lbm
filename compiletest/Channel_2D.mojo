@@ -9,7 +9,7 @@ from std.collections import InlineArray
 from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
                     LBM_Grid,LBM_Config,
-                    get_D2Q9,set_exterior_walls,calculate_rho_and_velocity)
+                    get_D2Q9,set_exterior_walls,calculate_rho_and_velocity,DoubleBufferConfig,EsotericPullConfig)
 
 from src.lbm.kernels.double_buffer import double_buffer_kernel
 
@@ -28,7 +28,7 @@ comptime (nx,ny,nz) = (2*N,N,1)
 comptime tile_size = 16
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx)
 comptime valid_bcs = {Flags.EQUILIBRIUM}
-comptime config = LBM_Config(BCs = valid_bcs,DDF_shift = False)
+comptime config = DoubleBufferConfig(BCs = valid_bcs,DDF_shift = False)
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM

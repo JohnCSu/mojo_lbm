@@ -7,7 +7,7 @@ from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
                     LBM_Grid,LBM_Config,
                     get_D3Q19,set_exterior_walls,calculate_rho_and_velocity,
-                    UnitSystem
+                    UnitSystem,DoubleBufferConfig,EsotericPullConfig
                     )
 
 from src.lbm.kernels.double_buffer import double_buffer_kernel
@@ -30,7 +30,7 @@ comptime (nx,ny,nz) = (N,N,N)
 comptime num_points = nx*ny*nz
 comptime tile_size = 8
 comptime grid = LBM_Grid[D3Q19,nx,ny,nz,tile_size](dx)
-comptime config = LBM_Config(DDF_shift = True,LES = True)
+comptime config = DoubleBufferConfig(DDF_shift = True,LES = True)
 
 comptime all_slice = slice(None,None,None)
 

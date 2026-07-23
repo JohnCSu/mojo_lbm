@@ -7,7 +7,7 @@ from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
                     LBM_Grid,LBM_Config,
                     get_D2Q9,set_exterior_walls,calculate_rho_and_velocity,
-                    UnitSystem
+                    UnitSystem,DoubleBufferConfig,EsotericPullConfig
                     )
 
 from src.lbm.kernels.double_buffer import double_buffer_kernel
@@ -29,7 +29,7 @@ comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,1)
 comptime tile_size = 16
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx,[0.,0.,0.])
-comptime config = LBM_Config(DDF_shift = True,LES = True)
+comptime config = DoubleBufferConfig(DDF_shift = True,LES = True)
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM
