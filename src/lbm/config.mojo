@@ -138,7 +138,7 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
         Returns:
             `True` when LES is enabled, `False` otherwise.
         """
-        return self.LES or self.collision_op == Collisions.RLBM
+        return self.LES or (self.collision_op in materialize[Collisions.that_need_fneq]()) #self.collision_op == Collisions.KBC or self.collision_op == Collisions.RLBM  #
 
     def set_f_dtype(self, float_dtype_for_math_ops: DType) -> DType:
         """Returns the `DType` to use for `f` math operations.

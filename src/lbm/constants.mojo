@@ -23,8 +23,9 @@ struct Collisions:
     comptime TRT:StaticString = 'TRT'
     comptime KBC:StaticString = 'KBC'
     comptime RLBM:StaticString = 'RLBM'
-    comptime valid_set:Set[StaticString] = {Self.SRT,Self.TRT,Self.RLBM}
+    comptime valid_set:Set[StaticString] = {Self.SRT,Self.TRT,Self.RLBM,Self.KBC}
 
+    comptime that_need_fneq:Set[StaticString] = {Self.KBC,Self.RLBM}
 struct Flags:
     """Collects the boundary-condition flag values as compile-time constants.
 
