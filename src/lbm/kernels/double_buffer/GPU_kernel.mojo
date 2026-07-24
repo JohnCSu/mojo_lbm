@@ -128,7 +128,10 @@ def double_buffer_kernel[
 
             comptime if config.collision_op == Collisions.RLBM:
                 RLBM[directions,weights,stress_indices,config.DDF_shift](f_new,f_neq,second_moment_neq,rho,velocity,tau_local)
-
+            elif config.collision_op == Collisions.KBC:
+                KBC[directions,weights,config.DDF_shift](f_new,f_neq,second_moment_neq,rho,velocity,tau_local)
+        
+        
         # Collision Term
         # comptime assert config.collision_op_is_valid(), 'Collision operator must be either SRT or TRT'
         comptime if config.collision_op == Collisions.SRT:
@@ -138,7 +141,7 @@ def double_buffer_kernel[
             tau_asymm = 0.5 + TRT_magic_param/(tau_local-0.5)
             TRT[directions,weights,config.DDF_shift](f_new,velocity,rho,tau_local,tau_asymm)
         else:
-            comptime assert config.collision_op in Collisions.valid_set, 'Invalid Collision Operator specified'
+            comptime assert config.collision_op_is_valid() ,'Invalid Collision Operator specified'
             
             
         # Store f back to Global

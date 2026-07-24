@@ -92,66 +92,6 @@ def get_kbc_Qiab[
 
     return Q_i
 
-
-def entropic_inner_product[
-    float_dtype:DType,
-    Q:Int,
-    //,
-    weights:Vector[float_dtype,Q]
-    ]
-    (
-    a:Vector[float_dtype,Q],
-    b:Vector[float_dtype,Q],
-    f_eq:Vector[float_dtype,Q],
-    ) -> Scalar[float_dtype]:
-
-    out:Scalar[float_dtype] = 0.
-    comptime for q in range(Q):
-        out += a[q]*b[q]/f_eq[q]
-
-    return out
-
-def KBC[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int,//,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    weights:Vector[float_dtype,Q],
-    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],N],
-    DDF_shift:Bool,
-    ](
-    mut f_vec:Vector[float_dtype,Q],
-    f_neq:Vector[float_dtype,Q],
-    stress_neq:Vector[float_dtype,N],
-    rho:Scalar[float_dtype],
-    velocity:Vector[float_dtype,D],
-    tau:Scalar[float_dtype],
-    *,
-    min_gamma:Scalar[float_dtype] = 1.,
-    max_gamma:Scalar[float_dtype] = 3.,
-    ):
-    
-    var beta = 1/(2*tau)
-    var s = Vector[float_dtype,Q](uninitialized = True)
-    var f_equil = Vector[float_dtype,Q](uninitialized = True)
-    u_dot_u = velocity.dot(velocity)
-
-    comptime for q in range(Q):
-        comptime weight = weights[q]
-        comptime float_direction = directions[q].cast_to[float_dtype]()
-        comptime weight_div_2cs4 = weights[q]/(2*cs_squared*cs_squared)
-        comptime Q_q = get_kbc_Qiab[stress_indices](float_direction) # Can pre compute this!
-        s[q] = weight_div_2cs4*Q_q.dot(stress_neq)
-        f_equil[q] = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,float_direction)
-    
-    var h = f_neq - s
-
-    gamma = entropic_inner_product[weights](s,h,f_equil)/entropic_inner_product[weights](h,h,f_equil)
-
-    gamma = max(min_gamma,min(gamma, max_gamma ))
-
-    comptime for q in range(Q):
-        f_vec[q] = f_equil[q] + (1-2*beta)*s[q] + (1-beta*gamma)*h[q]
-
-
 def RLBM[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int,//,
     directions:InlineArray[Vector[int_dtype, D], Q],
