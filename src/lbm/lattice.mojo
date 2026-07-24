@@ -41,6 +41,8 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
     var opposite_indices: InlineArray[Self.int_scalar, Self.Q]
     """The index of the opposite direction for each discrete velocity."""
 
+    var float_directions: InlineArray[Self.float_vector, Self.Q]
+
     def __init__(
         out self,
         directions: InlineArray[Self.int_vector, Self.Q],
@@ -62,6 +64,11 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
         self.opposite_indices = InlineArray[self.int_scalar, Self.Q](fill=0)
         # self.float_directions = float_directions
         self.stress_indices = get_stress_indices[Self.D, self.int_dtype]()
+
+        
+        self.float_directions =  type_of(self.float_directions)(uninitialized= True)
+        for i,direction in enumerate(directions):
+            self.float_directions[i] = direction.cast_to[self.float_dtype]()
 
         self._get_opposite_indices()
 
