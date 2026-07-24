@@ -10,6 +10,7 @@ from src.utils import Vector
 from src.lbm.constants import cs_squared
 from .index import get_adjacent_idx,is_index_out_of_bounds
 
+
 @always_inline
 def get_density_and_velocity_for_eq_BC[
     float_dtype:DType,D:Int,Q:Int,int_dtype:DType,//,

@@ -14,7 +14,7 @@ from std.gpu.memory import AddressSpace
 from std.math import sqrt
 
 from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
-from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
+from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared,Collisions
 from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
 
@@ -27,7 +27,7 @@ from src.lbm.kernels.utils.moment import (
                                             get_density_and_velocity_for_eq_BC)
 from src.lbm.kernels.ops.turbulence import get_Smagorinsky_LES_tau
 from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec
-from src.lbm.kernels.ops import wall_bc,equilibrium_bc,SRT,TRT
+from src.lbm.kernels.ops import wall_bc,equilibrium_bc,SRT,TRT,KBC,RLBM
 
 def double_buffer_kernel[
     Flayout:Layout,
@@ -118,7 +118,7 @@ def double_buffer_kernel[
         
         # Non eq ops
         comptime if config.implies_f_noneq():
-            f_neq = get_f_noneq_vec[False,directions,weights,config.use_float16c](f_new,rho,velocity,tau_local)
+            f_neq = get_f_noneq_vec[False,directions,weights,config.DDF_shift](f_new,rho,velocity,tau_local)
             second_moment_neq = get_non_eq_second_order_moment[directions,stress_indices](f_neq)
             strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau_local)
             comptime if config.LES:
@@ -126,17 +126,21 @@ def double_buffer_kernel[
                 tau_eddy = get_Smagorinsky_LES_tau[stress_indices](strain_rate,Cs)
                 tau_local += tau_eddy
 
+            comptime if config.collision_op == Collisions.RLBM:
+                RLBM[directions,weights,stress_indices,config.DDF_shift](f_new,f_neq,second_moment_neq,rho,velocity,tau_local)
+
         # Collision Term
         # comptime assert config.collision_op_is_valid(), 'Collision operator must be either SRT or TRT'
-        comptime if config.collision_op == 'SRT':
+        comptime if config.collision_op == Collisions.SRT:
             SRT[directions,weights,config.DDF_shift](f_new,velocity,rho,tau_local)
-        elif config.collision_op == 'TRT':
+        elif config.collision_op == Collisions.TRT:
             comptime TRT_magic_param = 3./16.
             tau_asymm = 0.5 + TRT_magic_param/(tau_local-0.5)
             TRT[directions,weights,config.DDF_shift](f_new,velocity,rho,tau_local,tau_asymm)
-        
-
-
+        else:
+            comptime assert config.collision_op in Collisions.valid_set, 'Invalid Collision Operator specified'
+            
+            
         # Store f back to Global
         comptime for q in range(Q):
             store_f[config.use_float16c,non_temporal](f_out,f_new[q],index,q)
