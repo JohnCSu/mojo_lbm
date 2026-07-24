@@ -9,7 +9,7 @@ from src.lbm import (
                     get_D2Q9,set_exterior_walls,calculate_rho_and_velocity,
                     UnitSystem,DoubleBufferConfig,EsotericPullConfig
                     )
-
+from src.lbm.constants import Collisions
 from src.lbm.kernels.double_buffer import double_buffer_kernel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.geometry.primatives import add_sphere,add_box
@@ -29,7 +29,7 @@ comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,1)
 comptime tile_size = 16
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx,[0.,0.,0.])
-comptime config = DoubleBufferConfig(DDF_shift = True,LES = True)
+comptime config = DoubleBufferConfig(collision_op = Collisions.KBC,DDF_shift = False,LES = False)
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM

@@ -27,7 +27,7 @@ comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,1)
 comptime tile_size = 16
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx,[0.,0.,0.])
-comptime config = DoubleBufferConfig(DDF_shift = True,LES = True)
+comptime config = DoubleBufferConfig(collision_op ='RLBM',DDF_shift = True,LES = False)
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM

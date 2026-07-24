@@ -112,6 +112,9 @@ TileTensor on the cpu or gpu respecitively. Buffer copies between the 2 buffers 
 6. Mojo Packaging
 
 ## Timeline
+- 2026/07/24 Added KBC Collision Operator
+- 2026/07/23 Added RLBM Collision Operator
+- 2026/07/22 Added TRT Collision Operator
 - 2026/07/21 Aadded Esoteric Pull in-place method
 - 2026/07/16 Added Q criterion Calculations and strain rate tensor now uses non_eq components from of f
 - 2026/07/10 Added Force Calculations around objects and Cylinder Benchmark. Added Sphere and box primatives
