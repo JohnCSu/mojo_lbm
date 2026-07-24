@@ -8,7 +8,7 @@ in the FluidX3D reference.
 from .constants import Flags, _FlagSet
 from std.collections import Set
 from src.utils.custom_fp import Float16C
-from src.lbm.constants import lbm_methods,DOUBLE_BUFFER,ESOTERIC_PULL
+from src.lbm.constants import Lbm_methods,Collisions
 
 comptime fp32 = DType.float32
 """Alias for `DType.float32` used throughout the Float16C conversions."""
@@ -16,10 +16,10 @@ comptime uint16 = DType.uint16
 """Alias for `DType.uint16` used throughout the Float16C conversions."""
 
 
-comptime DoubleBufferConfig = LBM_Config[DOUBLE_BUFFER]
+comptime DoubleBufferConfig = LBM_Config[Lbm_methods.DOUBLE_BUFFER]
 
 
-comptime EsotericPullConfig = LBM_Config[ESOTERIC_PULL]
+comptime EsotericPullConfig = LBM_Config[Lbm_methods.ESOTERIC_PULL]
 
 
 
@@ -72,7 +72,7 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
     """Whether the non-equilibrium second moment is computed each step."""
     var include_moving_boundary:Bool
     var collision_op:StaticString
-    var valid_collision_ops:Set[StaticString] 
+
     def __init__(
         out self,
         *,
@@ -101,12 +101,9 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
                 (defaults to `False`).
             f_dtype: Optional override `DType` for `f` (defaults to `None`).
         """
-        comptime assert Self.lbm_method in lbm_methods
+        comptime assert Self.lbm_method in Lbm_methods.valid_set
 
         self.collision_op = collision_op
-        self.valid_collision_ops = {'SRT','TRT'}
-        assert collision_op in self.valid_collision_ops
-
         self.DDF_shift = DDF_shift
         self.LES = LES
         self.KBC = False
@@ -133,13 +130,15 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
             # Ensure that fluid and solid nodes are always in the valid BC
             self.INCLUDED_BCs = {Flags.FLUID, Flags.SOLID}.union(BCs)
 
+        assert self.collision_op_is_valid()
+
     def implies_f_noneq(self) -> Bool:
         """Returns `True` when the config requires the non-equilibrium part of `f`.
 
         Returns:
             `True` when LES is enabled, `False` otherwise.
         """
-        return self.LES
+        return self.LES or self.collision_op == Collisions.RLBM
 
     def set_f_dtype(self, float_dtype_for_math_ops: DType) -> DType:
         """Returns the `DType` to use for `f` math operations.
@@ -157,4 +156,4 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
         )
 
     def collision_op_is_valid(self) -> Bool:
-        return self.collision_op in self.valid_collision_ops
+        return self.collision_op in materialize[Collisions.valid_set]()

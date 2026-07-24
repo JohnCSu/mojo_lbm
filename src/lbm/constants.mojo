@@ -6,9 +6,24 @@ comptime cs_squared = (1.0 / 3.0)
 """The square of the lattice speed of sound, $$1/3$$."""
 
 
-comptime DOUBLE_BUFFER:StaticString = 'double buffer'
-comptime ESOTERIC_PULL:StaticString = 'esoteric pull'
-comptime lbm_methods:Set[StaticString] = {DOUBLE_BUFFER,ESOTERIC_PULL}
+
+
+struct Lbm_methods:
+    comptime DOUBLE_BUFFER:StaticString = 'double buffer'
+    comptime ESOTERIC_PULL:StaticString = 'esoteric pull'
+    comptime MOMENT_REPRESENTATION:StaticString = 'moment representation'
+    comptime valid_set:Set[StaticString] = {Self.DOUBLE_BUFFER,Self.ESOTERIC_PULL}
+
+comptime DOUBLE_BUFFER:StaticString = Lbm_methods.DOUBLE_BUFFER
+comptime ESOTERIC_PULL:StaticString = Lbm_methods.ESOTERIC_PULL
+# comptime lbm_methods:Set[StaticString] = {DOUBLE_BUFFER,ESOTERIC_PULL}
+    
+struct Collisions:
+    comptime SRT:StaticString = 'SRT'
+    comptime TRT:StaticString = 'TRT'
+    comptime KBC:StaticString = 'KBC'
+    comptime RLBM:StaticString = 'RLBM'
+    comptime valid_set:Set[StaticString] = {Self.SRT,Self.TRT,Self.RLBM}
 
 struct Flags:
     """Collects the boundary-condition flag values as compile-time constants.

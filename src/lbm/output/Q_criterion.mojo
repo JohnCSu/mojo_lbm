@@ -6,7 +6,7 @@ from std.gpu.memory import AddressSpace
 
 from src.lbm import LBM_Grid,LBM_Config,Lattice
 
-from src.lbm.constants import lbm_methods,ESOTERIC_PULL,DOUBLE_BUFFER
+from src.lbm.constants import ESOTERIC_PULL,DOUBLE_BUFFER
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.ops import wall_bc
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid

@@ -13,7 +13,7 @@ from src.utils import Vector,ContextTileTensor
 from std.utils.numerics import nan,isnan
 from src.lbm.units import UnitSystem
 from src.lbm.kernels.utils.equilibrium import f_eq
-from src.lbm.kernels.utils.load_and_store import store_f
+from src.lbm.kernels.utils.load_and_store import store_f,esoteric_pull_store_f_vec
 from src.lbm.constants import cs_squared
 from std.reflection import get_function_name
 
@@ -152,7 +152,7 @@ def initialize_f_from_func[
                 u_dot_u = velocity.dot(velocity)
 
                 # comptime assert D == 2,'adding neq only works for 2D for now'
-
+                f_vec = Vector[float_dtype,Q](uninitialized = True)
                 comptime for q in range(Q):
                     comptime float_direction = directions[q].cast_to[float_dtype]()
                     f_i = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_direction)
@@ -163,7 +163,15 @@ def initialize_f_from_func[
                             comptime for d in range(D): # Scale Gradient to lattice units
                                 grad[d] *= unitSystem.value().U.C_phys_to_lat()/unitSystem.value().L.C_phys_to_lat()
                         f_i += fi_neq[directions](q,weights[q],rho,tau,grad)
-                    store_f[config.use_float16c](f,f_i,index,q)
+                    f_vec[q] = f_i
+                
+                comptime if config.lbm_method == ESOTERIC_PULL:
+                    comptime is_even_time_step = False
+                    esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_vec,index,grid.shape)
+
+                elif config.lbm_method == DOUBLE_BUFFER:
+                    comptime for q in range(Q):
+                        store_f[config.use_float16c](f,f_vec[q],index,q)
 
 
 def fi_neq[
