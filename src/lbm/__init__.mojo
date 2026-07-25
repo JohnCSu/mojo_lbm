@@ -17,6 +17,7 @@ from .lattice import get_D2Q9, get_D3Q19, get_D3Q27, Lattice
 from src.lbm.output import calculate_rho_and_velocity
 from .config import LBM_Config, ConfigLike,DoubleBufferConfig,EsotericPullConfig
 from .units import UnitSystem, Unit
-from .layoutstruct import TiledGridLayouts
+from .layoutstruct import TiledLayouts
 from .runtimeParams import RuntimeParams
+from .solver import DoubleBufferSolver
 # from .grid import GridLike

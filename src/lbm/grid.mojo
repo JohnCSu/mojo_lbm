@@ -15,7 +15,7 @@ from src.utils import Vector, ContextTileTensor
 from std.utils.numerics import nan, isnan
 from .units import UnitSystem
 from std.utils import Variant
-
+from src.lbm import TiledLayouts
 
 comptime Int_Or_Tuple_Of_Ints = Variant[Int,Tuple[Int,Int,Int]]
 
@@ -77,12 +77,7 @@ trait GridLike:
     comptime GRID_DIM = set_grid_dims[Self.nx,Self.ny,Self.nz,Self.BLOCK_SHAPE]()
     comptime THREADS_PER_BLOCK = Self.BLOCK_SHAPE[0] * Self.BLOCK_SHAPE[1] * Self.BLOCK_SHAPE[2]
 
-    comptime n_tiles_x = Self.nx // Self.tile_shape[0]
-    comptime n_tiles_y = Self.ny // Self.tile_shape[1] if Self.D >= 2 else 1
-    comptime n_tiles_z = Self.nz // Self.tile_shape[2] if Self.D == 3 else 1
-    comptime x_tile = Self.tile_shape[0]
-    comptime y_tile = Self.tile_shape[1]
-    comptime z_tile = Self.tile_shape[2]
+    
 
 
 struct LBM_Grid[
@@ -128,14 +123,17 @@ struct LBM_Grid[
     comptime nz: Int = Self.nz_
     comptime tile_size: Int = 8
     comptime tile_shape = set_tile_shape(Self.tile_shape_,Self.D)
-
+    comptime shape: InlineArray[Int, 3] = [Self.nx,Self.ny,Self.nz]
+    """The `[nx, ny, nz]` node counts per axis."""
     comptime lattice = Self.lattice_
-
     # comptime float_dtype:DType = Self.float_dtype
     comptime Float_Scalar = Scalar[Self.float_dtype]
     comptime BLOCK_SHAPE = set_default_block_shape[Self.tile_shape,Self.D]()
     comptime GRID_DIM = set_grid_dims[Self.nx,Self.ny,Self.nz,Self.BLOCK_SHAPE]()
     comptime THREADS_PER_BLOCK = Self.BLOCK_SHAPE[0] * Self.BLOCK_SHAPE[1] * Self.BLOCK_SHAPE[2]
+
+    comptime layouts = TiledLayouts[Self.D,Self.Q,Self.shape,Self.tile_shape]
+
 
     comptime n_tiles_x = Self.nx // Self.tile_shape[0]
     comptime n_tiles_y = Self.ny // Self.tile_shape[1] if Self.D >= 2 else 1
@@ -155,8 +153,7 @@ struct LBM_Grid[
     """The area of one lattice cell (`dx**2`)."""
     var volume: Self.Float_Scalar
     """The volume of one lattice cell (`dx**3`)."""
-    comptime shape: InlineArray[Int, 3] = [Self.nx,Self.ny,Self.nz]
-    """The `[nx, ny, nz]` node counts per axis."""
+    
     var num_points: Int
     """The total number of lattice nodes."""
     var f_field_size: Int
