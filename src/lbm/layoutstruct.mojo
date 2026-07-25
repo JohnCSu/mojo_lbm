@@ -20,7 +20,7 @@ struct TiledLayouts[
     Q: Int,
     grid_shape: InlineArray[Int, 3],
     tile_shape: Tuple[Int,Int,Int]
-    ]:
+    ](ImplicitlyCopyable):
     """Computes tiled tensor layouts for the flag, `f`, and `bc` fields.
 
     Each layout is the `blocked_product` of a column-major tile and a
@@ -68,8 +68,8 @@ struct TiledLayouts[
     comptime rho_layout = row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
     comptime velocity_layout = row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],Self.D]()
     
-    def __init__(out self):
-        pass
+    # def __init__(out self):
+    #     pass
 
     @staticmethod
     def create_tiled_rank_4_tensor[
