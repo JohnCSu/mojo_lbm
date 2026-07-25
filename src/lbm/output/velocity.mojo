@@ -4,7 +4,7 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from layout.tile_tensor import stack_allocation
 from std.gpu.memory import AddressSpace
 
-from src.lbm import LBM_Grid,LBM_Config,Lattice
+from src.lbm import LBM_Grid,LBM_Config,Lattice,GridLike
 from src.utils import Vector,ContextTileTensor
 
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
@@ -22,7 +22,7 @@ def calculate_rho_and_velocity[
     Flaglayout:Layout[...],
     RhoLayout:Layout[...],
     VelocityLayout:Layout[...],
-    grid: LBM_Grid,
+    grid: Some[GridLike],
     config:LBM_Config,
     *,
     current_step_is_odd:Optional[Bool] = None,

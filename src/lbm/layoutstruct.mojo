@@ -14,9 +14,9 @@ from layout.tile_layout import (
     col_major,
     
 )
-from src.lbm import LBM_Grid
+from src.lbm import LBM_Grid,GridLike
 
-struct TiledGridLayouts[grid: LBM_Grid]:
+struct TiledGridLayouts[gridType:GridLike,//,grid: gridType]:
     """Computes tiled tensor layouts for the flag, `f`, and `bc` fields.
 
     Each layout is the `blocked_product` of a column-major tile and a
@@ -57,10 +57,13 @@ struct TiledGridLayouts[grid: LBM_Grid]:
     comptime bc_layout = Self.create_tiled_rank_4_tensor[Self.D+1]()
     """The tiled layout for the boundary-condition field."""
 
-    comptime untiled_flag_layout = col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]
+    comptime untiled_flag_layout = col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
     comptime untiled_f_layout = Self.create_untiled_rank_4_tensor[Self.Q]()
     comptime untiled_bc_layout = Self.create_untiled_rank_4_tensor[Self.D+1]()
 
+    comptime rho_layout = row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
+    comptime velocity_layout = row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],Self.D]()
+    
     def __init__(out self):
         pass
 
