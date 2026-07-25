@@ -7,13 +7,14 @@ from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
                     LBM_Grid,LBM_Config,
                     get_D2Q9,set_exterior_walls,calculate_rho_and_velocity,set_exterior_walls_with_func,
-                    UnitSystem,TiledGridLayouts,RuntimeParams,DoubleBufferConfig
+                    UnitSystem,TiledGridLayouts,RuntimeParams,DoubleBufferConfig,
+                    Collisions
                     )
 
 from src.lbm.kernels.double_buffer import double_buffer_kernel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.geometry.primatives import add_sphere,add_box
-from src.lbm.geometry import ImmersedObject
+from src.lbm.geometry import RigidImmersedObject
 from src.visualization import pyvista_viewer_import,grid_viewer
 from src.lbm.output import calculate_drag_around_object
 
@@ -30,7 +31,7 @@ comptime (nx,ny,nz) = (5*N,N,1)
 comptime tile_size = (16,16,1)
 comptime grid = LBM_Grid[D2Q9,nx,ny,nz,tile_size](dx,[0.,0.,0.])
 comptime valid_bcs = {Flags.EQUILIBRIUM}
-comptime config = DoubleBufferConfig(BCs = valid_bcs,DDF_shift = True,collision_op = 'TRT')
+comptime config = DoubleBufferConfig(BCs = valid_bcs,DDF_shift = True,collision_op = Collisions.KBC)
 
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM

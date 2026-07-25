@@ -12,8 +12,10 @@ from src.lbm import LBM_Grid,Lattice
 from layout import TileTensor,row_major,col_major,coord
 from src.utils import ContextTileTensor
 from std.gpu.host import DeviceContext
+from src.utils import Vector
 
-struct ImmersedObject[
+
+struct RigidImmersedObject[
     grid:LBM_Grid
     ]():
     """Collects the fluid boundary nodes adjacent to an immersed solid.
@@ -29,13 +31,23 @@ struct ImmersedObject[
     comptime float_dtype = Self.grid.float_dtype
     comptime int_dtype = Self.grid.int_dtype
     comptime Int_Scalar = Scalar[Self.int_dtype]
+    
 
     var fluid_boundary_list:List[Self.Int_Scalar]
     """The linear memory indices of the fluid nodes adjacent to the solid."""
 
+    var center_of_mass:Vector[Self.float_dtype,Self.grid.D]
+    var mass:Scalar[Self.float_dtype]
+
     def __init__(out self):
-        """Constructs an empty `ImmersedObject`."""
-        self.fluid_boundary_list = List[Self.Int_Scalar]()
+        self.fluid_boundary_list = []
+        self.mass = 1.
+        self.center_of_mass = Vector[Self.float_dtype,Self.grid.D](fill=0.)
+
+    def __init__(out self,var fluid_boundary_list:List[Self.Int_Scalar],mass:Scalar[Self.float_dtype] = 1.,center_of_mass:Vector[Self.float_dtype,Self.grid.D] = Vector[Self.float_dtype,Self.grid.D](fill=0.), ):
+        self.fluid_boundary_list = fluid_boundary_list^
+        self.mass = mass
+        self.center_of_mass = center_of_mass
 
     def add_sphere[FlagLayoutType:TensorLayout,flag_origin:Origin[mut=True]](
     mut self,
