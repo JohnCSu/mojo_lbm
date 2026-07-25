@@ -15,12 +15,13 @@ def main():
     
     # Source directory is at the root of your project
     src_dir = project_root / "src"
-    output_package = target_dir / "src.mojopkg"
+    # output_package = target_dir / "src.mojopkg"
+    output_package = target_dir / "src.mojoc"
 
     # 2. Step 1: Build the Mojo Package (using absolute paths to be safe)
     print(f"🔨 Building Mojo package into {target_dir}...")
-    build_cmd = ["mojo", "package", str(src_dir), "-o", str(output_package)]
-    
+    # build_cmd = ["mojo", "package", str(src_dir), "-o", str(output_package)]
+    build_cmd = ["mojo", "precompile", str(src_dir), "-o", str(output_package)]
     result = subprocess.run(build_cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print("❌ Mojo Build Failed:", file=sys.stderr)
