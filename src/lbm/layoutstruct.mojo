@@ -14,9 +14,13 @@ from layout.tile_layout import (
     col_major,
     
 )
-from src.lbm import LBM_Grid,GridLike
 
-struct TiledGridLayouts[gridType:GridLike,//,grid: gridType]:
+struct TiledLayouts[
+    D: Int,
+    Q: Int,
+    grid_shape: InlineArray[Int, 3],
+    tile_shape: Tuple[Int,Int,Int]
+    ]:
     """Computes tiled tensor layouts for the flag, `f`, and `bc` fields.
 
     Each layout is the `blocked_product` of a column-major tile and a
@@ -27,13 +31,13 @@ struct TiledGridLayouts[gridType:GridLike,//,grid: gridType]:
         grid: The compile-time `LBM_Grid` the layouts are derived from.
     """
 
-    comptime D: Int = Self.grid.D
-    comptime Q: Int = Self.grid.Q
-    comptime grid_shape = Self.grid.shape
+    comptime x_tile = Self.tile_shape[0]
+    comptime y_tile = Self.tile_shape[1]
+    comptime z_tile = Self.tile_shape[2]
 
-    comptime x_tile = Self.grid.x_tile
-    comptime y_tile = Self.grid.y_tile
-    comptime z_tile = Self.grid.z_tile
+    comptime n_tiles_x = Self.grid_shape[0] // Self.tile_shape[0]
+    comptime n_tiles_y = Self.grid_shape[1] // Self.tile_shape[1] if Self.D >= 2 else 1
+    comptime n_tiles_z = Self.grid_shape[2] // Self.tile_shape[2] if Self.D == 3 else 1
 
     comptime _flag_tile = col_major[Self.x_tile, Self.y_tile, Self.z_tile]()
     comptime _f_tile = col_major[
@@ -44,10 +48,10 @@ struct TiledGridLayouts[gridType:GridLike,//,grid: gridType]:
     ]()
 
     comptime _rank_3_tiler = col_major[
-        Self.grid.n_tiles_x, Self.grid.n_tiles_y, Self.grid.n_tiles_z
+        Self.n_tiles_x, Self.n_tiles_y, Self.n_tiles_z
     ]()
     comptime _rank_4_tiler = col_major[
-        Self.grid.n_tiles_x, Self.grid.n_tiles_y, Self.grid.n_tiles_z, 1
+        Self.n_tiles_x, Self.n_tiles_y, Self.n_tiles_z, 1
     ]()
 
     comptime flag_layout = blocked_product(Self._flag_tile, Self._rank_3_tiler)
