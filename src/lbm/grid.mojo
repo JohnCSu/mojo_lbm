@@ -17,48 +17,14 @@ from .units import UnitSystem
 from std.utils import Variant
 from src.lbm import TiledLayouts
 
-comptime Int_Or_Tuple_Of_Ints = Variant[Int,Tuple[Int,Int,Int]]
 
-def set_tile_shape(x:Int_Or_Tuple_Of_Ints,D:Int) -> Tuple[Int,Int,Int]:
-    if x.isa[Int]():
-        tile_size = x[Int]
-        return (tile_size,tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
-    else:
-        return x[Tuple[Int,Int,Int]]
-
-
-def set_default_block_shape[tile_shape:Tuple[Int,Int,Int],D:Int]() -> Tuple[Int,Int,Int]:
-    comptime if tile_shape == (1,1,1):
-        if D == 1:
-            return (256,1,1)
-        elif D == 2:
-            return (16,16,1)
-        else:
-            return (8,8,4)
-    else:
-        comptime for i in range(3):
-            comptime assert tile_shape[i] > 1 if i < D else tile_shape[i] == 1
-        return tile_shape
-
-
-def set_grid_dims[nx:Int,ny:Int,nz:Int,block_shape:Tuple[Int,Int,Int]]() -> Tuple[Int,Int,Int]:
-    comptime assert (
-                (nx % block_shape[0] == 0 or nx == 1)
-            and (ny % block_shape[1] == 0 or ny == 1)
-            and (nz % block_shape[2] == 0 or nz == 1)
-        ),'The grid shape along nx,ny and nz should be either equal to 1 or divisible by the block shape'
-    
-    return (nx//block_shape[0],ny//block_shape[1],nz//block_shape[2])
-
-
-trait GridLike:
+trait GridLike(ImplicitlyCopyable & ImplicitlyDestructible):
     """Declares the compile-time shape and lattice description of an LBM grid.
 
     Conforming types expose the float and integer dtypes, dimension `D`,
     velocity count `Q`, per-axis extents, tile size, and the compile-time
     `Lattice` used by the solver.
     """
-
     comptime float_dtype: DType
     comptime int_dtype: DType
     comptime D: Int
@@ -71,14 +37,20 @@ trait GridLike:
         Self.D, Self.Q, Self.float_dtype, Self.int_dtype
     ]
     comptime shape: InlineArray[Int, 3]
+    comptime layouts = TiledLayouts[Self.D,Self.Q,Self.shape,Self.tile_shape]
 
-    comptime Float_Scalar = Scalar[Self.float_dtype]
     comptime BLOCK_SHAPE = set_default_block_shape[Self.tile_shape,Self.D]()
     comptime GRID_DIM = set_grid_dims[Self.nx,Self.ny,Self.nz,Self.BLOCK_SHAPE]()
     comptime THREADS_PER_BLOCK = Self.BLOCK_SHAPE[0] * Self.BLOCK_SHAPE[1] * Self.BLOCK_SHAPE[2]
 
     
+    def get_grid_coordinates(
+        self, i: Int, j: Int, k: Int
+    ) -> InlineArray[Scalar[Self.float_dtype], 3]:
+        ...
 
+
+# comptime GridLike = GridLike_ & ImplicitlyCopyable
 
 struct LBM_Grid[
     float_dtype_: DType,
@@ -91,9 +63,7 @@ struct LBM_Grid[
     ny_: Int,
     nz_: Int,
     tile_shape_:Int_Or_Tuple_Of_Ints,
-    
-    
-](ImplicitlyCopyable & GridLike):
+](GridLike):
     """Describes an LBM simulation domain and its GPU launch parameters.
 
     Carries the lattice model, grid shape, and tile size as compile-time
@@ -353,3 +323,39 @@ def check_model_match_dim[D: Int, nx: Int, ny: Int, nz: Int]():
         "The given dimension of the Lattice does not match that of the"
         " dimension of the grid"
     )
+
+
+
+comptime Int_Or_Tuple_Of_Ints = Variant[Int,Tuple[Int,Int,Int]]
+
+def set_tile_shape(x:Int_Or_Tuple_Of_Ints,D:Int) -> Tuple[Int,Int,Int]:
+    if x.isa[Int]():
+        tile_size = x[Int]
+        return (tile_size,tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
+    else:
+        return x[Tuple[Int,Int,Int]]
+
+
+def set_default_block_shape[tile_shape:Tuple[Int,Int,Int],D:Int]() -> Tuple[Int,Int,Int]:
+    comptime if tile_shape == (1,1,1):
+        if D == 1:
+            return (256,1,1)
+        elif D == 2:
+            return (16,16,1)
+        else:
+            return (8,8,4)
+    else:
+        comptime for i in range(3):
+            comptime assert tile_shape[i] > 1 if i < D else tile_shape[i] == 1
+        return tile_shape
+
+
+def set_grid_dims[nx:Int,ny:Int,nz:Int,block_shape:Tuple[Int,Int,Int]]() -> Tuple[Int,Int,Int]:
+    comptime assert (
+                (nx % block_shape[0] == 0 or nx == 1)
+            and (ny % block_shape[1] == 0 or ny == 1)
+            and (nz % block_shape[2] == 0 or nz == 1)
+        ),'The grid shape along nx,ny and nz should be either equal to 1 or divisible by the block shape'
+    
+    return (nx//block_shape[0],ny//block_shape[1],nz//block_shape[2])
+
