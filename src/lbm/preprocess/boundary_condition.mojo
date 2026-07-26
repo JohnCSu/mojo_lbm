@@ -14,28 +14,25 @@ from std.collections import Set,Dict
 from src.utils import Vector,ContextTileTensor
 from std.utils.numerics import nan,isnan
 from src.lbm import UnitSystem
-from src.lbm import LBM_Grid,Lattice
+from src.lbm import LBM_Grid,Lattice,GridLike
 
 
-def set_exterior_walls[float_dtype:DType,
+def set_exterior_walls[
                     flag_origin:Origin[mut=True],
                     bc_origin:Origin[mut=True],
-                    nx:Int,ny:Int,nz:Int,
-                    D:Int,Q:Int,
-                    lattice:Lattice[D,Q,float_dtype,DType.int32],
                     FlagLayoutType:TensorLayout,
                     BCLayoutType:TensorLayout,
                     //,
-                    grid:LBM_Grid[lattice,nx,ny,nz,_],
+                    grid:Some[GridLike],
                     config:LBM_Config
                     ]
                     (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
-                            bc:TileTensor[float_dtype,BCLayoutType,bc_origin],
-                            side:String,
-                            boundary_type:Scalar[DType.uint8],
-                            u:List[Scalar[float_dtype]] = [],
-                            rho:Scalar[float_dtype] = nan[float_dtype](),
-                            unitSystem:Optional[UnitSystem[float_dtype,D]] = None) raises:
+                    bc:TileTensor[grid.float_dtype,BCLayoutType,bc_origin],
+                    side:String,
+                    boundary_type:Scalar[DType.uint8],
+                    u:List[Scalar[grid.float_dtype]] = [],
+                    rho:Scalar[grid.float_dtype] = nan[grid.float_dtype](),
+                    unitSystem:Optional[UnitSystem[grid.float_dtype,grid.D]] = None) raises:
     """Applies a uniform boundary condition to one exterior wall of the grid.
 
     Writes the flag value and the velocity/density into the supplied `flags`
@@ -68,8 +65,18 @@ def set_exterior_walls[float_dtype:DType,
         Error: If `boundary_type` is not in `config.INCLUDED_BCs`.
         Error: If `side` is not one of the six valid strings.
     """
-    comptime assert float_dtype.is_floating_point()
+    comptime assert grid.float_dtype.is_floating_point()
     comptime assert FlagLayoutType.rank == 3 and BCLayoutType.rank == 4
+    comptime lattice = grid.lattice
+    comptime weights = lattice.weights
+    comptime directions = lattice.directions
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime grid_shape = grid.shape
+    comptime float_dtype = grid.float_dtype
+    comptime nx = grid.shape[0]
+    comptime ny = grid.shape[1]
+    comptime nz = grid.shape[2]
 
     VALID_BOUNDARIES = materialize[config.INCLUDED_BCs]()
 
@@ -102,8 +109,8 @@ def set_exterior_walls[float_dtype:DType,
         velocity = [unitSystem.value().U.C_phys_to_lat()*u for u in velocity]
 
     axis = axes[String(side[byte = 1])]
-    end_values = [nx,ny,nz]
-
+    end_values = grid.shape
+    
     if side[byte = 0] == '-':
         fixed = 0
     else:
@@ -136,32 +143,26 @@ def set_exterior_walls[float_dtype:DType,
 
 
 def set_exterior_walls_with_func[
-                    float_dtype:DType,
-                    flag_origin:Origin[mut=True],
-                    bc_origin:Origin[mut=True],
-                    nx:Int,ny:Int,nz:Int,
-                    D:Int,Q:Int,
-                    latticeModel:Lattice[D,Q,float_dtype,DType.int32],
-                    FlagLayoutType:TensorLayout,
-                    BCLayoutType:TensorLayout,
-                    //,
-                    grid:LBM_Grid[latticeModel,nx,ny,nz,_],
-                    config:LBM_Config,
-                    *,
-                    u: def[float_dtype:DType,D:Int]
-                        (Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],mut InlineArray[Scalar[float_dtype],D])
-                        capturing
-                    # u: Optional[def[float_dtype:DType,D:Int]
-                    #     (Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],mut InlineArray[Scalar[float_dtype],D])
-                    #     capturing] = None
-                    ]
-                    (flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
-                            bc:TileTensor[float_dtype,BCLayoutType,bc_origin],
-                            side:String,
-                            boundary_type:Scalar[DType.uint8],
-                            unitSystem:Optional[UnitSystem[float_dtype,D]],
-                            rho:Scalar[float_dtype] = nan[float_dtype](),
-                            ) raises:
+    flag_origin:Origin[mut=True],
+    bc_origin:Origin[mut=True],
+    FlagLayoutType:TensorLayout,
+    BCLayoutType:TensorLayout,
+    //,
+    grid:Some[GridLike],
+    config:LBM_Config,
+    *,
+    u: def[float_dtype:DType,D:Int]
+        (Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],mut InlineArray[Scalar[float_dtype],D])
+        capturing
+    ]
+    (
+    flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
+    bc:TileTensor[grid.float_dtype,BCLayoutType,bc_origin],
+    side:String,
+    boundary_type:Scalar[DType.uint8],
+    unitSystem:Optional[UnitSystem[grid.float_dtype,grid.D]],
+    rho:Scalar[grid.float_dtype] = nan[grid.float_dtype](),
+    ) raises:
     """Applies a spatially varying velocity boundary condition to one wall.
 
     Calls the supplied `u` function at every node on the chosen wall to
@@ -194,8 +195,18 @@ def set_exterior_walls_with_func[
         Error: If `boundary_type` is not in `config.INCLUDED_BCs`.
         Error: If `side` is not one of the six valid strings.
     """
-    comptime assert float_dtype.is_floating_point()
+    comptime assert grid.float_dtype.is_floating_point()
     comptime assert FlagLayoutType.rank == 3 and BCLayoutType.rank == 4
+    comptime lattice = grid.lattice
+    comptime weights = lattice.weights
+    comptime directions = lattice.directions
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime grid_shape = grid.shape
+    comptime float_dtype = grid.float_dtype
+    comptime nx = grid.shape[0]
+    comptime ny = grid.shape[1]
+    comptime nz = grid.shape[2]
     # comptime assert u is not None
     comptime u_func = u
     VALID_BOUNDARIES = materialize[config.INCLUDED_BCs]()

@@ -16,6 +16,8 @@ from src.lbm.kernels.utils.equilibrium import f_eq
 from src.lbm.kernels.utils.load_and_store import store_f,esoteric_pull_store_f_vec
 from src.lbm.constants import cs_squared
 from std.reflection import get_function_name
+from src.lbm import GridLike
+
 
 def _do_nothing[
         float_dtype:DType,
@@ -41,19 +43,15 @@ def _do_nothing[
         return [du,dv]
 
 
-
 def initialize_fluid_at_rest[
-    float_dtype:DType,
     f_origin:Origin[mut=True],
-    nx:Int,ny:Int,nz:Int,
-    D:Int,Q:Int,
-    lattice:Lattice[D,Q,float_dtype,DType.int32],
     FLayoutType:TensorLayout,
+    GridType:GridLike,
     //,
-    grid:LBM_Grid[lattice,nx,ny,nz,_],
+    grid:GridType,
     config:LBM_Config,
     *,
-    f_dtype:DType = config.f_dtype.value() if config.f_dtype else float_dtype
+    f_dtype:DType = config.f_dtype.value() if config.f_dtype else GridType.float_dtype
     ]
     (
     f:TileTensor[f_dtype,FLayoutType,f_origin],
@@ -80,18 +78,16 @@ def initialize_fluid_at_rest[
         x:Scalar[float_dtype],y:Scalar[float_dtype],z:Scalar[float_dtype],mut u:Vector[float_dtype,D]
         ) capturing:
         u *= 0.
-    initialize_f_from_func[grid,config,u=at_rest](f,None,1,1)
+
+    initialize_f_from_func[grid,config,u=at_rest](f,1,1,None)
 
 
 def initialize_f_from_func[
-    float_dtype:DType,
     f_origin:Origin[mut=True],
-    nx:Int,ny:Int,nz:Int,
-    D:Int,Q:Int,
-    lattice:Lattice[D,Q,float_dtype,DType.int32],
     FLayoutType:TensorLayout,
+    gridType:GridLike,
     //,
-    grid:LBM_Grid[lattice,nx,ny,nz,_],
+    grid:gridType,
     config:LBM_Config,
     *,
     u: def[float_dtype:DType,D:Int]
@@ -102,13 +98,14 @@ def initialize_f_from_func[
         (Scalar[float_dtype],Scalar[float_dtype],Scalar[float_dtype],Vector[float_dtype,D])
         capturing -> List[Vector[float_dtype,D]]] = None,
 
-    f_dtype:DType = config.f_dtype.value() if config.f_dtype else float_dtype
+    f_dtype:DType = config.f_dtype.value() if config.f_dtype else gridType.float_dtype
     ]
     (
+    
     f:TileTensor[f_dtype,FLayoutType,f_origin],
-    unitSystem:Optional[UnitSystem[float_dtype,D]],
-    rho:Scalar[float_dtype],
-    tau:Scalar[float_dtype],
+    rho:Scalar[gridType.float_dtype],
+    tau:Scalar[gridType.float_dtype],
+    unitSystem:Optional[UnitSystem[gridType.float_dtype,gridType.D]]
     ) raises:
 
     """Initializes `f` from an analytic velocity field.
@@ -127,7 +124,7 @@ def initialize_f_from_func[
             gradient `[du, dv]` at `(x, y, z)` for the non-equilibrium
             correction (defaults to `None`).
         f_dtype: The storage `DType` for `f` (defaults to the config's
-            `f_dtype` or `float_dtype`).
+            `f_dtype` or `grid.float_dtype`).
 
     Args:
         f: The distribution function tile tensor to fill.
@@ -136,14 +133,20 @@ def initialize_f_from_func[
         rho: The lattice density to initialize with.
         tau: The relaxation time used by the non-equilibrium correction.
     """
+    comptime lattice = gridType.lattice
     comptime weights = lattice.weights
     comptime directions = lattice.directions
+    comptime D = gridType.D
+    comptime Q = gridType.Q
+    comptime grid_shape = gridType.shape
+    comptime float_dtype = gridType.float_dtype
     # TODO: Add Parallel Code For This for very large elements
-    for i in range(nx):
-        for j in range(ny):
-            for k in range(nz):
+    
+    
+    for i in range(grid_shape[0]):
+        for j in range(grid_shape[1]):
+            for k in range(grid_shape[2]):
                 grid_indices =  grid.get_grid_coordinates(i,j,k)
-
                 velocity = Vector[float_dtype,D](fill = 0.)
                 u(grid_indices[0],grid_indices[1],grid_indices[2],velocity)
                 velocity*= unitSystem.value().U.C_phys_to_lat() if unitSystem else 1.
@@ -167,12 +170,13 @@ def initialize_f_from_func[
                 
                 comptime if config.lbm_method == ESOTERIC_PULL:
                     comptime is_even_time_step = False
-                    esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_vec,index,grid.shape)
+                    esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_vec,index,grid_shape)
 
                 elif config.lbm_method == DOUBLE_BUFFER:
                     comptime for q in range(Q):
                         store_f[config.use_float16c](f,f_vec[q],index,q)
 
+                
 
 def fi_neq[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
