@@ -169,7 +169,7 @@ def esoteric_pull_load_f_vec[
     Q:Int,
     D:Int,
     f_layout:TensorLayout,
-    f_origin:Origin[mut=True],
+    # f_origin:Origin[mut=True],
     //,
     float_dtype:DType,
     directions:InlineArray[Vector[int_dtype, D], Q],
@@ -178,7 +178,7 @@ def esoteric_pull_load_f_vec[
     non_temporal:Bool = False
     ]
     (
-    f:TileTensor[f_dtype,f_layout,f_origin],
+    f:TileTensor[f_dtype,f_layout,_],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
     ) -> Vector[float_dtype,Q]:
