@@ -18,12 +18,13 @@ def store_f[
         f_dtype:DType,
         FlayoutType:TensorLayout,
         float_dtype:DType,
+        f_origin:Origin[mut=True],
         //,
         use_float16c:Bool = False,
         non_temporal:Bool = False
         ]
         (
-        f:TileTensor[f_dtype,FlayoutType,MutAnyOrigin],
+        f:TileTensor[f_dtype,FlayoutType,f_origin],
         val:Scalar[float_dtype],
         index:InlineArray[Int,3],
         q:Int
@@ -168,6 +169,7 @@ def esoteric_pull_load_f_vec[
     Q:Int,
     D:Int,
     f_layout:TensorLayout,
+    f_origin:Origin[mut=True],
     //,
     float_dtype:DType,
     directions:InlineArray[Vector[int_dtype, D], Q],
@@ -176,7 +178,7 @@ def esoteric_pull_load_f_vec[
     non_temporal:Bool = False
     ]
     (
-    f:TileTensor[f_dtype,f_layout,_],
+    f:TileTensor[f_dtype,f_layout,f_origin],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
     ) -> Vector[float_dtype,Q]:
@@ -217,6 +219,7 @@ def esoteric_pull_store_f_vec[
     D:Int,
     f_layout:TensorLayout,
     float_dtype:DType,
+    f_origin:Origin[mut=True],
     //,
     directions:InlineArray[Vector[int_dtype, D], Q],
     is_even_time_step:Bool,
@@ -224,7 +227,7 @@ def esoteric_pull_store_f_vec[
     non_temporal:Bool = False
     ]
     (
-    f:TileTensor[f_dtype,f_layout,MutAnyOrigin],
+    f:TileTensor[f_dtype,f_layout,f_origin],
     f_vec:Vector[float_dtype,Q],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
