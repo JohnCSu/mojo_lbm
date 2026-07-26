@@ -68,8 +68,8 @@ def main() raises:
     f = ContextTileTensor[float_dtype](ctx,grid.layouts.f_layout)
     f_out = ContextTileTensor[float_dtype](ctx,grid.layouts.f_layout)
 
-    u = ContextTileTensor[float_dtype](ctx,velocity_layout)
-    rho = ContextTileTensor[float_dtype](ctx,density_layout)
+    u = ContextTileTensor[float_dtype](ctx,grid.layouts.velocity_layout)
+    rho = ContextTileTensor[float_dtype](ctx,grid.layouts.density_layout)
     pv_view = pyvista_viewer_import()
 
     # Set up
