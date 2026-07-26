@@ -20,4 +20,4 @@ from .units import UnitSystem, Unit
 from .layoutstruct import TiledLayouts
 from .runtimeParams import RuntimeParams
 from .solver import DoubleBufferSolver
-# from .grid import GridLike
+from .assembly import Assembly

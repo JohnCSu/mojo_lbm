@@ -87,8 +87,8 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
 
         if not self.f2:
             raise Error('with LBM == Double Buffer f2 should have a value inside it')
-
-        return (self.f.gpu(),self.f2.value().gpu(),self.bc.gpu(),self.flags.gpu())
+        else:
+            return (self.f.gpu(),self.f2.value().gpu(),self.bc.gpu(),self.flags.gpu())
 
     def get_cpu_tensors_for_double_buffer(mut self) 
         raises -> Tuple[
@@ -124,6 +124,10 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
         else:
             initialize_fluid_at_rest[Self.grid,Self.config](self.f.cpu())
 
+
+    def initialize_f_at_rest(mut self) raises:
+        initialize_fluid_at_rest[Self.grid,Self.config](self.f.cpu())
+
     def set_exterior_walls[
         *,
         u_func: Optional[def[float_dtype:DType,D:Int]
@@ -133,13 +137,15 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
         mut self,
         side:String,
         boundary_type:Scalar[DType.uint8],
-        value_in_lattice_coords:Bool,
         u:List[Scalar[self.float_dtype]] = [],
         rho:Scalar[self.float_dtype] = nan[self.float_dtype](),
+        *,
+        in_lattice_units:Bool,
+
         ) raises:
 
         var unitSystem:Optional[type_of(self.unitSystem)]
-        if value_in_lattice_coords:
+        if in_lattice_units:
             unitSystem = None
         else:
             unitSystem = self.unitSystem
