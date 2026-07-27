@@ -57,8 +57,8 @@ def calculate_vorticity[
 def calculate_Q_criterion[
     QLayout:Layout[...],
     Flayout:Layout[...] ,
-    FlagLayout:Layout[...] ,
     BClayout:Layout[...],
+    FlagLayout:Layout[...] ,
     VelocityLayout:Layout[...],
     grid: LBM_Grid,
     config:LBM_Config,
@@ -69,8 +69,8 @@ def calculate_Q_criterion[
         Q_tensor:TileTensor[grid.float_dtype,type_of(QLayout),MutAnyOrigin],
 
         f:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(Flayout),ImmutAnyOrigin],
-        flags:TileTensor[DType.uint8,type_of(FlagLayout),ImmutAnyOrigin],
         bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
+        flags:TileTensor[DType.uint8,type_of(FlagLayout),ImmutAnyOrigin],
         velocity:TileTensor[grid.float_dtype,type_of(VelocityLayout),ImmutAnyOrigin],
         tau:Scalar[grid.float_dtype],
     )
