@@ -9,8 +9,8 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from src.lbm.constants import Lbm_methods,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
 from src.lbm.output import calculate_rho_and_velocity,calculate_Q_criterion
-from src.lbm.output.velocity import calculate_rho_and_velocity_temp
-from src.lbm.output.Q_criterion import calculate_Q_criterion_temp
+# from src.lbm.output.velocity import calculate_rho_and_velocity_temp
+# from src.lbm.output.Q_criterion import calculate_Q_criterion_temp
 from src.lbm import kernels
 from layout import TileTensor
 # from layout import Idx
@@ -34,7 +34,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
     comptime density_layout = Self.layouts.create_col_major_rank_3_layout()
     comptime Q_criterion_layout = Self.layouts.create_col_major_rank_3_layout()
 
-    comptime output_density_and_velocity_func = calculate_rho_and_velocity_temp[
+    comptime output_density_and_velocity_func = calculate_rho_and_velocity[
         type_of(Self.layouts.f_layout),
         type_of(Self.layouts.bc_layout),
         type_of(Self.layouts.flag_layout),
@@ -44,7 +44,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         Self.config,
         ]
 
-    comptime output_Q_criterion_func = calculate_Q_criterion_temp[
+    comptime output_Q_criterion_func = calculate_Q_criterion[
         type_of(Self.Q_criterion_layout),
         type_of(Self.layouts.f_layout),
         type_of(Self.layouts.bc_layout),
