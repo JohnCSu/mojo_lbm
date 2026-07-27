@@ -30,21 +30,21 @@ from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec
 from src.lbm.kernels.ops import wall_bc,equilibrium_bc,SRT,TRT,KBC,RLBM
 
 def double_buffer_kernel[
-    Flayout:Layout,
-    BClayout:Layout,
-    Flaglayout:Layout,
+    FlayoutType:TensorLayout,
+    BClayoutType:TensorLayout,
+    FlaglayoutType:TensorLayout,
     grid: LBM_Grid,
     config:LBM_Config,
     ]
     (
-    f_out:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(Flayout),MutAnyOrigin],
-    f_in:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(Flayout),ImmutAnyOrigin],
-    bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
-    flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
+    f_out:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,MutAnyOrigin],
+    f_in:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,ImmutAnyOrigin],
+    bc:TileTensor[grid.float_dtype,BClayoutType,ImmutAnyOrigin],
+    flags:TileTensor[DType.uint8,FlaglayoutType,ImmutAnyOrigin],
     tau:Scalar[grid.float_dtype],
     # params:RuntimeParams[grid.float_dtype]
     )
-    where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+    where FlayoutType.rank == 4 and BClayoutType.rank == 4 and FlaglayoutType.rank == 3:
     """Runs one SRT LBM time step from `f_in` into `f_out`.
 
     Performs pull-scheme streaming with mid-grid bounce-back at solid nodes,

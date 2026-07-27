@@ -33,20 +33,20 @@ from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec,f_eq
 from src.lbm.kernels.ops import SRT,wall_bc
 
 def esoteric_pull_kernel[ 
-                is_even_time_step:Bool,
-                F_layout:Layout,
-                BC_layout:Layout,
-                Flag_layout:Layout,
-                grid: LBM_Grid,
-                config:LBM_Config,
-                ]
-                (
-                f:TileTensor[config.set_f_dtype(grid.float_dtype),type_of(F_layout),MutAnyOrigin],
-                bc:TileTensor[grid.float_dtype,type_of(BC_layout),ImmutAnyOrigin],
-                flags:TileTensor[DType.uint8,type_of(Flag_layout),ImmutAnyOrigin],
-                tau:Scalar[grid.float_dtype],
-                )
-                where F_layout.rank == 4 and BC_layout.rank == 4 and Flag_layout.rank == 3:
+    is_even_time_step:Bool,
+    FlayoutType:TensorLayout,
+    BClayoutType:TensorLayout,
+    FlaglayoutType:TensorLayout,
+    grid: LBM_Grid,
+    config:LBM_Config,
+    ]
+    (
+    f:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,MutAnyOrigin],
+    bc:TileTensor[grid.float_dtype,BClayoutType,ImmutAnyOrigin],
+    flags:TileTensor[DType.uint8,FlaglayoutType,ImmutAnyOrigin],
+    tau:Scalar[grid.float_dtype],
+    )
+    where FlayoutType.rank == 4 and BClayoutType.rank == 4 and FlaglayoutType.rank == 3:
     """Runs one esoteric-pull SRT LBM time step in place (incomplete).
 
     Intended to perform the pull-scheme streaming and collision in place by
