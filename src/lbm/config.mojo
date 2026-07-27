@@ -92,14 +92,18 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
         boundary-condition set.
 
         Args:
+            collision_op: The collision operator name, one of `'SRT'`,
+                `'TRT'`, `'KBC'`, or `'RLBM'` (defaults to `'SRT'`).
             LES: Whether to enable the Smagorinsky LES model (defaults to
                 `False`).
-            BCs: Set of uint8 containing Additional boundary-condition flags beyond `FLUID` and
-                `SOLID` (defaults to the empty set).
+            BCs: Set of uint8 containing additional boundary-condition flags
+                beyond `FLUID` and `SOLID` (defaults to the empty set).
             DDF_shift: Whether to enable DDF shifting (defaults to `False`).
             use_float16c: Whether to store `f` as Float16C `uint16`
                 (defaults to `False`).
             f_dtype: Optional override `DType` for `f` (defaults to `None`).
+            include_moving_boundary: Whether to include moving boundary
+                handling (defaults to `False`).
         """
         comptime assert Self.lbm_method in Lbm_methods.valid_set
 

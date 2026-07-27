@@ -128,10 +128,10 @@ def initialize_f_from_func[
 
     Args:
         f: The distribution function tile tensor to fill.
-        unitSystem: Optional unit system for converting physical velocities
-            and gradients to lattice units.
         rho: The lattice density to initialize with.
         tau: The relaxation time used by the non-equilibrium correction.
+        unitSystem: Optional unit system for converting physical velocities
+            and gradients to lattice units.
     """
     comptime lattice = gridType.lattice
     comptime weights = lattice.weights
@@ -202,8 +202,10 @@ def fi_neq[
 
     Parameters:
         float_dtype: The `DType` of the computation.
+        int_dtype: The `DType` of the integer directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
+        directions: The compile-time discrete velocity directions.
 
     Args:
         i: The discrete velocity index.
@@ -211,7 +213,6 @@ def fi_neq[
         rho: The lattice density.
         tau: The relaxation time.
         grad: The velocity gradient `[du, dv]` as a list of `Vector`s.
-        float_directions: The float-valued discrete velocity directions.
 
     Returns:
         The non-equilibrium correction `f_i^{neq}`.

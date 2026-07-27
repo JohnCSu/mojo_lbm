@@ -63,7 +63,7 @@ struct ContextCSR[int_dtype: DType = DType.int32]():
         self.deviceContext = ctx
 
         self.shape = shape
-        n_rows, n_cols = shape
+        n_rows, _ = shape
         self.nnz = len(indices)
 
         self.row_offsets = ContextTileTensor[Self.int_dtype](

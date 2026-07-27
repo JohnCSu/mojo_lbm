@@ -35,8 +35,7 @@ def get_density_and_velocity_for_eq_BC[
         D: The spatial dimension.
         Q: The number of discrete velocities.
         int_dtype: The `DType` of the integer directions.
-        float_directions: The compile-time float-valued directions.
-        int_directions: The compile-time integer-valued directions.
+        directions: The compile-time discrete velocity directions.
         DDF_shift: When `True`, use the DDF-shifted rest value
             (defaults to `False`).
 
@@ -152,9 +151,10 @@ def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
 
     Parameters:
         float_dtype: The `DType` of the computation.
+        int_dtype: The `DType` of the integer directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        float_directions: The compile-time float-valued directions.
+        directions: The compile-time discrete velocity directions.
 
     Args:
         f_neq: The non-equilibrium distribution vector.
@@ -195,7 +195,7 @@ def get_non_eq_second_order_moment[
         Q: The number of discrete velocities.
         n_stress: The number of symmetric stress components; must equal
             `D * (D + 1) / 2`.
-        float_directions: The compile-time float-valued directions.
+        directions: The compile-time discrete velocity directions.
         stress_indices: The compile-time symmetric stress-index pairs.
 
     Args:

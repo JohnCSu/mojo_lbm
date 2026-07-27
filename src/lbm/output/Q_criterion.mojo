@@ -84,19 +84,21 @@ def calculate_Q_criterion[
     $$Q = 0.25 \\|\\omega\\|^2 - 0.5 \\|S\\|_F^2$$.
 
     Parameters:
+        QLayout: The compile-time `Layout` of the Q-criterion output tensor.
         Flayout: The compile-time `Layout` of the distribution function `f`.
+        BClayout: The compile-time `Layout` of the boundary-condition tensor.
         FlagLayout: The compile-time `Layout` of the `uint8` flag tensor.
         VelocityLayout: The compile-time `Layout` of the velocity input
             tensor, indexed as `[x, y, z, D]`.
-        QLayout: The compile-time `Layout` of the Q-criterion output tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
-        f_dtype: The storage `DType` for `f` (defaults to the config's
-            `f_dtype` or `float_dtype`).
+        current_step_is_odd: When `True`, load from the positive half of the
+            lattice in the esoteric-pull scheme (defaults to `None`).
 
     Args:
         Q_tensor: The output Q-criterion tile tensor (rank 3).
         f: The input distribution function tile tensor (rank 4).
+        bc: The boundary-condition tile tensor (rank 4).
         flags: The `uint8` tile tensor labeling each node (rank 3).
         velocity: The input velocity tile tensor (rank 4), indexed as
             `[x, y, z, D]`.

@@ -54,9 +54,10 @@ def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
 
     Parameters:
         float_dtype: The `DType` of the computation.
+        int_dtype: The `DType` of the integer directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        float_directions: The compile-time float-valued directions.
+        directions: The compile-time discrete velocity directions.
         weights: The compile-time quadrature weights.
         DDF_shift: When `True`, use the DDF-shifted equilibrium form.
 
@@ -95,13 +96,19 @@ def get_f_noneq_vec[
 
     Parameters:
         float_dtype: The `DType` of the computation.
+        int_dtype: The `DType` of the integer directions.
+        D: The spatial dimension.
         Q: The number of discrete velocities.
         post_collision: When `True`, scale by `tau / (tau - 1)` to recover
             the pre-collision non-equilibrium from post-collision values.
+        directions: The compile-time discrete velocity directions.
+        weights: The compile-time quadrature weights.
+        DDF_shift: When `True`, use the DDF-shifted equilibrium form.
 
     Args:
         f_vec: The current distribution vector.
-        f_eq_vec: The equilibrium distribution vector.
+        density: The lattice density `rho`.
+        velocity: The lattice velocity vector `u`.
         tau: The relaxation time, used only when `post_collision` is `True`.
 
     Returns:

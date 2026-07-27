@@ -55,8 +55,8 @@ def calculate_rho_and_velocity[
             tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
-        f_dtype: The storage `DType` for `f` (defaults to the config's
-            `f_dtype` or `float_dtype`).
+        current_step_is_odd: When `True`, load from the positive half in the
+            esoteric-pull scheme (defaults to `None`).
 
     Args:
         density: The output density tile tensor (rank 3).

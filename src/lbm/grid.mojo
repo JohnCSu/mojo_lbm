@@ -81,7 +81,7 @@ struct LBM_Grid[
         nx_: The number of lattice nodes along `x`.
         ny_: The number of lattice nodes along `y`.
         nz_: The number of lattice nodes along `z`.
-        tile_size_: The tile size used for tiled layouts and GPU blocking.
+        tile_shape_: The tile shape used for tiled layouts and GPU blocking.
     """
     
     comptime float_dtype: DType = Self.float_dtype_

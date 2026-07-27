@@ -60,12 +60,13 @@ def benchmark_func_tiled_3D[
     to `run_benchmark` with row-major density and velocity outputs.
 
     Parameters:
-        grid: The compile-time `LBM_Grid` describing the domain.
+        lbm_method: The LBM streaming method (`'double buffer'` or
+            `'esoteric pull'`).
         U: The lid velocity in lattice units.
         tau: The SRT relaxation time.
+        grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` selecting runtime toggles (defaults to a
             fresh `LBM_Config()`).
-        reorder_threads: Reserved; currently unused (defaults to `True`).
 
     Args:
         b: The `Bencher` used to time the kernel.
@@ -118,12 +119,13 @@ def benchmark_func_3D_non_tiled[
     to `run_benchmark` with row-major density and velocity outputs.
 
     Parameters:
-        grid: The compile-time `LBM_Grid` describing the domain.
+        lbm_method: The LBM streaming method (`'double buffer'` or
+            `'esoteric pull'`).
         U: The lid velocity in lattice units.
         tau: The SRT relaxation time.
+        grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` selecting runtime toggles (defaults to a
             fresh `LBM_Config()`).
-        reorder_threads: Reserved; currently unused (defaults to `True`).
 
     Args:
         b: The `Bencher` used to time the kernel.

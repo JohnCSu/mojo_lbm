@@ -58,14 +58,12 @@ def esoteric_pull_kernel[
     Parameters:
         is_even_time_step: When `True`, pull from the positive half of the
             lattice; otherwise pull from the negative half.
+        F_layout: The compile-time `Layout` of the distribution function.
+        BC_layout: The compile-time `Layout` of the boundary-condition tensor.
+        Flag_layout: The compile-time `Layout` of the `uint8` flag tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
-        Flayout: The compile-time `Layout` of the distribution function.
-        BClayout: The compile-time `Layout` of the boundary-condition tensor.
-        Flaglayout: The compile-time `Layout` of the `uint8` flag tensor.
         config: The `LBM_Config` selecting DDF shift, Float16C, LES, and the
             valid boundary-condition flags.
-        f_dtype: The storage `DType` for `f` (defaults to the config's
-            `f_dtype` or `float_dtype`).
 
     Args:
         f: The distribution function tile tensor (rank 4), updated in place.

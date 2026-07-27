@@ -28,7 +28,10 @@ struct TiledLayouts[
     counts and the tile dimensions track the per-tile element counts.
 
     Parameters:
-        grid: The compile-time `LBM_Grid` the layouts are derived from.
+        D: The spatial dimension of the grid.
+        Q: The number of discrete velocities per node.
+        grid_shape: The `[nx, ny, nz]` node counts per axis.
+        tile_shape: The per-axis tile sizes used for tiled layouts.
     """
 
     comptime x_tile = Self.tile_shape[0]

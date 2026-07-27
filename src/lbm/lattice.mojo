@@ -56,7 +56,6 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
 
         Args:
             directions: The integer-valued discrete velocity directions.
-            float_directions: The float-valued discrete velocity directions.
             weights: The quadrature weights for each direction.
         """
         self.directions = directions

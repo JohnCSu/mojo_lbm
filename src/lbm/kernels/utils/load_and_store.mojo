@@ -83,7 +83,6 @@ def load_f[
 
         Parameters:
             f_dtype: The storage `DType` of `f`.
-            FlayoutType: The compile-time layout of `f`; must be rank 4.
             float_dtype: The `DType` of the returned scalar.
             use_float16c: When `True`, decode the loaded value from
                 Float16C (defaults to `False`).
@@ -142,6 +141,8 @@ def get_flags
         directions: The compile-time discrete velocity directions.
         shift: The shift applied to each direction (`-1` for pull, `1` for
             push).
+        start_idx: The index of the first direction to process (defaults to
+            0).
 
     Args:
         flags: The `uint8` tile tensor labeling each node.

@@ -13,9 +13,10 @@ from src.utils import ContextTileTensor,Vector
 
 
 struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
-    '''
-    For Ease lets have it as row major output --> Numpy easy viewing
-    '''
+    """Holds compiled output kernels and buffers for density, velocity, and Q-criterion.
+
+    Uses row-major output layouts for straightforward NumPy viewing.
+    """
     comptime grid = Self.grid_
     comptime float_dtype = Self.grid.float_dtype
     comptime config = Self.config_
