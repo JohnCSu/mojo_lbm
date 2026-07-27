@@ -100,15 +100,14 @@ def run_benchmark[
     ctx.synchronize()
     # Compile Functions
     comptime LBM_kernel_ = double_buffer_kernel[
-        f_layout, bc_layout, flag_layout, grid, config
+        type_of(f_layout), type_of(bc_layout), type_of(flag_layout), grid, config
     ]
     LBM_func = ctx.compile_function[LBM_kernel_]()
     ctx.synchronize()
 
     @always_inline
     def run_kernel(ctx: DeviceContext) capturing raises:
-        ctx.enqueue_function(
-            LBM_func,
+        ctx.enqueue_function[LBM_kernel_](
             f_out.gpu(),
             f.gpu().as_immut(),
             bc.gpu().as_immut(),
@@ -117,8 +116,7 @@ def run_benchmark[
             grid_dim=GRID_DIM,
             block_dim=BLOCK_SHAPE,
         )
-        ctx.enqueue_function(
-            LBM_func,
+        ctx.enqueue_function[LBM_kernel_](
             f.gpu(),
             f_out.gpu().as_immut(),
             bc.gpu().as_immut(),

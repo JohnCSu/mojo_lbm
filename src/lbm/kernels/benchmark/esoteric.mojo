@@ -99,8 +99,8 @@ def run_benchmark[
     _ = f.gpu()
 
     #Compile Functions
-    comptime LBM_Even = esoteric_pull_kernel[True,f_layout,bc_layout,flag_layout,grid,config]
-    comptime LBM_Odd = esoteric_pull_kernel[False,f_layout,bc_layout,flag_layout,grid,config]
+    comptime LBM_Even = esoteric_pull_kernel[True,type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
+    comptime LBM_Odd = esoteric_pull_kernel[False,type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
     LBM_even_step = ctx.compile_function[LBM_Even]()
     LBM_odd_step = ctx.compile_function[LBM_Odd]()
 
@@ -108,8 +108,7 @@ def run_benchmark[
 
     @always_inline
     def run_kernel(ctx: DeviceContext) capturing raises:
-        ctx.enqueue_function(
-            LBM_even_step,
+        ctx.enqueue_function[LBM_Even](
             f.gpu(),
             bc.gpu().as_immut(),
             flags.gpu().as_immut(),
@@ -117,8 +116,7 @@ def run_benchmark[
             grid_dim=GRID_DIM,
             block_dim=BLOCK_SHAPE,
         )
-        ctx.enqueue_function(
-            LBM_odd_step,
+        ctx.enqueue_function[LBM_Odd](
             f.gpu(),
             bc.gpu().as_immut(),
             flags.gpu().as_immut(),
