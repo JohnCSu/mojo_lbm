@@ -65,7 +65,7 @@ def sync_load_rank4_tensor_to_shared_with_halo[
     D:Int,
     ]
     (
-    mut shared_tile:TileTensor[float_dtype,sharedLayoutType, MutExternalOrigin, address_space=AddressSpace.SHARED],
+    mut shared_tile:TileTensor[float_dtype,sharedLayoutType, MutUntrackedOrigin, address_space=AddressSpace.SHARED],
     src_tensor:TileTensor[float_dtype,srcLayoutType,srcOrigin],
     tid:Int,
     block_index:InlineArray[Int,3],
