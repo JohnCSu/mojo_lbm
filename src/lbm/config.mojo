@@ -56,6 +56,10 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
     enabled, the optional storage `DType` for the distribution function, and
     the set of boundary-condition flags the run expects to encounter. Each
     member is documented alongside its declaration below.
+
+    Parameters:
+        lbm_method: The LBM streaming method name (`'double buffer'` or
+            `'esoteric pull'`).
     """
     
     var DDF_shift: Bool
