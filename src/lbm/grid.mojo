@@ -96,6 +96,7 @@ struct LBM_Grid[
     comptime shape: InlineArray[Int, 3] = [Self.nx,Self.ny,Self.nz]
     """The `[nx, ny, nz]` node counts per axis."""
     comptime lattice = Self.lattice_
+    
     # comptime float_dtype:DType = Self.float_dtype
     comptime Float_Scalar = Scalar[Self.float_dtype]
     comptime BLOCK_SHAPE = set_default_block_shape[Self.tile_shape,Self.D]()
@@ -104,6 +105,8 @@ struct LBM_Grid[
 
     comptime layouts = TiledLayouts[Self.D,Self.Q,Self.shape,Self.tile_shape]
 
+    comptime num_points = Self.nx*Self.ny*Self.nz
+    """The total number of lattice nodes."""
 
     comptime n_tiles_x = Self.nx // Self.tile_shape[0]
     comptime n_tiles_y = Self.ny // Self.tile_shape[1] if Self.D >= 2 else 1
@@ -124,8 +127,8 @@ struct LBM_Grid[
     var volume: Self.Float_Scalar
     """The volume of one lattice cell (`dx**3`)."""
     
-    var num_points: Int
-    """The total number of lattice nodes."""
+    
+    
     var f_field_size: Int
     """The total number of stored `f` values (`Q * num_points`)."""
     var vel_field_size: Int
@@ -152,7 +155,7 @@ struct LBM_Grid[
         self.area = dx**2
         self.volume = dx**3
         
-        self.num_points = Self.nx * Self.ny * Self.nz
+        
         self.f_field_size = Self.Q * self.num_points
         self.vel_field_size = Self.D * self.num_points
         self.bc_field_size = (Self.D + 1) * self.num_points
