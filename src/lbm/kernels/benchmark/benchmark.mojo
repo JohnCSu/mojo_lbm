@@ -106,11 +106,11 @@ def benchmark_func_3D_non_tiled[
     config:LBM_Config[lbm_method] = LBM_Config[lbm_method](),
     ]
     (mut b:Bencher) capturing raises:
-    """Benchmarks one SRT LBM time step on a 3D tiled layout.
+    """Benchmarks one SRT LBM time step on a 3D non-tiled layout.
 
-    Builds column-major `(tile_size, tile_size, tile_size[, Q|D+1])` tiles
-    composed with column-major tilers via `blocked_product`, then delegates
-    to `run_benchmark` with row-major density and velocity outputs.
+    Builds column-major `(nx, ny, nz[, Q|D+1])` layouts without tiling,
+    then delegates to `run_benchmark` with row-major density and velocity
+    outputs.
 
     Parameters:
         lbm_method: The LBM streaming method (`'double buffer'` or

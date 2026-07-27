@@ -72,7 +72,7 @@ def run_benchmark[
 
     Args:
         b: The `Bencher` used to time the kernel.
-    # """
+    """
     # comptime GRID_DIM:Tuple[Int,Int,Int] = (grid.GRID_DIM[0],grid.GRID_DIM[1],grid.GRID_DIM[2]*2)
     # comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = (grid.BLOCK_SHAPE[0],grid.BLOCK_SHAPE[1],grid.BLOCK_SHAPE[2]//2)
 
@@ -101,15 +101,15 @@ def run_benchmark[
     #Compile Functions
     comptime LBM_Even = esoteric_pull_kernel[True,f_layout,bc_layout,flag_layout,grid,config]
     comptime LBM_Odd = esoteric_pull_kernel[False,f_layout,bc_layout,flag_layout,grid,config]
-    LBM_even_step = ctx.compile_function[LBM_Even,LBM_Even]()
-    LBM_odd_step = ctx.compile_function[LBM_Odd,LBM_Odd]()
+    LBM_even_step = ctx.compile_function[LBM_Even]()
+    LBM_odd_step = ctx.compile_function[LBM_Odd]()
 
     ctx.synchronize()
     # Compile Functions
     comptime LBM_kernel_ = double_buffer_kernel[
         f_layout, bc_layout, flag_layout, grid, config
     ]
-    LBM_func = ctx.compile_function[LBM_kernel_, LBM_kernel_]()
+    LBM_func = ctx.compile_function[LBM_kernel_]()
     ctx.synchronize()
 
     @always_inline

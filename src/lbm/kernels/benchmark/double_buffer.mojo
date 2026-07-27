@@ -102,7 +102,7 @@ def run_benchmark[
     comptime LBM_kernel_ = double_buffer_kernel[
         f_layout, bc_layout, flag_layout, grid, config
     ]
-    LBM_func = ctx.compile_function[LBM_kernel_, LBM_kernel_]()
+    LBM_func = ctx.compile_function[LBM_kernel_]()
     ctx.synchronize()
 
     @always_inline
