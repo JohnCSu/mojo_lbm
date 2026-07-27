@@ -39,10 +39,10 @@ trait GridLike(ImplicitlyCopyable & ImplicitlyDestructible):
     comptime shape: InlineArray[Int, 3]
     comptime layouts = TiledLayouts[Self.D,Self.Q,Self.shape,Self.tile_shape]
 
-    comptime BLOCK_SHAPE = set_default_block_shape[Self.tile_shape,Self.D]()
-    comptime GRID_DIM = set_grid_dims[Self.nx,Self.ny,Self.nz,Self.BLOCK_SHAPE]()
+    comptime BLOCK_SHAPE:Tuple[Int,Int,Int] 
+    comptime GRID_DIM:Tuple[Int,Int,Int] 
     comptime THREADS_PER_BLOCK = Self.BLOCK_SHAPE[0] * Self.BLOCK_SHAPE[1] * Self.BLOCK_SHAPE[2]
-
+    comptime num_points:Int
     
     def get_grid_coordinates(
         self, i: Int, j: Int, k: Int
@@ -96,24 +96,15 @@ struct LBM_Grid[
     comptime shape: InlineArray[Int, 3] = [Self.nx,Self.ny,Self.nz]
     """The `[nx, ny, nz]` node counts per axis."""
     comptime lattice = Self.lattice_
-    
-    # comptime float_dtype:DType = Self.float_dtype
-    comptime Float_Scalar = Scalar[Self.float_dtype]
     comptime BLOCK_SHAPE = set_default_block_shape[Self.tile_shape,Self.D]()
     comptime GRID_DIM = set_grid_dims[Self.nx,Self.ny,Self.nz,Self.BLOCK_SHAPE]()
     comptime THREADS_PER_BLOCK = Self.BLOCK_SHAPE[0] * Self.BLOCK_SHAPE[1] * Self.BLOCK_SHAPE[2]
 
+    comptime Float_Scalar = Scalar[Self.float_dtype]
     comptime layouts = TiledLayouts[Self.D,Self.Q,Self.shape,Self.tile_shape]
 
     comptime num_points = Self.nx*Self.ny*Self.nz
     """The total number of lattice nodes."""
-
-    comptime n_tiles_x = Self.nx // Self.tile_shape[0]
-    comptime n_tiles_y = Self.ny // Self.tile_shape[1] if Self.D >= 2 else 1
-    comptime n_tiles_z = Self.nz // Self.tile_shape[2] if Self.D == 3 else 1
-    comptime x_tile = Self.tile_shape[0]
-    comptime y_tile = Self.tile_shape[1]
-    comptime z_tile = Self.tile_shape[2]
 
 
     var dx: Self.Float_Scalar
@@ -126,15 +117,7 @@ struct LBM_Grid[
     """The area of one lattice cell (`dx**2`)."""
     var volume: Self.Float_Scalar
     """The volume of one lattice cell (`dx**3`)."""
-    
-    
-    
-    var f_field_size: Int
-    """The total number of stored `f` values (`Q * num_points`)."""
-    var vel_field_size: Int
-    """The total number of stored velocity components (`D * num_points`)."""
-    var bc_field_size: Int
-    """The total number of stored boundary-condition values (`(D+1) * num_points`)."""
+
     var origin: InlineArray[Self.Float_Scalar, 3]
     """The physical coordinate of the `(0, 0, 0)` node."""
 
@@ -155,10 +138,6 @@ struct LBM_Grid[
         self.area = dx**2
         self.volume = dx**3
         
-        
-        self.f_field_size = Self.Q * self.num_points
-        self.vel_field_size = Self.D * self.num_points
-        self.bc_field_size = (Self.D + 1) * self.num_points
         self.domain_size = (
             Self.Float_Scalar(Self.nx - 1) * dx,
             Self.Float_Scalar(Self.ny - 1) * dx,
