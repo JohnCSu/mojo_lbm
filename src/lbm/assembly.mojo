@@ -113,7 +113,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
         """
 
         if self.lbm_method != Lbm_methods.ESOTERIC_PULL:
-            raise Error('This function is only valid if the lbm method is Esoteric Pull')
+            raise Error('This function is only valid if the lbm method is Double Buffer')
 
         return (self.f.cpu(),self.bc.cpu(),self.flags.cpu())
 
@@ -133,7 +133,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
         """
 
         if self.lbm_method != Lbm_methods.ESOTERIC_PULL:
-            raise Error('This function is only valid if the lbm method is Esoteric Pull')
+            raise Error('This function is only valid if the lbm method is Double Buffer')
 
         return (self.f.gpu(),self.bc.gpu(),self.flags.gpu())
 
@@ -156,7 +156,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
         """
 
         if self.lbm_method != Lbm_methods.DOUBLE_BUFFER:
-            raise Error('This function is only valid if the lbm method is Esoteric Pull')
+            raise Error('This function is only valid if the lbm method is Double Buffer')
 
         if not self.f2:
             raise Error('with LBM == Double Buffer f2 should have a value inside it')
@@ -181,7 +181,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
         """
 
         if self.lbm_method != Lbm_methods.DOUBLE_BUFFER:
-            raise Error('This function is only valid if the lbm method is Esoteric Pull')
+            raise Error('This function is only valid if the lbm method is Double Buffer')
 
         if not self.f2:
             raise Error('with LBM == Double Buffer f2 should have a value inside it')
