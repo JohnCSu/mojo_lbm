@@ -15,12 +15,12 @@ struct RuntimeParams[float_dtype:DType](ImplicitlyCopyable):
         self.Cs = Cs
         self.TRT_magic_param = TRT_magic_param
 
-    @staticmethod
-    def get_type_name() -> String:
-        return String(
-            "RuntimeParams[",
-            reflect[type_of(Self.float_dtype)].name(),
-            "]")
+    # @staticmethod
+    # def get_type_name() -> String:
+    #     return String(
+    #         "RuntimeParams[",
+    #         reflect[type_of(Self.float_dtype)]().name(),
+    #         "]")
    
     def _to_device_type(
         self, target: MutOpaquePointer[_]):
