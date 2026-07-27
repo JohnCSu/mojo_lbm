@@ -121,13 +121,13 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
         self.GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
         self.BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
 
-    def get_compiled_kernel(self) raises -> type_of(self.deviceContext.compile_function[Self.double_buffer,Self.double_buffer]()):
+    def get_compiled_kernel(self) raises -> type_of(self.deviceContext.compile_function[Self.double_buffer]()):
         """Recompiles the double-buffer kernel on demand.
 
         Returns:
             A new compiled kernel instance.
         """
-        return self.deviceContext.compile_function[Self.double_buffer,Self.double_buffer]()    
+        return self.deviceContext.compile_function[Self.double_buffer]()    
 
 
     @always_inline
@@ -158,7 +158,7 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
             tau: The base SRT relaxation time.
         """
         comptime assert Self.lbm_method == Lbm_methods.DOUBLE_BUFFER
-        self.deviceContext.enqueue_function[Self.double_buffer,Self.double_buffer](f_out,f_in.as_immut(),bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
+        self.deviceContext.enqueue_function[Self.double_buffer](f_out,f_in.as_immut(),bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
 
     @always_inline
     def even_step(self,mut assembly:Assembly,tau:Scalar[assembly.grid.float_dtype]) raises:

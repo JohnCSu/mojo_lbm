@@ -126,7 +126,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         ) raises:
         GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
         BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
-        deviceContext.enqueue_function[Self.output_density_and_velocity_func,Self.output_density_and_velocity_func](density,velocity,f.as_immut(),bc.as_immut(),flags.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        deviceContext.enqueue_function[Self.output_density_and_velocity_func](density,velocity,f.as_immut(),bc.as_immut(),flags.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
 
     @staticmethod
@@ -147,14 +147,26 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         *,
         block_dim:Optional[Tuple[Int,Int,Int]] = None,
         grid_dim:Optional[Tuple[Int,Int,Int]] = None,
-        GPU:Bool = True
         ) raises:
         GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
         BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
-        deviceContext.enqueue_function[Self.output_Q_criterion_func,Self.output_Q_criterion_func](Q,f.as_immut(),bc.as_immut(),flags.as_immut(),velocity.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        deviceContext.enqueue_function[Self.output_Q_criterion_func](Q,f.as_immut(),bc.as_immut(),flags.as_immut(),velocity.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
 
     def velocity_frame[after_odd_step:Bool](mut self,mut assembly:Assembly[Self.grid,Self.config]) raises:
+        """Computes and stores the density and velocity fields for the frame.
+
+        Loads `f` from either `f1` (after an odd step) or `f2` (after an
+        even step) and writes the results into the preallocated `density`
+        and `velocity` buffers.
+
+        Parameters:
+            after_odd_step: When `True`, read from `f1`; otherwise from
+                `f2`.
+
+        Args:
+            assembly: The `Assembly` providing the GPU buffers.
+        """
         f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
         
         comptime if after_odd_step:
@@ -164,6 +176,20 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
     
 
     def Q_criterion_frame[after_odd_step:Bool](mut self,mut assembly:Assembly[Self.grid,Self.config]) raises:
+        """Computes and stores the Q-criterion field for the frame.
+
+        Loads `f` from either `f1` (after an odd step) or `f2` (after an
+        even step) and writes the Q-criterion into the preallocated
+        `Q_criterion` buffer. Requires that the velocity field has already
+        been computed.
+
+        Parameters:
+            after_odd_step: When `True`, read from `f1`; otherwise from
+                `f2`.
+
+        Args:
+            assembly: The `Assembly` providing the GPU buffers.
+        """
         f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
 
         comptime if after_odd_step:
@@ -174,6 +200,21 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
 
     
     def velocity_as_numpy(mut self,convert_from_lattice_units:Bool,squeeze:Bool =True) raises -> PythonObject:
+        """Returns the velocity buffer as a NumPy array.
+
+        Converts the row-major GPU buffer to a NumPy array shaped
+        `(nx, ny, nz, D)` with Fortran ordering, optionally converting
+        from lattice to physical units and squeezing unit dimensions.
+
+        Args:
+            convert_from_lattice_units: When `True`, multiply by the
+                velocity conversion factor.
+            squeeze: When `True`, squeeze unit dimensions (defaults to
+                `True`).
+
+        Returns:
+            The velocity field as a NumPy array.
+        """
 
         # Weshould use reflection to consoldate this
         var shape = Python.tuple(Self.grid.shape[0],Self.grid.shape[1],Self.grid.shape[2],Self.grid.D)
@@ -189,6 +230,21 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
 
 
     def Q_criterion_as_numpy(mut self,convert_from_lattice_units:Bool,squeeze:Bool =True) raises -> PythonObject:
+        """Returns the Q-criterion buffer as a NumPy array.
+
+        Converts the row-major GPU buffer to a NumPy array shaped
+        `(nx, ny, nz)` with Fortran ordering, optionally converting from
+        lattice to physical units and squeezing unit dimensions.
+
+        Args:
+            convert_from_lattice_units: When `True`, multiply by the
+                Q-criterion conversion factor.
+            squeeze: When `True`, squeeze unit dimensions (defaults to
+                `True`).
+
+        Returns:
+            The Q-criterion field as a NumPy array.
+        """
         
         var shape = Python.tuple(Self.grid.shape[0],Self.grid.shape[1],Self.grid.shape[2])
         # shape.append(Self.grid.D)
