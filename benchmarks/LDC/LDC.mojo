@@ -34,11 +34,11 @@ comptime config = DoubleBufferConfig(collision_op = Collisions.KBC,DDF_shift = F
 comptime all_slice = slice(None,None,None)
 
 def main() raises:
-    print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
+    print(grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z)
     print('Grid Dim: ',grid.GRID_DIM)
     print('BLOCK_SHAPE: ', grid.BLOCK_SHAPE)
     assert N % tile_size == 0, 'Tile Size must Divide N' 
-    print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
+    print(grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z)
 
     U_phs:float_scalar = 1.
     U:float_scalar = 0.1
@@ -93,8 +93,8 @@ def main() raises:
     _ = f_out.gpu()
 
     #Compile Functions
-    comptime get_u_and_rho = calculate_rho_and_velocity[f_layout,bc_layout,flag_layout,density_layout,velocity_layout,grid,config]
-    calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho,get_u_and_rho]()
+    comptime get_u_and_rho = calculate_rho_and_velocity[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),type_of(density_layout),type_of(velocity_layout),grid,config]
+    calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho]()
 
     ctx.synchronize()
     
@@ -133,11 +133,11 @@ def main() raises:
     for t in range(MAX_ITERS):
         solver.step(f_out.gpu(),f.gpu(),bc.gpu(),flags.gpu(),tau)
         solver.step(f.gpu(),f_out.gpu(),bc.gpu(),flags.gpu(),tau)
-        # ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
-        # ctx.enqueue_function(LBM_func,f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        # ctx.enqueue_function[LBM_](f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        # ctx.enqueue_function[LBM_](f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         if (t % (MAX_ITERS//100)) == 0:
             ctx.synchronize()
-            ctx.enqueue_function(calc_rho_and_u_gpu,rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+            ctx.enqueue_function[get_u_and_rho](rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
             ctx.synchronize()
             u_np = (u.buffer_to_numpy()/U).reshape(D,nx,ny,nz)
             print('step = {}, time = {} max ={} avg = {}'.format(t,2.*Scalar[float_dtype](t)*dt,u_np.max(),u_np.mean()))
@@ -152,7 +152,7 @@ def main() raises:
 
     ctx.synchronize()
     # Get Final U and rho
-    ctx.enqueue_function(calc_rho_and_u_gpu,rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+    ctx.enqueue_function[get_u_and_rho](rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
     ctx.synchronize()
     
 

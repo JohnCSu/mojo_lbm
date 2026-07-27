@@ -36,9 +36,9 @@ comptime flag_tile = col_major[tile_size,tile_size,1]()
 comptime f_tile = col_major[tile_size,tile_size,1,Q]()
 comptime bc_tile = col_major[tile_size,tile_size,1,D+1]()
 
-comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
-comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
-comptime bc_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
+comptime flag_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z]()
+comptime f_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
+comptime bc_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
 
 comptime flag_layout = blocked_product(flag_tile,flag_tiler)
 comptime f_layout = blocked_product(f_tile,f_tiler)
@@ -55,11 +55,11 @@ def main() raises:
     and so can be set to any Reynolds number.
     '''
     comptime assert N % tile_size == 0 , 'tile_size must divide N'
-    print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
+    print(grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z)
     print('Grid Dim: ',GRID_DIM)
     print('BLOCK_SHAPE: ', BLOCK_SHAPE)
     assert N % tile_size == 0, 'Tile Size must Divide N' 
-    print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
+    print(grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z)
 
     U_phs:float_scalar = 1.
     U:float_scalar = 0.1
@@ -101,11 +101,11 @@ def main() raises:
     _ = f_out.gpu()
 
     #Compile Functions
-    comptime LBM_ = double_buffer_kernel[f_layout,bc_layout,flag_layout,grid,config]
-    LBM_func = ctx.compile_function[LBM_,LBM_]()
+    comptime LBM_ = double_buffer_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
+    LBM_func = ctx.compile_function[LBM_]()
 
-    comptime get_u_and_rho = calculate_rho_and_velocity[f_layout,bc_layout,flag_layout,density_layout,velocity_layout,grid,config]
-    calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho,get_u_and_rho]()
+    comptime get_u_and_rho = calculate_rho_and_velocity[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),type_of(density_layout),type_of(velocity_layout),grid,config]
+    calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho]()
 
     ctx.synchronize()
 
@@ -131,11 +131,11 @@ def main() raises:
     comptime MAX_ITERS = 400_000
     # Run Simulation
     for step in range(MAX_ITERS):
-        ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
-        ctx.enqueue_function(LBM_func,f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        ctx.enqueue_function[LBM_](f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        ctx.enqueue_function[LBM_](f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         if (step % (MAX_ITERS//100)) == 0:
             ctx.synchronize()
-            ctx.enqueue_function(calc_rho_and_u_gpu,rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+            ctx.enqueue_function[get_u_and_rho](rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
             ctx.synchronize()
             u_np = (u.buffer_to_numpy()/U).reshape(D,nx,ny,nz)
             t = 2.*Scalar[float_dtype](step)*dt
