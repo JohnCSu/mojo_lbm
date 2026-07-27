@@ -76,9 +76,9 @@ def benchmark_func_tiled_3D[
     comptime f_tile = col_major[grid.tile_shape[0],grid.tile_shape[1],grid.tile_shape[2],Q]()
     comptime bc_tile = col_major[grid.tile_shape[0],grid.tile_shape[1],grid.tile_shape[2],D+1]()
 
-    comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
-    comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
-    comptime bc_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
+    comptime flag_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z]()
+    comptime f_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
+    comptime bc_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
 
     comptime flag_layout = blocked_product(flag_tile,flag_tiler)
     comptime f_layout = blocked_product(f_tile,f_tiler)
