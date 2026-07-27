@@ -128,6 +128,115 @@ def calculate_rho_and_velocity[
 
 
 
+def calculate_rho_and_velocity_temp[
+    FlayoutType:TensorLayout,
+    BClayoutType:TensorLayout,
+    FlaglayoutType:TensorLayout,
+    RhoLayoutType:TensorLayout,
+    VelocityLayoutType:TensorLayout,
+    grid: Some[GridLike],
+    config:LBM_Config,
+    *,
+    current_step_is_odd:Optional[Bool] = None,
+    ]
+    (
+        density:TileTensor[grid.float_dtype,RhoLayoutType,MutAnyOrigin],
+        velocity:TileTensor[grid.float_dtype,VelocityLayoutType,MutAnyOrigin],
+        
+        f:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,ImmutAnyOrigin],
+        bc:TileTensor[grid.float_dtype,BClayoutType,ImmutAnyOrigin],
+        flags:TileTensor[DType.uint8,FlaglayoutType,ImmutAnyOrigin],
+    )
+    where VelocityLayoutType.rank == 4 and RhoLayoutType.rank == 3 and FlayoutType.rank == 4
+        and BClayoutType.rank == 4:
+
+    # Run on GPU
+    """Computes the density and velocity fields from the distribution function.
+
+    For each non-solid node, loads `f`, computes the density and velocity
+    from the moments, and stores them into the `density` and `velocity`
+    tensors. For solid nodes, copies the boundary-condition values into the
+    output tensors instead.
+
+    Parameters:
+        Flayout: The compile-time `Layout` of the distribution function `f`.
+        BClayout: The compile-time `Layout` of the boundary-condition tensor.
+        Flaglayout: The compile-time `Layout` of the `uint8` flag tensor.
+        RhoLayout: The compile-time `Layout` of the density output tensor.
+        VelocityLayout: The compile-time `Layout` of the velocity output
+            tensor.
+        grid: The compile-time `LBM_Grid` describing the domain.
+        config: The `LBM_Config` used to select storage options.
+        current_step_is_odd: When `True`, load from the positive half in the
+            esoteric-pull scheme (defaults to `None`).
+
+    Args:
+        density: The output density tile tensor (rank 3).
+        velocity: The output velocity tile tensor (rank 4).
+        f: The input distribution function tile tensor (rank 4).
+        bc: The boundary-condition tile tensor (rank 4).
+        flags: The `uint8` tile tensor labeling each node (rank 3).
+    """
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime float_dtype = grid.float_dtype
+    comptime lattice = grid.lattice
+    comptime directions = lattice.directions
+    comptime opposite_indices = lattice.opposite_indices
+    comptime weights = lattice.weights
+    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    comptime assert velocity.rank == velocity.flat_rank and density.rank == density.flat_rank, 'Velocity and Density Tensors should be non-nested and row-major or col-major'
+
+    comptime D_is_last_dim = (VelocityLayoutType.static_shape[0] == grid.nx and
+                             VelocityLayoutType.static_shape[1] == grid.ny and 
+                             VelocityLayoutType.static_shape[2] == grid.nz and 
+                             VelocityLayoutType.static_shape[3] == (D)
+                             )
+
+    var x = block_dim.x * block_idx.x + thread_idx.x
+    var y = block_dim.y * block_idx.y + thread_idx.y
+    var z = block_dim.z * block_idx.z + thread_idx.z
+    var index:InlineArray[Int,3] = [x,y,z]
+    var f_vec = Vector[float_dtype,Q](fill = 0)
+    coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+
+    var flag = flags.load(coord_index)[0]
+
+    var u = Vector[float_dtype,D](fill=0)
+    if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]: # Basic Guard
+
+        if flag != SOLID_NODE:
+            var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
+            pull_flags[0] = flag
+            comptime if config.lbm_method == ESOTERIC_PULL:
+                comptime assert current_step_is_odd, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
+                f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,current_step_is_odd.value(),config.use_float16c](f,index,grid_shape)
+            
+            elif config.lbm_method == DOUBLE_BUFFER:
+                f_vec = double_buffer_pull_load_f[float_dtype,directions,config.use_float16c](f,index,grid_shape)
+            
+            else:
+                comptime assert False, 'lbm_method not valid'
+                            
+            comptime include_bounceback = False if config.lbm_method == ESOTERIC_PULL else True
+            wall_bc[include_bounceback,directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,f,flags,bc,index,grid_shape)
+
+            rho = get_density[config.DDF_shift](f_vec)
+            u = get_velocity[lattice.directions](f_vec,rho)
+        else:# Get the BC For that node
+            comptime for ii in range(D):
+                u[ii] = bc.load(coord[DType.int32]((index[0],index[1],index[2],ii)))[0]
+            rho = bc.load(coord[DType.int32]((index[0],index[1],index[2],D)))[0]
+
+        density.store(coord_index,rho)
+        comptime for d in range(D):
+            comptime if D_is_last_dim:
+                velocity.store(coord[DType.int32]((index[0],index[1],index[2],d)), value = u[d])
+            else:
+                velocity.store(coord[DType.int32]((d,index[0],index[1],index[2])), value = u[d])
+
+
+
 
 # def calculate_esoteric_rho_and_velocity[
 #     is_even_time_step:Bool,

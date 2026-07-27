@@ -217,3 +217,138 @@ def calculate_Q_criterion[
         Q_crit = 0.25*vort_norm_sq - 0.5*ss_norm_sq
         Q_tensor.store(coord_index,value= Q_crit)
 
+
+def calculate_Q_criterion_temp[
+    QLayoutType:TensorLayout,
+    FlayoutType:TensorLayout,
+    BClayoutType:TensorLayout,
+    FlaglayoutType:TensorLayout,
+    VelocityLayoutType:TensorLayout,
+    grid: LBM_Grid,
+    config:LBM_Config,
+    *,
+    current_step_is_odd:Optional[Bool] = None,
+    ]
+    (
+        Q_tensor:TileTensor[grid.float_dtype,QLayoutType,MutAnyOrigin],
+
+        f:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,ImmutAnyOrigin],
+        bc:TileTensor[grid.float_dtype,BClayoutType,ImmutAnyOrigin],
+        flags:TileTensor[DType.uint8,FlaglayoutType,ImmutAnyOrigin],
+        velocity:TileTensor[grid.float_dtype,VelocityLayoutType,ImmutAnyOrigin],
+        tau:Scalar[grid.float_dtype],
+    )
+    where VelocityLayoutType.rank == 4 and FlayoutType.rank == 4 and QLayoutType.rank == 3 and FlaglayoutType.rank == 3:
+
+    """Computes the Q-criterion field for the current state.
+
+    Loads the velocity field into shared memory with a halo, computes the
+    vorticity magnitude squared via finite differences, computes the
+    strain-rate tensor from the non-equilibrium populations, and stores
+    $$Q = 0.25 \\|\\omega\\|^2 - 0.5 \\|S\\|_F^2$$.
+
+    Parameters:
+        QLayout: The compile-time `Layout` of the Q-criterion output tensor.
+        Flayout: The compile-time `Layout` of the distribution function `f`.
+        BClayout: The compile-time `Layout` of the boundary-condition tensor.
+        FlagLayout: The compile-time `Layout` of the `uint8` flag tensor.
+        VelocityLayout: The compile-time `Layout` of the velocity input
+            tensor, indexed as `[x, y, z, D]`.
+        grid: The compile-time `LBM_Grid` describing the domain.
+        config: The `LBM_Config` used to select storage options.
+        current_step_is_odd: When `True`, load from the positive half of the
+            lattice in the esoteric-pull scheme (defaults to `None`).
+
+    Args:
+        Q_tensor: The output Q-criterion tile tensor (rank 3).
+        f: The input distribution function tile tensor (rank 4).
+        bc: The boundary-condition tile tensor (rank 4).
+        flags: The `uint8` tile tensor labeling each node (rank 3).
+        velocity: The input velocity tile tensor (rank 4), indexed as
+            `[x, y, z, D]`.
+        tau: The relaxation time used for the strain-rate reconstruction.
+    """
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime float_dtype = grid.float_dtype
+    comptime lattice = grid.lattice
+    comptime tile_shape = grid.tile_shape
+    comptime SHARED_x = tile_shape[0] + 2
+    comptime SHARED_y = tile_shape[1] + 2 if D >= 2 else 1
+    comptime SHARED_z = tile_shape[2] + 2 if D == 3 else 1
+    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    comptime D_is_last_dim = (VelocityLayoutType.static_shape[0] == grid.nx and
+                                VelocityLayoutType.static_shape[1] == grid.ny and
+                                VelocityLayoutType.static_shape[2] == grid.nz and
+                                VelocityLayoutType.static_shape[3] == (D)
+                            )
+
+    comptime assert D_is_last_dim, 'Velocity Tensor must be indexed as [x,y,z,D]'
+    comptime assert D == 2 or D == 3,'Calculating Q criterion can only be 2D or 3D'
+
+    # 0 to 511
+    var tid = thread_idx.x + thread_idx.y * block_dim.x + thread_idx.z * block_dim.x * block_dim.y
+    var block_index:InlineArray[Int,3] = [block_idx.x,block_idx.y,block_idx.z]
+    var tiler_shape:InlineArray[Int,3] = [grid_dim.x,grid_dim.y,grid_dim.z]
+    var shared_u = stack_allocation[float_dtype,AddressSpace.SHARED](col_major[SHARED_x,SHARED_y,SHARED_z,D]())
+    sync_load_rank4_tensor_to_shared_with_halo[tile_shape,D](shared_u,velocity,tid,block_index,tiler_shape)
+    barrier()
+
+    var x = block_dim.x * block_idx.x + thread_idx.x
+    var y = block_dim.y * block_idx.y + thread_idx.y
+    var z = block_dim.z * block_idx.z + thread_idx.z
+
+    comptime shift_x = 1
+    comptime shift_y = 1 if D >= 2 else 0
+    comptime shift_z = 1 if D == 3 else 0
+
+    var shared_local_index = InlineArray[Int,3](uninitialized = True)
+    var index:InlineArray[Int,3] = [x,y,z]
+    var coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+    var flag = flags.load(coord_index)
+
+    comptime stress_indices = lattice.stress_indices
+    comptime directions = lattice.directions
+    comptime weights = lattice.weights
+    comptime opposite_indices = lattice.opposite_indices
+
+    # comptime assert not config.LES, 'Q criterion currently assumes post-collision so doesnt work for LES'
+    if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2] and flag != SOLID_NODE: # Basic Guard
+        shared_local_index[0] = thread_idx.x + shift_x
+        shared_local_index[1] = thread_idx.y + shift_y
+        shared_local_index[2] = thread_idx.z + shift_z
+        # Calculate Voricity shared_u,flags,shared_local_index,index,grid_shape
+        
+        vorticity_vector = calculate_vorticity[D](shared_u,flags,shared_local_index,index,grid_shape)
+        vort_norm_sq = vorticity_vector.norm_squared() # This is 2xRotation Tensor magnitude
+        # vort_norm_sq:Scalar[float_dtype] = 1.
+
+        var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
+        pull_flags[0] = flag
+
+        comptime if config.lbm_method == ESOTERIC_PULL:
+            comptime assert current_step_is_odd, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
+            f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,current_step_is_odd.value(),config.use_float16c](f,index,grid_shape)
+            
+        elif config.lbm_method == DOUBLE_BUFFER:
+            f_vec = double_buffer_pull_load_f[float_dtype,directions,config.use_float16c](f,index,grid_shape)
+        
+        else:
+            comptime assert False, 'lbm_method not valid'
+        
+        comptime include_bounceback = False if config.lbm_method == ESOTERIC_PULL else True
+        wall_bc[include_bounceback,directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,f,flags,bc,index,grid_shape)
+
+
+        var rho = get_density[config.DDF_shift](f_vec)
+        var u = get_velocity[lattice.directions](f_vec,rho)
+
+        var f_neq = get_f_noneq_vec[False,directions,weights,config.DDF_shift](f_vec,rho,u,tau)
+        var second_moment_neq = get_non_eq_second_order_moment[directions,stress_indices](f_neq)
+        var strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau)
+
+        ss_norm_sq = get_strain_rate_tensor_norm_squared[stress_indices](strain_rate)
+
+        Q_crit = 0.25*vort_norm_sq - 0.5*ss_norm_sq
+        Q_tensor.store(coord_index,value= Q_crit)
+
