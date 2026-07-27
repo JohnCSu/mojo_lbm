@@ -21,3 +21,4 @@ from .layoutstruct import TiledLayouts
 from .runtimeParams import RuntimeParams
 from .solver import DoubleBufferSolver
 from .assembly import Assembly
+from .outputrequest import OutputRequest

@@ -98,14 +98,9 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
         Self.layouts.f_layout,Self.layouts.bc_layout,Self.layouts.flag_layout,Self.grid,Self.config
         ]
 
-
-    comptime compiled_type = type_of(DeviceContext().compile_function[Self.double_buffer,Self.double_buffer]())
-
     var deviceContext:DeviceContext
     """The device context used for kernel compilation and enqueue."""
-    var compiled_double_buffer_kernel:Self.compiled_type
-    """The compiled double-buffer kernel."""
-
+    
     var BLOCK_SHAPE:Tuple[Int,Int,Int]
     """The GPU block shape for the kernel launch."""
     var GRID_DIM:Tuple[Int,Int,Int]
@@ -122,7 +117,6 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
                 (defaults to `None`).
         """
         self.deviceContext = deviceContext
-        self.compiled_double_buffer_kernel = self.deviceContext.compile_function[Self.double_buffer,Self.double_buffer]()    
         
         self.GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
         self.BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
@@ -134,6 +128,7 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
             A new compiled kernel instance.
         """
         return self.deviceContext.compile_function[Self.double_buffer,Self.double_buffer]()    
+
 
     @always_inline
     def double_buffer_step[f_dtype:DType,float_dtype:DType,f_out_origin:Origin[mut=True],f_layout_type:TensorLayout,bc_layout_type:TensorLayout,flags_layout_type:TensorLayout,//](
@@ -163,7 +158,7 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
             tau: The base SRT relaxation time.
         """
         comptime assert Self.lbm_method == Lbm_methods.DOUBLE_BUFFER
-        self.deviceContext.enqueue_function(self.compiled_double_buffer_kernel,f_out,f_in.as_immut(),bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
+        self.deviceContext.enqueue_function[Self.double_buffer,Self.double_buffer](f_out,f_in.as_immut(),bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
 
     @always_inline
     def even_step(self,mut assembly:Assembly,tau:Scalar[assembly.grid.float_dtype]) raises:
