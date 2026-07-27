@@ -6,17 +6,14 @@ satisfy. `DoubleBufferSolver` implements the double-buffer SRT time-stepping
 loop, compiling the kernel on construction and exposing `even_step` and
 `odd_step` methods that the caller alternates between.
 """
-
-# from layout import TileTensor, coord,CoordLike,ComptimeInt
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from src.lbm.constants import Lbm_methods,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
 from src.lbm import kernels
 from layout import TileTensor
-# from layout import Idx
 from std.gpu.host import DeviceContext,DeviceFunction
 from src.lbm import GridLike,ConfigLike,Assembly
-
+from std.utils import Variant
 
 trait SolverLike:
     """Declares the compile-time interface for an LBM solver.
@@ -34,45 +31,6 @@ trait SolverLike:
     """The compile-time grid instance."""
     comptime config:LBM_Config[Self.lbm_method]
     """The compile-time `LBM_Config`."""
-
-    # comptime layouts = TiledLayouts[Self.grid]()
-
-    # comptime output_velocity_func = calculate_rho_and_velocity[
-    #     Self.layouts.f_layout,
-    #     Self.layouts.bc_layout,
-    #     Self.layouts.flag_layout,
-    #     Self.layouts.rho_layout,
-    #     Self.layouts.velocity_layout,
-    #     Self.grid,
-    #     Self.config,
-    #     ]
-
-    # comptime compiled_velocity_func_type = type_of( DeviceContext().compile_function[Self.output_velocity_func,Self.output_velocity_func]() )
-    
-
-    # @staticmethod
-    # def get_compiled_output_rho_and_velocity_kernel(ctx:DeviceContext) raises -> Self.compiled_velocity_func_type:
-    #     return ctx.compile_function[Self.output_velocity_func,Self.output_velocity_func]()    
-    
-    # @staticmethod
-    # def get_rho_and_velocity(
-    #     ctx:DeviceContext,
-    #     compiled_kernel:Self.compiled_velocity_func_type,
-    #     density:TileTensor[Self.grid.float_dtype,type_of(Self.layouts.rho_layout),MutAnyOrigin],
-    #     velocity:TileTensor[Self.grid.float_dtype,type_of(Self.layouts.velocity_layout),MutAnyOrigin],
-        
-    #     f:TileTensor[Self.config.set_f_dtype(Self.grid.float_dtype),type_of(Self.layouts.f_layout),_],
-    #     bc:TileTensor[Self.grid.float_dtype,type_of( Self.layouts.bc_layout),_],
-    #     flags:TileTensor[DType.uint8,type_of(Self.layouts.flag_layout),_],
-    #     *,
-    #     block_dim:Optional[Tuple[Int,Int,Int]] = None,
-    #     grid_dim:Optional[Tuple[Int,Int,Int]] = None,
-    #     GPU:Bool = True
-    #     ) raises:
-    #     GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
-    #     BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
-    #     ctx.synchronize()
-    #     ctx.enqueue_function(compiled_kernel,density,velocity,f.as_immut(),bc.as_immut(),flags.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
  
 struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_BUFFER]](SolverLike):
     """Implements the double-buffer SRT LBM time-stepping loop.
@@ -95,8 +53,14 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
     comptime layouts = Self.grid.layouts
 
     comptime double_buffer = kernels.double_buffer_kernel[
-        Self.layouts.f_layout,Self.layouts.bc_layout,Self.layouts.flag_layout,Self.grid,Self.config
+        type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config
         ]
+
+    comptime esoteric_pull_odd_step = kernels.esoteric_pull_kernel[
+        False,type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config,]
+        
+    comptime esoteric_pull_even_step = kernels.esoteric_pull_kernel[
+        True,type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config]
 
     var deviceContext:DeviceContext
     """The device context used for kernel compilation and enqueue."""
@@ -157,8 +121,44 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
             flags: The `uint8` flag tile tensor.
             tau: The base SRT relaxation time.
         """
-        comptime assert Self.lbm_method == Lbm_methods.DOUBLE_BUFFER
         self.deviceContext.enqueue_function[Self.double_buffer](f_out,f_in.as_immut(),bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
+
+
+    @always_inline
+    def esoteric_pull_step[
+        f_dtype:DType,float_dtype:DType,f_out_origin:Origin[mut=True],f_layout_type:TensorLayout,bc_layout_type:TensorLayout,flags_layout_type:TensorLayout,//,
+        is_even_step:Bool,
+        ](
+        self,
+        f:TileTensor[f_dtype,f_layout_type,f_out_origin],
+        bc:TileTensor[float_dtype,bc_layout_type,_],
+        flags:TileTensor[DType.uint8,flags_layout_type,_],
+        tau:Scalar[float_dtype],
+        ) raises:
+        """Enqueues one double-buffer LBM time step on the GPU.
+
+        Parameters:
+            f_dtype: The storage `DType` of `f_in` and `f_out`.
+            float_dtype: The float `DType` used for `bc` and `tau`.
+            f_out_origin: The mutability origin of `f_out`.
+            f_layout_type: The compile-time layout of the distribution
+                function.
+            bc_layout_type: The compile-time layout of `bc`.
+            flags_layout_type: The compile-time layout of `flags`.
+            is_even_step: Flag to run either even or odd step of espteric pull kernel
+
+        Args:
+            f: The distribution function tile tensor.
+            bc: The boundary-condition tile tensor.
+            flags: The `uint8` flag tile tensor.
+            tau: The base SRT relaxation time.
+        """
+        comptime if is_even_step:
+            self.deviceContext.enqueue_function[Self.esoteric_pull_even_step](f,bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
+        else:
+            self.deviceContext.enqueue_function[Self.esoteric_pull_odd_step](f,bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
+
+
 
     @always_inline
     def even_step(self,mut assembly:Assembly,tau:Scalar[assembly.grid.float_dtype]) raises:
@@ -168,8 +168,13 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
             assembly: The `Assembly` providing the GPU buffers.
             tau: The SRT relaxation time.
         """
-        f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
-        self.double_buffer_step(f_out,f_in,bc,flags,tau)
+
+        comptime if self.lbm_method == Lbm_methods.DOUBLE_BUFFER:
+            f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
+            self.double_buffer_step(f_out,f_in,bc,flags,tau)
+        else:
+            f_in,bc,flags = assembly.get_gpu_tensors_for_esoteric_pull()
+            self.esoteric_pull_step[True](f_in,bc,flags,tau)
 
     @always_inline
     def odd_step(self,mut assembly:Assembly,tau:Scalar[assembly.grid.float_dtype]) raises:
@@ -179,5 +184,9 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
             assembly: The `Assembly` providing the GPU buffers.
             tau: The SRT relaxation time.
         """
-        f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
-        self.double_buffer_step(f_in,f_out,bc,flags,tau)
+        comptime if self.lbm_method == Lbm_methods.DOUBLE_BUFFER:
+            f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
+            self.double_buffer_step(f_in,f_out,bc,flags,tau)
+        else:
+            f_in,bc,flags = assembly.get_gpu_tensors_for_esoteric_pull()
+            self.esoteric_pull_step[False](f_in,bc,flags,tau)
