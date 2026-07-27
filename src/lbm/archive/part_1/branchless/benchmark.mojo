@@ -32,7 +32,7 @@ def benchmark_func[
     '''
     Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles are col major.
     '''
-    comptime tile_size = grid.x_tile
+    comptime tile_size = grid.layouts.x_tile
 
     comptime assert (nx % tile_size) == 0 ,'Grid must be a multiple of tilesize'
     comptime assert nx == ny and nz == 1,'Benchmark is for a 2D square grid'

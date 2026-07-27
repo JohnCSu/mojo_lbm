@@ -10,19 +10,19 @@ from src.utils import Vector,ContextTileTensor
 
 
 def LBM_kernel[
-                Flayout:Layout,
-                BClayout:Layout,
-                Flaglayout:Layout,
+                FlayoutType:TensorLayout,
+                BClayoutType:TensorLayout,
+                FlaglayoutType:TensorLayout,
                 grid: LBM_Grid,
                 ]
                 ( 
-                f_out:TileTensor[grid.float_dtype,type_of(Flayout),MutAnyOrigin],
-                f_in:TileTensor[grid.float_dtype,type_of(Flayout),MutAnyOrigin],
-                bc:TileTensor[grid.float_dtype,type_of(BClayout),MutAnyOrigin],
-                flags:TileTensor[DType.uint8,type_of(Flaglayout),MutAnyOrigin],
+                f_out:TileTensor[grid.float_dtype,FlayoutType,MutAnyOrigin],
+                f_in:TileTensor[grid.float_dtype,FlayoutType,MutAnyOrigin],
+                bc:TileTensor[grid.float_dtype,BClayoutType,MutAnyOrigin],
+                flags:TileTensor[DType.uint8,FlaglayoutType,MutAnyOrigin],
                 inv_tau:Scalar[grid.float_dtype]
                 )
-                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+                where FlayoutType.rank == 4 and BClayoutType.rank == 4 and FlaglayoutType.rank == 3:
     '''
     Baseline LBM Kernel.
     '''

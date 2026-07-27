@@ -26,7 +26,7 @@ def benchmark_func[
     tau:Scalar[float_dtype], 
     ]
     (mut b:Bencher) capturing raises:
-    comptime tile_size = grid.x_tile
+    comptime tile_size = grid.layouts.x_tile
 
     # This can be stored in LBM Grid
     comptime flag_layout = row_major[nx,ny,nz]()
@@ -59,12 +59,13 @@ def benchmark_func[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[reorderThreads.LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
+    comptime LBM_kernel_ref_2172 = reorderThreads.LBM_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid]
+    LBM_func = ctx.compile_function[LBM_kernel_ref_2172]()
     ctx.synchronize()
     
     @always_inline
     def run_kernel(ctx:DeviceContext) capturing raises:
-        ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu(),bc.gpu(),flags.gpu(),Float32(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        ctx.enqueue_function[LBM_kernel_ref_2172](f_out.gpu(),f.gpu(),bc.gpu(),flags.gpu(),Float32(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
     b.iter_custom[run_kernel](ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())

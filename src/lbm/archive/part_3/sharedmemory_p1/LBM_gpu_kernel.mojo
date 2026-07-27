@@ -16,20 +16,20 @@ from std.algorithm.functional import vectorize
 from std.sys import simd_width_of
 
 def LBM_kernel[
-                Flayout:Layout,
-                BClayout:Layout,
-                Flaglayout:Layout,
+                FlayoutType:TensorLayout,
+                BClayoutType:TensorLayout,
+                FlaglayoutType:TensorLayout,
                 grid: LBM_Grid,
                 simd_width:Int,
                 ]
                 (
-                f_out:TileTensor[grid.float_dtype,type_of(Flayout),MutAnyOrigin],
-                f_in:TileTensor[grid.float_dtype,type_of(Flayout),ImmutAnyOrigin],
-                bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
-                flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
+                f_out:TileTensor[grid.float_dtype,FlayoutType,MutAnyOrigin],
+                f_in:TileTensor[grid.float_dtype,FlayoutType,ImmutAnyOrigin],
+                bc:TileTensor[grid.float_dtype,BClayoutType,ImmutAnyOrigin],
+                flags:TileTensor[DType.uint8,FlaglayoutType,ImmutAnyOrigin],
                 inv_tau:Scalar[grid.float_dtype]
                 )
-                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+                where FlayoutType.rank == 4 and BClayoutType.rank == 4 and FlaglayoutType.rank == 3:
     '''
     Shared Memory Load all flags in local threads to shared memory. Boundaries we just pull from global.
     ''' 
@@ -43,10 +43,10 @@ def LBM_kernel[
     comptime tile_size = grid.tile_shape[0]
 
     # Convience Variable Names and constants
-    comptime assert Flaglayout.flat_rank == 3 or Flaglayout.flat_rank == 6
+    comptime assert FlaglayoutType.flat_rank == 3 or FlaglayoutType.flat_rank == 6
 
-    comptime assert Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3
-    comptime assert Flayout.static_shape[6] == Q
+    comptime assert FlayoutType.rank == 4 and BClayoutType.rank == 4 and FlaglayoutType.rank == 3
+    comptime assert FlayoutType.static_shape[6] == Q
     comptime weights = lattice.weights
     comptime directions = lattice.directions
     comptime opposite_index = lattice.opposite_indices
@@ -72,9 +72,9 @@ def LBM_kernel[
         + thread_idx.x
 
     # Load Flags into shared. For 3D we have 10x10x10 so we halve the x dim so we do 5x10x10 
-    comptime shared_x_dim = grid.tile_size if nx > 1 else 1
-    comptime shared_y_dim = grid.tile_size if ny > 1 else 1
-    comptime shared_z_dim = grid.tile_size if nz > 1 else 1
+    comptime shared_x_dim = tile_size if nx > 1 else 1
+    comptime shared_y_dim = tile_size if ny > 1 else 1
+    comptime shared_z_dim = tile_size if nz > 1 else 1
     local_index:InlineArray[Int,3] = [local_x,local_y,local_z]
     
     pull_local:InlineArray[Int,3] = [local_x,local_y,local_z]

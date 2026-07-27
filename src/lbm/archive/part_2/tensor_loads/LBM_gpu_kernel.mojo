@@ -10,21 +10,21 @@ from src.utils import Vector,ContextTileTensor
 
 
 def LBM_kernel[
-                Flayout:Layout,
-                BClayout:Layout,
-                Flaglayout:Layout,
+                FlayoutType:TensorLayout,
+                BClayoutType:TensorLayout,
+                FlaglayoutType:TensorLayout,
                 grid: LBM_Grid,
                 *,
                 reorder_threads:Bool = True
                 ]
                 (
-                f_out:TileTensor[grid.float_dtype,type_of(Flayout),MutAnyOrigin],
-                f_in:TileTensor[grid.float_dtype,type_of(Flayout),ImmutAnyOrigin],
-                bc:TileTensor[grid.float_dtype,type_of(BClayout),ImmutAnyOrigin],
-                flags:TileTensor[DType.uint8,type_of(Flaglayout),ImmutAnyOrigin],
+                f_out:TileTensor[grid.float_dtype,FlayoutType,MutAnyOrigin],
+                f_in:TileTensor[grid.float_dtype,FlayoutType,ImmutAnyOrigin],
+                bc:TileTensor[grid.float_dtype,BClayoutType,ImmutAnyOrigin],
+                flags:TileTensor[DType.uint8,FlaglayoutType,ImmutAnyOrigin],
                 inv_tau:Scalar[grid.float_dtype]
                 )
-                where Flayout.rank == 4 and BClayout.rank == 4 and Flaglayout.rank == 3:
+                where FlayoutType.rank == 4 and BClayoutType.rank == 4 and FlaglayoutType.rank == 3:
     '''
     From part_1/tiled. Default layout should be Col_major Tile and ORw major tiler. Uses Compile time unrolling for last 2 for loops. Main Stream/BC comptime looping does not work.
     ''' 

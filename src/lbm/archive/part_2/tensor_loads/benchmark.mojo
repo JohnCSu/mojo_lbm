@@ -32,7 +32,7 @@ def benchmark_func[
     '''
     Benchmark 3 - Tiled/Nested Layouts. Builds on reOrderThreads. Tiles are col major.
     '''
-    comptime tile_size = grid.x_tile
+    comptime tile_size = grid.layouts.x_tile
 
     comptime assert (nx % tile_size) == 0 ,'Grid must be a multiple of tilesize'
     comptime assert nx == ny and nz == 1,'Benchmark is for a 2D square grid'
@@ -79,12 +79,13 @@ def benchmark_func[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid,reorder_threads = reorder_threads]]()
+    comptime LBM_kernel_ref_2951 = LBM_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,reorder_threads = reorder_threads]
+    LBM_func = ctx.compile_function[LBM_kernel_ref_2951]()
     ctx.synchronize()
     
     @always_inline
     def run_kernel(ctx:DeviceContext) capturing raises:
-        ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),Float32(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        ctx.enqueue_function[LBM_kernel_ref_2951](f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),Float32(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
     b.iter_custom[run_kernel](ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())

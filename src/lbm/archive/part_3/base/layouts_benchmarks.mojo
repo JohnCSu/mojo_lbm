@@ -25,7 +25,7 @@ def benchmark_func_row_major_AoS[
     ]
     (mut b:Bencher) capturing raises:
     # This can be stored in LBM Grid
-    comptime assert grid.x_tile == 1
+    comptime assert grid.layouts.x_tile == 1
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
@@ -55,7 +55,7 @@ def benchmark_func_col_major_SoA[
     ]
     (mut b:Bencher) capturing raises:
     # This can be stored in LBM Grid
-    comptime assert grid.x_tile == 1
+    comptime assert grid.layouts.x_tile == 1
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
@@ -85,19 +85,19 @@ def benchmark_func_col_tile_row_tiler[
     reorder_threads:Bool = True
     ]
     (mut b:Bencher) capturing raises:
-    comptime assert grid.x_tile > 1 
+    comptime assert grid.layouts.x_tile > 1 
     # This can be stored in LBM Grid
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = col_major[grid.x_tile,grid.y_tile,grid.z_tile]()
-    comptime f_tile = col_major[grid.x_tile,grid.y_tile,grid.z_tile,Q]()
-    comptime bc_tile = col_major[grid.x_tile,grid.y_tile,grid.z_tile,D+1]()
+    comptime flag_tile = col_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile]()
+    comptime f_tile = col_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile,Q]()
+    comptime bc_tile = col_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile,D+1]()
         
-    comptime flag_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
-    comptime f_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
-    comptime bc_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
+    comptime flag_tiler = row_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z]()
+    comptime f_tiler = row_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
+    comptime bc_tiler = row_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
 
     comptime flag_layout = blocked_product(flag_tile,flag_tiler)
     comptime f_layout = blocked_product(f_tile,f_tiler)
@@ -122,19 +122,19 @@ def benchmark_func_row_tile_col_tiler[
     reorder_threads:Bool = True
     ]
     (mut b:Bencher) capturing raises:
-    comptime assert grid.x_tile > 1
+    comptime assert grid.layouts.x_tile > 1
     # This can be stored in LBM Grid
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = row_major[grid.x_tile,grid.y_tile,grid.z_tile]()
-    comptime f_tile = row_major[grid.x_tile,grid.y_tile,grid.z_tile,Q]()
-    comptime bc_tile = row_major[grid.x_tile,grid.y_tile,grid.z_tile,D+1]()
+    comptime flag_tile = row_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile]()
+    comptime f_tile = row_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile,Q]()
+    comptime bc_tile = row_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile,D+1]()
         
-    comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
-    comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
-    comptime bc_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
+    comptime flag_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z]()
+    comptime f_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
+    comptime bc_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
 
     comptime flag_layout = blocked_product(flag_tile,flag_tiler)
     comptime f_layout = blocked_product(f_tile,f_tiler)
@@ -159,19 +159,19 @@ def benchmark_func_row_tile_row_tiler[
     reorder_threads:Bool = True
     ]
     (mut b:Bencher) capturing raises:
-    comptime assert grid.x_tile > 1
+    comptime assert grid.layouts.x_tile > 1
     # This can be stored in LBM Grid
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
-    comptime flag_tile = row_major[grid.x_tile,grid.y_tile,grid.z_tile]()
-    comptime f_tile = row_major[grid.x_tile,grid.y_tile,grid.z_tile,Q]()
-    comptime bc_tile = row_major[grid.x_tile,grid.y_tile,grid.z_tile,D+1]()
+    comptime flag_tile = row_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile]()
+    comptime f_tile = row_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile,Q]()
+    comptime bc_tile = row_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile,D+1]()
         
-    comptime flag_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
-    comptime f_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
-    comptime bc_tiler = row_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
+    comptime flag_tiler = row_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z]()
+    comptime f_tiler = row_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
+    comptime bc_tiler = row_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
 
     comptime flag_layout = blocked_product(flag_tile,flag_tiler)
     comptime f_layout = blocked_product(f_tile,f_tiler)
@@ -195,20 +195,20 @@ def benchmark_func_col_tile_col_tiler[
     reorder_threads:Bool = True
     ]
     (mut b:Bencher) capturing raises:
-    comptime assert grid.x_tile > 1
+    comptime assert grid.layouts.x_tile > 1
     # This can be stored in LBM Grid
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
     
-    comptime flag_tile = col_major[grid.x_tile,grid.y_tile,grid.z_tile]()
-    comptime f_tile = col_major[grid.x_tile,grid.y_tile,grid.z_tile,Q]()
-    comptime bc_tile = col_major[grid.x_tile,grid.y_tile,grid.z_tile,D+1]()
+    comptime flag_tile = col_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile]()
+    comptime f_tile = col_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile,Q]()
+    comptime bc_tile = col_major[grid.layouts.x_tile,grid.layouts.y_tile,grid.layouts.z_tile,D+1]()
         
-    comptime flag_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z]()
-    comptime f_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
-    comptime bc_tiler = col_major[grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z,1]()
+    comptime flag_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z]()
+    comptime f_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
+    comptime bc_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z,1]()
 
     comptime flag_layout = blocked_product(flag_tile,flag_tiler)
     comptime f_layout = blocked_product(f_tile,f_tiler)
