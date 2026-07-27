@@ -59,7 +59,7 @@ def benchmark_func[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid],LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
+    LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
     ctx.synchronize()
     
     @always_inline
