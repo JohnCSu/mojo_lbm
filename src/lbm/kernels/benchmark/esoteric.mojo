@@ -105,12 +105,6 @@ def run_benchmark[
     LBM_odd_step = ctx.compile_function[LBM_Odd]()
 
     ctx.synchronize()
-    # Compile Functions
-    comptime LBM_kernel_ = double_buffer_kernel[
-        f_layout, bc_layout, flag_layout, grid, config
-    ]
-    LBM_func = ctx.compile_function[LBM_kernel_]()
-    ctx.synchronize()
 
     @always_inline
     def run_kernel(ctx: DeviceContext) capturing raises:
