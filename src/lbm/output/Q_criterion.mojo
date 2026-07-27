@@ -1,3 +1,9 @@
+"""Computes the Q-criterion and vorticity fields for vortex identification.
+
+Reconstructs the velocity gradient tensor from finite differences and
+the non-equilibrium stress tensor to compute the Q-criterion and
+vorticity fields used for coherent structure identification.
+"""
 from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
@@ -30,6 +36,33 @@ def calculate_vorticity[
     global_index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
     ) -> Vector[float_dtype,N]:
+    """Computes the vorticity vector from the velocity field using finite
+    differences.
+
+    For 2D, returns the scalar vorticity ω_z = ∂v/∂x - ∂u/∂y. For
+    3D, returns the full vorticity vector
+    $$\\boldsymbol{\\omega} = \\nabla \\times \\mathbf{u}$$.
+
+    Parameters:
+        float_dtype: The floating-point `DType` for computation.
+        sharedType: The compile-time `Layout` of the shared velocity
+            tensor.
+        flagType: The compile-time `Layout` of the `uint8` flag tensor.
+        D: The spatial dimension (must be 2 or 3).
+        N: The number of vorticity components (1 for 2D, 3 for 3D;
+            defaults automatically).
+
+    Args:
+        shared_u: The velocity tensor in shared memory with a halo.
+        flags: The `uint8` tile tensor labeling each node.
+        local_index: The `(x, y, z)` index within the shared tile.
+        global_index: The `(x, y, z)` index in the global grid.
+        grid_shape: The `[nx, ny, nz]` shape of the grid.
+
+    Returns:
+        A vector of `N` vorticity components: ω_z for 2D, or
+        [ω_x, ω_y, ω_z] for 3D.
+    """
     comptime assert D == 2 or D == 3,'Vorticity only valid for 2D and 3D'
     comptime assert (N == 1 and D == 2) or (N == 3 and D == 3)
 

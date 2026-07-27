@@ -1,4 +1,11 @@
 
+"""Provides the Float16C customized 16-bit floating-point format conversions.
+
+`Float16C` trades range for precision relative to IEEE `float16` to fit LBM
+distributions. The implementation mirrors the bit-manipulation used in
+FluidX3D.
+"""
+
 from std.memory import bitcast
 
 comptime fp32 = DType.float32

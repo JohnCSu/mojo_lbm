@@ -37,14 +37,29 @@ struct RigidImmersedObject[
     """The linear memory indices of the fluid nodes adjacent to the solid."""
 
     var center_of_mass:Vector[Self.float_dtype,Self.grid.D]
+    """The center of mass of the immersed object."""
     var mass:Scalar[Self.float_dtype]
+    """The mass of the immersed object."""
 
     def __init__(out self):
+        """Constructs an empty `ImmersedObject` with default values.
+
+        Sets mass to 1, center of mass to zero, and the fluid boundary list
+        to empty.
+        """
         self.fluid_boundary_list = []
         self.mass = 1.
         self.center_of_mass = Vector[Self.float_dtype,Self.grid.D](fill=0.)
 
     def __init__(out self,var fluid_boundary_list:List[Self.Int_Scalar],mass:Scalar[Self.float_dtype] = 1.,center_of_mass:Vector[Self.float_dtype,Self.grid.D] = Vector[Self.float_dtype,Self.grid.D](fill=0.), ):
+        """Constructs an `ImmersedObject` from pre-computed boundary indices.
+
+        Args:
+            fluid_boundary_list: The list of linear fluid boundary indices
+                (ownership is transferred).
+            mass: The mass of the object (defaults to 1).
+            center_of_mass: The center of mass (defaults to zero).
+        """
         self.fluid_boundary_list = fluid_boundary_list^
         self.mass = mass
         self.center_of_mass = center_of_mass

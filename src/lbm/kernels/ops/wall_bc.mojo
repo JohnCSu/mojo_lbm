@@ -1,3 +1,9 @@
+"""Provides bounce-back and equilibrium boundary-condition kernels.
+
+Implements wall boundary conditions for the lattice Boltzmann method,
+including half-way bounce-back and equilibrium (Dirichlet) boundary
+conditions.
+"""
 from src.utils import Vector
 from layout import TileTensor,coord
 from src.lbm.kernels.utils.index import get_adjacent_idx
@@ -27,6 +33,42 @@ def wall_bc[
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
     ): 
+    """Applies the bounce-back wall boundary condition.
+
+    For directions whose pull neighbor is a solid node, replaces the
+    distribution with the bounce-back value computed from the wall
+    velocity and density. Optionally includes the bounce-back
+    contribution from the opposite direction.
+
+    Parameters:
+        float_dtype: The floating-point `DType` for computation.
+        int_dtype: The integer `DType` for the velocity directions.
+        f_dtype: The storage `DType` of the distribution function `f`.
+        D: The spatial dimension.
+        Q: The number of discrete velocities.
+        include_bounceback: When `True`, add the bounce-back
+            contribution from the opposite direction's distribution.
+        directions: The compile-time discrete velocity directions.
+        opposite_indices: The compile-time map from each direction to
+            its opposite.
+        weights: The lattice weights.
+        use_float16c: When `True`, decode Float16C storage when
+            loading.
+        start_idx: The index of the first non-rest direction (defaults
+            to 1).
+        non_temporal: When `True`, issue non-temporal loads (defaults
+            to `False`).
+
+    Args:
+        f_vec: The mutable distribution vector to update in place.
+        pull_flags: The mutable flags gathered from pull neighbors.
+        f: The distribution function tile tensor.
+        flags: The `uint8` tile tensor labeling each node.
+        bc: The boundary-condition tile tensor holding wall velocity
+            and density.
+        index: The `(x, y, z)` index of the current node.
+        grid_shape: The `[nx, ny, nz]` shape of the grid.
+    """
 
     comptime assert bc.rank == 4 and flags.rank == 3 and f.rank == 4
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
@@ -67,6 +109,31 @@ def equilibrium_bc[
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
     ):
+    """Applies the equilibrium boundary condition.
+
+    For nodes flagged as equilibrium, sets the distribution vector to
+    the equilibrium distribution computed from the prescribed or
+    free-stream velocity and density. `NaN` values in the
+    boundary-condition tensor indicate free-stream components.
+
+    Parameters:
+        float_dtype: The floating-point `DType` for computation.
+        int_dtype: The integer `DType` for the velocity directions.
+        D: The spatial dimension.
+        Q: The number of discrete velocities.
+        directions: The compile-time discrete velocity directions.
+        weights: The lattice weights.
+        DDF_shift: When `True`, shift the equilibrium by the weights
+            for improved numerical stability.
+
+    Args:
+        f_vec: The mutable distribution vector to set in place.
+        pull_flags: The mutable flags gathered from pull neighbors.
+        bc: The boundary-condition tile tensor holding the target
+            velocity and density.
+        index: The `(x, y, z)` index of the current node.
+        grid_shape: The `[nx, ny, nz]` shape of the grid.
+    """
     current_flag = pull_flags[0] # comptime assert gurantees this is the flag for the current node
     if current_flag  == Flags.EQUILIBRIUM:
         var velocity = Vector[float_dtype,D](uninitialized = True)

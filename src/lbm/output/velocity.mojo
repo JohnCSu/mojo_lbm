@@ -1,3 +1,10 @@
+"""Computes density and velocity output fields from the distribution
+function.
+
+Reads the distribution function, applies boundary conditions, and
+computes the macroscopic density and velocity moments for each lattice
+node.
+"""
 from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major

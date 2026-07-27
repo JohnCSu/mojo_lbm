@@ -79,30 +79,68 @@ struct TiledLayouts[
         last_dim_size:Int
         ]()
         -> type_of(blocked_product(col_major[Self.x_tile, Self.y_tile, Self.z_tile,last_dim_size](),Self._rank_4_tiler )):
+        """Returns a tiled rank-4 layout for a field with the given last dimension size.
+
+        Parameters:
+            last_dim_size: The size of the last (non-spatial) dimension,
+                typically `Q` or `D + 1`.
+
+        Returns:
+            A `blocked_product` layout of a column-major tile and a
+            column-major rank-4 tiler.
+        """
         return blocked_product(col_major[Self.x_tile, Self.y_tile, Self.z_tile,last_dim_size](),Self._rank_4_tiler )
 
     @staticmethod
     def create_col_major_rank_4_layout[
         last_dim_size:Int
         ]
-        () 
+        ()
         -> type_of(col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]()):
+        """Returns a column-major rank-4 layout for a field with the given
+        last-dimension size.
+
+        Parameters:
+            last_dim_size: The size of the last (non-spatial) dimension.
+
+        Returns:
+            A column-major layout instance.
+        """
         return col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]()
 
     @staticmethod
-    def create_col_major_rank_3_layout() 
+    def create_col_major_rank_3_layout()
         -> type_of(col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()):
+        """Returns a column-major rank-3 layout sized to the grid shape.
+
+        Returns:
+            A column-major rank-3 layout instance.
+        """
         return col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
 
     @staticmethod
-    def create_row_major_rank_3_layout() 
+    def create_row_major_rank_3_layout()
         -> type_of(row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()):
+        """Returns a row-major rank-3 layout sized to the grid shape.
+
+        Returns:
+            A row-major rank-3 layout instance.
+        """
         return row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
 
     @staticmethod
     def create_row_major_rank_4_layout[
         last_dim_size:Int
         ]
-        () 
+        ()
         -> type_of(row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]()):
+        """Returns a row-major rank-4 layout for a field with the given
+        last-dimension size.
+
+        Parameters:
+            last_dim_size: The size of the last (non-spatial) dimension.
+
+        Returns:
+            A row-major rank-4 layout instance.
+        """
         return row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]()

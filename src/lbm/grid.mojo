@@ -327,8 +327,21 @@ def check_model_match_dim[D: Int, nx: Int, ny: Int, nz: Int]():
 
 
 comptime Int_Or_Tuple_Of_Ints = Variant[Int,Tuple[Int,Int,Int]]
+"""A single `Int` or a 3-tuple of per-axis `Int` values used for tile shapes."""
 
 def set_tile_shape(x:Int_Or_Tuple_Of_Ints,D:Int) -> Tuple[Int,Int,Int]:
+    """Expands a tile-size value into a per-axis 3-tuple for the given dimension.
+
+    When `x` is a single `Int`, returns `(x, x, 1)` for 1D, `(x, x, 1)` for
+    2D, or `(x, x, x)` for 3D. When `x` is a tuple, returns it unchanged.
+
+    Args:
+        x: A single tile size or a per-axis 3-tuple.
+        D: The spatial dimension.
+
+    Returns:
+        A `(tx, ty, tz)` tile shape tuple.
+    """
     if x.isa[Int]():
         tile_size = x[Int]
         return (tile_size,tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
@@ -337,6 +350,19 @@ def set_tile_shape(x:Int_Or_Tuple_Of_Ints,D:Int) -> Tuple[Int,Int,Int]:
 
 
 def set_default_block_shape[tile_shape:Tuple[Int,Int,Int],D:Int]() -> Tuple[Int,Int,Int]:
+    """Returns the GPU block shape for a given tile shape and dimension.
+
+    When the tile shape is `(1, 1, 1)`, returns a sensible default block
+    shape: `(256, 1, 1)` for 1D, `(16, 16, 1)` for 2D, and `(8, 8, 4)` for
+    3D. Otherwise, returns the tile shape unchanged.
+
+    Parameters:
+        tile_shape: The per-axis tile sizes.
+        D: The spatial dimension of the grid.
+
+    Returns:
+        A `(bx, by, bz)` block shape tuple.
+    """
     comptime if tile_shape == (1,1,1):
         if D == 1:
             return (256,1,1)
@@ -351,6 +377,20 @@ def set_default_block_shape[tile_shape:Tuple[Int,Int,Int],D:Int]() -> Tuple[Int,
 
 
 def set_grid_dims[nx:Int,ny:Int,nz:Int,block_shape:Tuple[Int,Int,Int]]() -> Tuple[Int,Int,Int]:
+    """Returns the GPU grid dimensions from the lattice shape and block shape.
+
+    Divides each spatial axis by the corresponding block dimension and asserts
+    that every axis length is either 1 or evenly divisible by the block shape.
+
+    Parameters:
+        nx: The number of lattice nodes along `x`.
+        ny: The number of lattice nodes along `y`.
+        nz: The number of lattice nodes along `z`.
+        block_shape: The per-axis GPU block dimensions.
+
+    Returns:
+        A `(gx, gy, gz)` grid-dimensions tuple.
+    """
     comptime assert (
                 (nx % block_shape[0] == 0 or nx == 1)
             and (ny % block_shape[1] == 0 or ny == 1)

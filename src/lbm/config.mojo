@@ -17,9 +17,11 @@ comptime uint16 = DType.uint16
 
 
 comptime DoubleBufferConfig = LBM_Config[Lbm_methods.DOUBLE_BUFFER]
+"""Convenience alias for `LBM_Config` with the double-buffer LBM method."""
 
 
 comptime EsotericPullConfig = LBM_Config[Lbm_methods.ESOTERIC_PULL]
+"""Convenience alias for `LBM_Config` with the esoteric-pull LBM method."""
 
 
 
@@ -71,7 +73,9 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
     var second_moment: Bool
     """Whether the non-equilibrium second moment is computed each step."""
     var include_moving_boundary:Bool
+    """Whether to include moving-boundary treatment in the kernel."""
     var collision_op:StaticString
+    """The collision operator name (`'SRT'`, `'TRT'`, `'KBC'`, or `'RLBM'`)."""
 
     def __init__(
         out self,
@@ -160,4 +164,10 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
         )
 
     def collision_op_is_valid(self) -> Bool:
+        """Returns `True` when the collision operator is a recognized name.
+
+        Returns:
+            `True` if `collision_op` is listed in `Collisions.valid_set`,
+            `False` otherwise.
+        """
         return self.collision_op in materialize[Collisions.valid_set]()

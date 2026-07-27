@@ -42,6 +42,8 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
     """The index of the opposite direction for each discrete velocity."""
 
     var float_directions: InlineArray[Self.float_vector, Self.Q]
+    """The float-valued discrete velocity directions, derived from the
+    integer directions at construction time."""
 
     def __init__(
         out self,
@@ -89,6 +91,16 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
                     break
 
     def is_valid_for_esoteric_pull(self) -> Bool:
+        """Returns `True` when the lattice directions are compatible with esoteric-pull.
+
+        Requires that every direction (except the rest direction) is
+        immediately followed by its opposite in the directions list, so
+        adjacent pairs `(q, q+1)` are always opposite directions.
+
+        Returns:
+            `True` if the lattice meets the esoteric-pull constraint,
+            `False` otherwise.
+        """
 
         for q in range(1,Self.Q-1,2):
             dir_q = self.directions[q]

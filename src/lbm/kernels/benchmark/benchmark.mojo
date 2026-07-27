@@ -1,15 +1,9 @@
 """Provides the SRT LBM benchmark harness.
 
-`run_benchmark` allocates flag, `bc`, `f`, and `f_out` buffers for a given
-grid and layout, applies a lid-driven-cavity-style wall setup, compiles
-`double_buffer_kernel`, and times one in-place time step using the Mojo
-benchmarking framework.
-
-Provides the tiled-layout SRT LBM benchmark for 3D grids.
-
-`benchmark_func_3D` builds column-major tile and tiler layouts for the flag,
-`f`, and `bc` fields and delegates to `run_benchmark` with row-major density
-and velocity outputs.
+`benchmark_func_tiled_3D` builds column-major tile and tiler layouts for the
+flag, `f`, and `bc` fields and delegates to `run_benchmark` with row-major
+density and velocity outputs. `benchmark_func_3D_non_tiled` does the same
+with plain column-major layouts.
 """
 from std.gpu.host import DeviceContext
 from layout import TileTensor

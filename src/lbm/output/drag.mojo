@@ -1,3 +1,8 @@
+"""Computes drag force on immersed objects using momentum exchange.
+
+Iterates over fluid boundary nodes adjacent to solid objects and
+accumulates the momentum-exchange force contributions.
+"""
 from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major

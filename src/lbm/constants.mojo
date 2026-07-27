@@ -1,3 +1,10 @@
+"""Defines compile-time constants shared by all LBM modules.
+
+Collects boundary-condition flag values, the speed of sound, collision
+operator names, and LBM streaming-method identifiers as comptime aliases so
+they can be referenced by the solver, preprocessor, and GPU kernels at
+compile time.
+"""
 from std.collections import Set
 
 comptime cs = (1.0 / 3.0) ** 0.5
@@ -9,16 +16,32 @@ comptime cs_squared = (1.0 / 3.0)
 
 
 struct Lbm_methods:
+    """Collects the LBM streaming-method names as compile-time constants.
+
+    The valid methods are `DOUBLE_BUFFER` and `ESOTERIC_PULL`. The
+    `valid_set` alias is used by `LBM_Config` to reject unknown methods at
+    compile time.
+    """
+
     comptime DOUBLE_BUFFER:StaticString = 'double buffer'
     comptime ESOTERIC_PULL:StaticString = 'esoteric pull'
     comptime MOMENT_REPRESENTATION:StaticString = 'moment representation'
     comptime valid_set:Set[StaticString] = {Self.DOUBLE_BUFFER,Self.ESOTERIC_PULL}
 
 comptime DOUBLE_BUFFER:StaticString = Lbm_methods.DOUBLE_BUFFER
+"""Convenience alias for `Lbm_methods.DOUBLE_BUFFER`."""
 comptime ESOTERIC_PULL:StaticString = Lbm_methods.ESOTERIC_PULL
+"""Convenience alias for `Lbm_methods.ESOTERIC_PULL`."""
 # comptime lbm_methods:Set[StaticString] = {DOUBLE_BUFFER,ESOTERIC_PULL}
     
 struct Collisions:
+    """Collects the collision-operator names as compile-time constants.
+
+    The valid operators are `SRT`, `TRT`, `KBC`, and `RLBM`.
+    `that_need_fneq` lists the operators that require the non-equilibrium
+    part of the distribution function.
+    """
+
     comptime SRT:StaticString = 'SRT'
     comptime TRT:StaticString = 'TRT'
     comptime KBC:StaticString = 'KBC'

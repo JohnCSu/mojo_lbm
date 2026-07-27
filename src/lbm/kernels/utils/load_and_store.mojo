@@ -183,6 +183,36 @@ def esoteric_pull_load_f_vec[
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
     ) -> Vector[float_dtype,Q]:
+    """Loads the distribution vector using the esoteric pull scheme.
+
+    On even time steps, loads positive directions from the current node
+    and negative directions from the pull neighbor. On odd time steps,
+    the assignment is reversed, swapping the roles of positive and
+    negative directions.
+
+    Parameters:
+        f_dtype: The storage `DType` of the distribution function.
+        int_dtype: The integer `DType` for the velocity directions.
+        Q: The number of discrete velocities.
+        D: The spatial dimension.
+        f_layout: The compile-time `Layout` of the distribution
+            function.
+        float_dtype: The compute `DType` for the returned vector.
+        directions: The compile-time discrete velocity directions.
+        is_even_time_step: When `True`, use the even-step loading
+            pattern.
+        use_float16c: When `True`, decode Float16C storage.
+        non_temporal: When `True`, issue non-temporal loads (defaults
+            to `False`).
+
+    Args:
+        f: The distribution function tile tensor.
+        index: The `(x, y, z)` index of the current node.
+        grid_shape: The `[nx, ny, nz]` shape of the grid.
+
+    Returns:
+        The loaded distribution vector of length `Q`.
+    """
     # We always pull the 0th idx
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
     # comptime load_f_from_xyzq = load_f[f_dtype,non_temporal = non_temporal] # We load raw values regardles of dtype
@@ -232,8 +262,36 @@ def esoteric_pull_store_f_vec[
     f_vec:Vector[float_dtype,Q],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
-    ): 
+    ):
+    """Stores the distribution vector using the esoteric pull scheme.
 
+    On even time steps, stores negative-direction values at the pull
+    neighbor while positive-direction values stay at the current node.
+    On odd time steps, the assignment is reversed.
+
+    Parameters:
+        f_dtype: The storage `DType` of the distribution function.
+        int_dtype: The integer `DType` for the velocity directions.
+        Q: The number of discrete velocities.
+        D: The spatial dimension.
+        f_layout: The compile-time `Layout` of the distribution
+            function.
+        float_dtype: The compute `DType` of the distribution vector.
+        f_origin: The mutable origin of the distribution function
+            tensor.
+        directions: The compile-time discrete velocity directions.
+        is_even_time_step: When `True`, use the even-step storage
+            pattern.
+        use_float16c: When `True`, encode to Float16C storage.
+        non_temporal: When `True`, issue non-temporal stores (defaults
+            to `False`).
+
+    Args:
+        f: The mutable distribution function tile tensor.
+        f_vec: The distribution vector to store.
+        index: The `(x, y, z)` index of the current node.
+        grid_shape: The `[nx, ny, nz]` shape of the grid.
+    """
     store_f[use_float16c,non_temporal](f,f_vec[0],index,0)
 
     comptime if is_even_time_step:
@@ -274,7 +332,32 @@ def double_buffer_pull_load_f[
     f:TileTensor[f_dtype,...,address_space = AddressSpace.GENERIC],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
-    ) -> Vector[float_dtype,Q]: 
+    ) -> Vector[float_dtype,Q]:
+    """Loads the full distribution vector using the double-buffer pull
+    scheme.
+
+    For each discrete velocity, loads the distribution value from the
+    pull neighbor (the node shifted by `-direction`).
+
+    Parameters:
+        int_dtype: The integer `DType` for the velocity directions.
+        f_dtype: The storage `DType` of the distribution function.
+        D: The spatial dimension.
+        Q: The number of discrete velocities.
+        float_dtype: The compute `DType` for the returned vector.
+        directions: The compile-time discrete velocity directions.
+        use_float16c: When `True`, decode Float16C storage.
+        non_temporal: When `True`, issue non-temporal loads (defaults
+            to `False`).
+
+    Args:
+        f: The distribution function tile tensor.
+        index: The `(x, y, z)` index of the current node.
+        grid_shape: The `[nx, ny, nz]` shape of the grid.
+
+    Returns:
+        The loaded distribution vector of length `Q`.
+    """
     var f_vec = Vector[float_dtype,Q](uninitialized = True)
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
     comptime for q in range(Q):
