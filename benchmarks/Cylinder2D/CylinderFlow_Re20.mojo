@@ -7,7 +7,7 @@ from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
                     LBM_Grid,LBM_Config,
                     get_D2Q9,set_exterior_walls,calculate_rho_and_velocity,set_exterior_walls_with_func,
-                    UnitSystem,TiledGridLayouts,RuntimeParams,DoubleBufferConfig,
+                    UnitSystem,TiledLayouts,RuntimeParams,DoubleBufferConfig,
                     Collisions
                     )
 
@@ -36,11 +36,10 @@ comptime config = DoubleBufferConfig(BCs = valid_bcs,DDF_shift = True,collision_
 comptime BLOCK_SHAPE = grid.BLOCK_SHAPE
 comptime GRID_DIM = grid.GRID_DIM
 
-comptime layouts = TiledGridLayouts[grid]()
 
-comptime f_layout = layouts.f_layout
-comptime bc_layout = layouts.bc_layout
-comptime flag_layout = layouts.flag_layout
+comptime f_layout = grid.layouts.f_layout
+comptime bc_layout = grid.layouts.bc_layout
+comptime flag_layout = grid.layouts.flag_layout
 
 comptime density_layout = row_major[nx,ny,nz]()
 comptime velocity_layout = row_major[D,nx,ny,nz]()
@@ -92,11 +91,11 @@ def main() raises:
      
     '''
 
-    print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
+    print(grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z)
     print('Grid Dim: ',GRID_DIM)
     print('BLOCK_SHAPE: ', BLOCK_SHAPE)
     
-    print(grid.n_tiles_x,grid.n_tiles_y,grid.n_tiles_z)
+    print(grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z)
 
     comptime U_phs:float_scalar = 0.2
     comptime U:float_scalar = 0.01
@@ -131,7 +130,7 @@ def main() raises:
     params = RuntimeParams[float_dtype]()
     # Boundary Conditions----------------------------
 
-    cyl = ImmersedObject[grid]()
+    cyl = RigidImmersedObject[grid]()
 
     cen = 0.2//grid.dx # Ensure the center is adjustto be at a node
     print('Centre: ',[cen*grid.dx,cen*grid.dx,0.])
@@ -161,14 +160,14 @@ def main() raises:
     _ = f_out.gpu()
 
     #Compile Functions
-    comptime LBM_ = double_buffer_kernel[f_layout,bc_layout,flag_layout,grid,config]
-    LBM_func = ctx.compile_function[LBM_,LBM_]()
+    comptime LBM_ = double_buffer_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
+    LBM_func = ctx.compile_function[LBM_]()
 
-    comptime calculate_drag_ = calculate_drag_around_object[f_layout,flag_layout,grid,config]
-    calculate_drag = ctx.compile_function[calculate_drag_,calculate_drag_]()
+    comptime calculate_drag_ = calculate_drag_around_object[type_of(f_layout),type_of(flag_layout),grid,config]
+    calculate_drag = ctx.compile_function[calculate_drag_]()
 
-    comptime get_u_and_rho = calculate_rho_and_velocity[f_layout,bc_layout,flag_layout,density_layout,velocity_layout,grid,config]
-    calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho,get_u_and_rho]()
+    comptime get_u_and_rho = calculate_rho_and_velocity[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),type_of(density_layout),type_of(velocity_layout),grid,config]
+    calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho]()
 
     ctx.synchronize()
     # Animation Code
@@ -193,12 +192,12 @@ def main() raises:
     comptime MAX_ITERS = 400_000
     # Run Simulation
     for t in range(MAX_ITERS):
-        ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
-        ctx.enqueue_function(LBM_func,f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        ctx.enqueue_function[LBM_](f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        ctx.enqueue_function[LBM_](f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         if (t % (MAX_ITERS//100)) == 0:
             ctx.synchronize()
-            # ctx.enqueue_function(calc_rho_and_u_gpu,rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
-            ctx.enqueue_function(calculate_drag,f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
+            # ctx.enqueue_function[get_u_and_rho](rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+            ctx.enqueue_function[calculate_drag_](f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
             ctx.synchronize()
             u_np = (u.buffer_to_numpy()*u_lat_to_phys).reshape(D,nx,ny,nz)
             print('step = {}, time = {} max ={} avg = {}'.format(2*t,2.*Scalar[float_dtype](t)*dt,u_np.max(),u_np.mean()))
@@ -214,7 +213,7 @@ def main() raises:
 
     ctx.synchronize()
     # Get Final U and rho
-    ctx.enqueue_function(calculate_drag,f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
+    ctx.enqueue_function[calculate_drag_](f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
     ctx.synchronize()
     force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
     Fx,Fy = force_np.sum(axis=0)[0],force_np.sum(axis=0)[1]

@@ -35,15 +35,15 @@ def rowMajor2D[int_dtype:DType]() -> type_of(row_major(coord[int_dtype]((1,2))) 
 
 
 def calculate_drag_around_object[
-    FLayout:Layout[...] ,
-    FlagLayout:Layout[...],
+    FLayoutType:TensorLayout,
+    FlagLayoutType:TensorLayout,
     grid: LBM_Grid,
     config:LBM_Config,
     *,
     f_dtype:DType = grid.float_dtype if config.f_dtype is None else config.f_dtype.value()
     ](
-        f:TileTensor[f_dtype,type_of(FLayout),ImmutAnyOrigin],
-        flags:TileTensor[DType.uint8,type_of(FlagLayout),ImmutAnyOrigin],
+        f:TileTensor[f_dtype,FLayoutType,ImmutAnyOrigin],
+        flags:TileTensor[DType.uint8,FlagLayoutType,ImmutAnyOrigin],
         fluid_boundary:TileTensor[grid.int_dtype,type_of(rowMajor1D[grid.int_dtype]()),MutAnyOrigin],
         force_tensor:TileTensor[grid.float_dtype,type_of(rowMajor2D[grid.int_dtype]()),MutAnyOrigin],
     ):
@@ -81,16 +81,16 @@ def calculate_drag_around_object[
     # Should be a 1D based kernel loop
     tid = block_dim.x * block_idx.x + thread_idx.x
     if tid < fluid_boundary.layout.size():
-        crd = FlagLayout.idx2crd[out_dtype = int_dtype](Int(fluid_boundary[tid])).flatten()
+        crd = flags.layout.idx2crd[out_dtype = int_dtype](Int(fluid_boundary[tid])).flatten()
         grid_index = InlineArray[Int,3](uninitialized = True)
 
-        comptime if FlagLayout.rank*2 == FlagLayout.flat_rank:
+        comptime if FlagLayoutType.rank*2 == FlagLayoutType.flat_rank:
             comptime for i in range(3):
                 loc_x = Int(crd[2*i].value()) # local
                 til_x = Int(crd[(2*i)+1].value())
                 grid_index[i] = tile_shape[i]*til_x + loc_x
         else:
-            comptime assert FlagLayout.rank == FlagLayout.flat_rank
+            comptime assert FlagLayoutType.rank == FlagLayoutType.flat_rank
             comptime for i in range(3):
                 grid_index[i] = Int(crd[i].value())
 
