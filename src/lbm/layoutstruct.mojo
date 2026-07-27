@@ -56,14 +56,14 @@ struct TiledLayouts[
 
     comptime flag_layout = blocked_product(Self._flag_tile, Self._rank_3_tiler)
     """The tiled layout for the flag field."""
-    comptime f_layout = Self.create_tiled_rank_4_tensor[Self.Q]()
+    comptime f_layout = Self.create_tiled_rank_4_layout[Self.Q]()
     """The tiled layout for the distribution function field."""
-    comptime bc_layout = Self.create_tiled_rank_4_tensor[Self.D+1]()
+    comptime bc_layout = Self.create_tiled_rank_4_layout[Self.D+1]()
     """The tiled layout for the boundary-condition field."""
 
     comptime untiled_flag_layout = col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
-    comptime untiled_f_layout = Self.create_untiled_rank_4_tensor[Self.Q]()
-    comptime untiled_bc_layout = Self.create_untiled_rank_4_tensor[Self.D+1]()
+    comptime untiled_f_layout = Self.create_col_major_rank_4_layout[Self.Q]()
+    comptime untiled_bc_layout = Self.create_col_major_rank_4_layout[Self.D+1]()
 
     comptime density_layout = row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
     comptime velocity_layout = row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],Self.D]()
@@ -72,16 +72,34 @@ struct TiledLayouts[
     #     pass
 
     @staticmethod
-    def create_tiled_rank_4_tensor[
+    def create_tiled_rank_4_layout[
         last_dim_size:Int
         ]()
         -> type_of(blocked_product(col_major[Self.x_tile, Self.y_tile, Self.z_tile,last_dim_size](),Self._rank_4_tiler )):
         return blocked_product(col_major[Self.x_tile, Self.y_tile, Self.z_tile,last_dim_size](),Self._rank_4_tiler )
 
     @staticmethod
-    def create_untiled_rank_4_tensor[
+    def create_col_major_rank_4_layout[
         last_dim_size:Int
         ]
         () 
-        -> type_of(col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]):
-        return col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]
+        -> type_of(col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]()):
+        return col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]()
+
+    @staticmethod
+    def create_col_major_rank_3_layout() 
+        -> type_of(col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()):
+        return col_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
+
+    @staticmethod
+    def create_row_major_rank_3_layout() 
+        -> type_of(row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()):
+        return row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2]]()
+
+    @staticmethod
+    def create_row_major_rank_4_layout[
+        last_dim_size:Int
+        ]
+        () 
+        -> type_of(row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]()):
+        return row_major[Self.grid_shape[0],Self.grid_shape[1],Self.grid_shape[2],last_dim_size]()
