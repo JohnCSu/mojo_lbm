@@ -248,11 +248,14 @@ def calculate_Q_criterion_temp[
     $$Q = 0.25 \\|\\omega\\|^2 - 0.5 \\|S\\|_F^2$$.
 
     Parameters:
-        QLayout: The compile-time `Layout` of the Q-criterion output tensor.
-        Flayout: The compile-time `Layout` of the distribution function `f`.
-        BClayout: The compile-time `Layout` of the boundary-condition tensor.
-        FlagLayout: The compile-time `Layout` of the `uint8` flag tensor.
-        VelocityLayout: The compile-time `Layout` of the velocity input
+        QLayoutType: The compile-time `Layout` of the Q-criterion output
+            tensor.
+        FlayoutType: The compile-time `Layout` of the distribution function
+            `f`.
+        BClayoutType: The compile-time `Layout` of the boundary-condition
+            tensor.
+        FlaglayoutType: The compile-time `Layout` of the `uint8` flag tensor.
+        VelocityLayoutType: The compile-time `Layout` of the velocity input
             tensor, indexed as `[x, y, z, D]`.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.

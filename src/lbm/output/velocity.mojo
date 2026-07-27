@@ -159,11 +159,14 @@ def calculate_rho_and_velocity_temp[
     output tensors instead.
 
     Parameters:
-        Flayout: The compile-time `Layout` of the distribution function `f`.
-        BClayout: The compile-time `Layout` of the boundary-condition tensor.
-        Flaglayout: The compile-time `Layout` of the `uint8` flag tensor.
-        RhoLayout: The compile-time `Layout` of the density output tensor.
-        VelocityLayout: The compile-time `Layout` of the velocity output
+        FlayoutType: The compile-time `Layout` of the distribution function
+            `f`.
+        BClayoutType: The compile-time `Layout` of the boundary-condition
+            tensor.
+        FlaglayoutType: The compile-time `Layout` of the `uint8` flag tensor.
+        RhoLayoutType: The compile-time `Layout` of the density output
+            tensor.
+        VelocityLayoutType: The compile-time `Layout` of the velocity output
             tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
