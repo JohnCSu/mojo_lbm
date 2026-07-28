@@ -6,7 +6,7 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.utils import Vector
 from std.collections import Set
 from std.math import sqrt
-from .rigidimmersed import RigidImmersedObject
+from . import RigidStationaryObject
 from src.lbm.kernels.utils.index import index_to_coord
 
 
