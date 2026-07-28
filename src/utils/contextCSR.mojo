@@ -23,12 +23,6 @@ struct ContextCSR[int_dtype: DType = DType.int32]():
         int_dtype: The integer `DType` used for row-offsets and
             column-indices (defaults to `DType.int32`).
     """
-
-    # comptime dim = len(Self.ints)
-    # var rows
-    # var
-
-    # comptime
     comptime dim = 3
     comptime RowMajor1D_Type = type_of(
         row_major(coord[DType.int32]((3,)))
