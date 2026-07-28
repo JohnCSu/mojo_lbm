@@ -1,0 +1,11 @@
+[workspace]
+authors = ["John <JohnChangSu@gmail.com>"]
+channels = ["conda-forge"]
+name = "mojo_lbm"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+build-src = "python buildLBM.py"
+compiletest = "python compiletest.py"
+[dependencies]

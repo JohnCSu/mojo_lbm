@@ -17,4 +17,6 @@ test.py
 EsotericPullLDC.mojo
 D3.mojo
 .venv
-*.mojoc
+*.mojoc# pixi environments
+.pixi/*
+!.pixi/config.toml

@@ -25,3 +25,16 @@ dev = [
 [tool.poe.tasks]
 build-LBM = {script = "buildLBM:main"}
 compiletest = {script = "compiletest:main"}
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+mojo_lbm = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.tasks]
