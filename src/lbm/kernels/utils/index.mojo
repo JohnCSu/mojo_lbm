@@ -89,3 +89,28 @@ def get_adjacent_idx[int_dtype:DType,//,D:Int,shift:Scalar[int_dtype] = 1](index
     comptime for d in range(D):
         adj_index[d] = Int(index[d] + shift*direction[d]) % grid_shape[d]
     return adj_index
+
+
+def index_to_coord[float_dtype:DType]
+    (
+        grid_index:Tuple[Int,Int,Int],
+        grid_spacing:Scalar[float_dtype],
+        origin:InlineArray[Scalar[float_dtype],3]
+    ) -> Vector[float_dtype,3]:
+    """Converts a lattice index triplet to physical coordinates.
+
+    Parameters:
+        float_dtype: The `DType` of the returned vector.
+
+    Args:
+        grid_index: The `(i, j, k)` lattice indices.
+        grid_spacing: The lattice spacing `dx`.
+        origin: The physical coordinate of the `(0, 0, 0)` node.
+
+    Returns:
+        The physical `(x, y, z)` coordinates of the node.
+    """
+    out = Vector[float_dtype,3](fill =0)
+    comptime for i in range(3):
+        out[i] = Scalar[float_dtype](grid_index[i])*grid_spacing + origin[i]
+    return out
