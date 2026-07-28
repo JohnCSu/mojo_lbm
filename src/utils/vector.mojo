@@ -6,6 +6,7 @@ element-wise operations at compile time, so it is intended for short vectors
 """
 from std.memory import UnsafePointer
 from std.math import sqrt
+from layout import TileTensor,LayoutTensor,coord,CoordLike,Coord
 
 struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
     """Models a stack-allocated vector of fixed compile-time length.
@@ -95,8 +96,39 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
         """
         assert len(numbers) == Self.size
         self.data = InlineArray[Scalar[Self.dtype],Self.size](uninitialized = True)
-        for i in range(Self.size):
+        comptime for i in range(Self.size):
             self.data[i] = numbers[i]
+
+    @always_inline
+    def __init__(out self,array:InlineArray[Scalar[Self.dtype],Self.size]):
+        """Constructs a vector from a InlineArray of scalars.
+
+        Args:
+            array: The InlineArray of scalars to copy element by element.
+        """
+        
+        self.data = array.copy()
+        # comptime for i in range(Self.size):
+        #     self.data[i] = array[i]
+
+
+
+    @always_inline
+    def __init__[*element_types:CoordLike](out self,coord:Coord[*element_types]):
+        """Constructs a vector from a `coord` of scalars. Performs implicit converiosion
+
+        The list length must match the vector size.
+
+        Args:
+            numbers: The list of scalars to copy element by element.
+        """
+        comptime assert coord.is_flat,'coord must be a flat coord of numbers'
+        comptime assert coord.rank == Self.size,'coord rank must match vector size'
+        self.data = InlineArray[Scalar[Self.dtype],Self.size](uninitialized = True)
+        comptime for i in range(Self.size):
+            self.data[i] = Scalar[Self.dtype](coord[i].value())
+
+    
 
     @always_inline
     def __len__(self) -> Int:
