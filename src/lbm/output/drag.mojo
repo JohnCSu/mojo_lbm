@@ -59,8 +59,8 @@ def calculate_drag_around_object[
     written into `force_tensor[tid, i]` for each dimension `i`.
 
     Parameters:
-        FLayout: The compile-time `Layout` of the distribution function `f`.
-        FlagLayout: The compile-time `Layout` of the `uint8` flag tensor.
+        FLayoutType: The compile-time `Layout` of the distribution function `f`.
+        FlagLayoutType: The compile-time `Layout` of the `uint8` flag tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
         f_dtype: The storage `DType` for `f` (defaults to the config's

@@ -71,10 +71,15 @@ struct RigidStationaryObject[
         """Constructs an `ImmersedObject` from pre-computed boundary indices.
 
         Args:
+            deviceContext: The device context used for buffer allocation.
             fluid_boundary_list: The list of linear fluid boundary indices
                 (ownership is transferred).
-            mass: The mass of the object (defaults to 1).
-            center_of_mass: The center of mass (defaults to zero).
+            links_fluid_list: The list of fluid node indices for each link
+                (ownership is transferred).
+            links_direction_list: The list of direction indices for each link
+                (ownership is transferred).
+            links_q_dist: The list of quarter-way distances for each link
+                (ownership is transferred).
         """
         self.fluid_boundary_list = fluid_boundary_list^
 

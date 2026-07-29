@@ -115,12 +115,12 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
 
     @always_inline
     def __init__[*element_types:CoordLike](out self,coord:Coord[*element_types]):
-        """Constructs a vector from a `coord` of scalars. Performs implicit converiosion
+        """Constructs a vector from a `coord` of scalars with implicit conversion.
 
-        The list length must match the vector size.
+        The coord rank must match the vector size.
 
         Args:
-            numbers: The list of scalars to copy element by element.
+            coord: The coordinate tuple of scalars to copy element by element.
         """
         comptime assert coord.is_flat,'coord must be a flat coord of numbers'
         comptime assert coord.rank == Self.size,'coord rank must match vector size'

@@ -31,9 +31,9 @@ def get_rigid_sphere[
     Parameters:
         flag_origin: The origin of the `flags` tile tensor.
         FlagLayoutType: The compile-time layout of `flags`.
-        grid: The compile-time `LBM_Grid` describing the domain.
 
     Args:
+        grid: The `LBM_Grid` describing the domain.
         flags: The `uint8` tile tensor labeling each node.
         center: The physical `(x, y, z)` coordinates of the sphere center.
         radius: The physical radius of the sphere.

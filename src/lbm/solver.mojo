@@ -145,7 +145,7 @@ struct DoubleBufferSolver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_B
                 function.
             bc_layout_type: The compile-time layout of `bc`.
             flags_layout_type: The compile-time layout of `flags`.
-            is_even_step: Flag to run either even or odd step of espteric pull kernel
+            is_even_step: When `True`, runs the even step of the esoteric pull kernel.
 
         Args:
             f: The distribution function tile tensor.
