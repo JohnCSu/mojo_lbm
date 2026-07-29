@@ -35,6 +35,5 @@ mojo_lbm = { path = ".", editable = true }
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
-dev = { features = ["dev"], solve-group = "default" }
 
 [tool.pixi.tasks]

@@ -20,3 +20,5 @@ D3.mojo
 *.mojoc# pixi environments
 .pixi/*
 !.pixi/config.toml
+.agents
+skills-lock.json

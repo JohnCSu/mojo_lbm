@@ -8,4 +8,10 @@ version = "0.1.0"
 [tasks]
 build-src = "python buildLBM.py"
 compiletest = "python compiletest.py"
-[dependencies]
+
+[feature.dev.dependencies]
+nodejs = "*" # Node, npm, and npx live here
+
+[environments]
+default = []
+dev = ["dev"] # Developers activate or target this environment
