@@ -13,6 +13,23 @@ comptime cs_squared = (1.0 / 3.0)
 """The square of the lattice speed of sound, $$1/3$$."""
 
 
+trait Enum(ImplicitlyCopyable & Hashable & Equatable):
+    ...
+
+@fieldwise_init
+struct LBM_methods(Enum):
+    """Collects the LBM streaming-method names as compile-time constants.
+
+    The valid methods are `DOUBLE_BUFFER` and `ESOTERIC_PULL`. The
+    `valid_set` alias is used by `LBM_Config` to reject unknown methods at
+    compile time.
+    """
+    var _value:Int
+    comptime DOUBLE_BUFFER = LBM_methods(0)
+    comptime ESOTERIC_PULL = LBM_methods(1)
+    comptime MOMENT_REPRESENTATION = LBM_methods(2)
+    comptime valid_set:Set[LBM_methods] = {Self.DOUBLE_BUFFER,Self.ESOTERIC_PULL}
+
 
 
 struct Lbm_methods:
@@ -48,6 +65,8 @@ struct Collisions:
     comptime valid_set:Set[StaticString] = {Self.SRT,Self.TRT,Self.RLBM,Self.KBC}
 
     comptime that_need_fneq:Set[StaticString] = {Self.KBC,Self.RLBM}
+
+
 struct Flags:
     """Collects the boundary-condition flag values as compile-time constants.
 
@@ -68,6 +87,15 @@ struct Flags:
     comptime FLUID_BOUNDARY: UInt8 = 2
     """Flag value for a fluid node adjacent to a solid (shares value with
     `EQUILIBRIUM` for now)."""
+
+
+
+
+@fieldwise_init
+struct Bounceback_methods(Enum):
+    var _value:Int
+    comptime MID_GRID = Bounceback_methods(0) 
+    comptime BOUZIDI = Bounceback_methods(1)
 
 
 comptime _FlagSet = {Flags.FLUID, Flags.SOLID, Flags.EQUILIBRIUM}
