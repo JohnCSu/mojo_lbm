@@ -39,13 +39,12 @@ struct RigidStationaryObject[
     var fluid_boundaries_list:List[Self.Int_Scalar]
     var lattice_links_list:List[Self.Int_Scalar]
     var link_distances_list:List[Scalar[Self.float_dtype]]
-
-
+    
     var fluid_boundaries:ContextTileTensor[Self.int_dtype,RuntimeColMajor1DType]
     var lattice_links:ContextTileTensor[Self.int_dtype,RuntimeColMajor1DType]
     var link_distances:ContextTileTensor[Self.float_dtype,RuntimeColMajor1DType]
-
-    
+    var link_forces:ContextTileTensor[Self.float_dtype,RuntimeColMajor2DType]
+    # var bounceback_method
     def __init__(
         out self,
         deviceContext:DeviceContext,
@@ -80,7 +79,9 @@ struct RigidStationaryObject[
         self.fluid_boundaries = self.list_to_1D_ContextTileTensor(deviceContext,self.fluid_boundaries_list)
         self.lattice_links = self.list_to_1D_ContextTileTensor(deviceContext,self.lattice_links_list)
         self.link_distances = self.list_to_1D_ContextTileTensor(deviceContext,self.link_distances_list)
-        
+        n = self.fluid_boundaries.size()
+        self.link_forces = self.create_NxM_ContextTileTensor[self.float_dtype](deviceContext,n,Self.grid.D)
+
     @staticmethod
     def list_to_1D_ContextTileTensor[dtype:DType,//]
         (
@@ -93,6 +94,18 @@ struct RigidStationaryObject[
         layout  = col_major1D(N)
         out = ContextTileTensor[dtype](deviceContext,layout)
         out.cpu_buffer().enqueue_copy_from(src = Span(ls))
+        return out^ # Must take ownership of ContextTileTensor
+
+    @staticmethod
+    def create_NxM_ContextTileTensor[dtype:DType](
+        deviceContext:DeviceContext,
+        n:Int,
+        m:Int,
+        ) raises
+        -> ContextTileTensor[dtype,RuntimeColMajor2DType]:
+
+        layout  = col_major2D(n,m)
+        out = ContextTileTensor[dtype](deviceContext,layout,fill = Scalar[dtype](0))
         return out^ # Must take ownership of ContextTileTensor
 
 
