@@ -22,7 +22,6 @@ struct Lbm_methods:
     `valid_set` alias is used by `LBM_Config` to reject unknown methods at
     compile time.
     """
-
     comptime DOUBLE_BUFFER:StaticString = 'double buffer'
     comptime ESOTERIC_PULL:StaticString = 'esoteric pull'
     comptime MOMENT_REPRESENTATION:StaticString = 'moment representation'
@@ -55,7 +54,9 @@ struct Flags:
     These flag values label lattice nodes for the streaming and collision
     kernels: `FLUID` for interior nodes, `SOLID` for wall nodes, and
     `EQUILIBRIUM` for nodes that should be reset to the equilibrium
-    distribution each step.
+    distribution each step. `FLUID_BOUNDARY` reuses the value `2` to tag fluid
+    nodes that are adjacent to a solid — for now it shares the value with
+    `EQUILIBRIUM`.
     """
 
     comptime FLUID: UInt8 = 0
@@ -64,6 +65,9 @@ struct Flags:
     """Flag value for a solid (wall) node."""
     comptime EQUILIBRIUM: UInt8 = 2
     """Flag value for an equilibrium boundary node."""
+    comptime FLUID_BOUNDARY: UInt8 = 2
+    """Flag value for a fluid node adjacent to a solid (shares value with
+    `EQUILIBRIUM` for now)."""
 
 
 comptime _FlagSet = {Flags.FLUID, Flags.SOLID, Flags.EQUILIBRIUM}
@@ -74,3 +78,7 @@ comptime FLUID_NODE: Scalar[DType.uint8] = Flags.FLUID
 """Flag value for a fluid node."""
 comptime SOLID_NODE: Scalar[DType.uint8] = Flags.SOLID
 """Flag value for a solid (wall) node."""
+comptime FLUID_BOUNDARY_NODE: Scalar[DType.uint8] = Flags.FLUID_BOUNDARY
+"""Flag value for a fluid node adjacent to a solid."""
+
+
