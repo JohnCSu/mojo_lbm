@@ -10,29 +10,7 @@ from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
 from src.utils import Vector
 from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec
 from src.lbm import LBM_Grid,LBM_Config,Lattice
-
-def rowMajor1D[int_dtype:DType]() -> type_of( row_major(coord[int_dtype]((1,))) ):
-    """Returns a 1D row-major `Int`-dtype layout instance.
-
-    Parameters:
-        int_dtype: The `DType` used for the layout coordinates.
-
-    Returns:
-        A 1D row-major layout instance.
-    """
-    return row_major(coord[int_dtype]((1,)))
-
-def rowMajor2D[int_dtype:DType]() -> type_of(row_major(coord[int_dtype]((1,2))) ):
-    """Returns a 2D row-major `Int`-dtype layout instance.
-
-    Parameters:
-        int_dtype: The `DType` used for the layout coordinates.
-
-    Returns:
-        A 2D row-major layout instance.
-    """
-    return row_major(coord[int_dtype]((1,2)))
-
+from src.utils.runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType
 
 def calculate_drag_around_object[
     FLayoutType:TensorLayout,
@@ -44,8 +22,8 @@ def calculate_drag_around_object[
     ](
         f:TileTensor[f_dtype,FLayoutType,ImmutAnyOrigin],
         flags:TileTensor[DType.uint8,FlagLayoutType,ImmutAnyOrigin],
-        fluid_boundary:TileTensor[grid.int_dtype,type_of(rowMajor1D[grid.int_dtype]()),MutAnyOrigin],
-        force_tensor:TileTensor[grid.float_dtype,type_of(rowMajor2D[grid.int_dtype]()),MutAnyOrigin],
+        fluid_boundary:TileTensor[grid.int_dtype,RuntimeColMajor1DType,MutAnyOrigin],
+        force_tensor:TileTensor[grid.float_dtype,RuntimeColMajor2DType,MutAnyOrigin],
     ):
 
     """Computes the drag force on the fluid nodes adjacent to an immersed object.
