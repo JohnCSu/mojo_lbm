@@ -13,11 +13,12 @@ from layout import TileTensor,row_major,col_major,coord
 from src.utils import ContextTileTensor
 from std.gpu.host import DeviceContext
 from src.utils import Vector
+from src.utils.runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType,col_major1D,col_major2D
 
 
 struct RigidStationaryObject[
     grid:LBM_Grid
-    ]():
+    ](Movable):
     """Collects the fluid boundary nodes adjacent to an immersed solid.
 
     Stores the linear memory indices of the fluid nodes that touch the solid
@@ -31,41 +32,27 @@ struct RigidStationaryObject[
     comptime float_dtype = Self.grid.float_dtype
     comptime int_dtype = Self.grid.int_dtype
     comptime Int_Scalar = Scalar[Self.int_dtype]
-    
-    comptime _layout1D = row_major(coord[Self.int_dtype]((1,)))
-    comptime _layout2D = row_major(coord[Self.int_dtype]((1,2)))
 
-    var fluid_boundary_list:List[Self.Int_Scalar]
+    var unique_fluid_ids:List[Self.Int_Scalar]
     """The linear memory indices of the fluid nodes adjacent to the solid."""
 
-    var links_fluid_list:List[Self.Int_Scalar]
-    var links_direction_list:List[Self.Int_Scalar]
-    var links_q_dist_list:List[Scalar[Self.float_dtype]]
+    var fluid_boundaries_list:List[Self.Int_Scalar]
+    var lattice_links_list:List[Self.Int_Scalar]
+    var link_distances_list:List[Scalar[Self.float_dtype]]
 
-    var link_fluids:ContextTileTensor[Self.int_dtype,type_of(Self._layout2D)]
-    var link_q:ContextTileTensor[Self.float_dtype,type_of(Self._layout1D)]
 
-    # def __init__(out self):
-    #     """Constructs an empty `ImmersedObject` with default values.
+    var fluid_boundaries:ContextTileTensor[Self.int_dtype,RuntimeColMajor1DType]
+    var lattice_links:ContextTileTensor[Self.int_dtype,RuntimeColMajor1DType]
+    var link_distances:ContextTileTensor[Self.float_dtype,RuntimeColMajor1DType]
 
-    #     Sets mass to 1, center of mass to zero, and the fluid boundary list
-    #     to empty.
-    #     """
-    #     self.fluid_boundary_list = []
-    #     self.links_fluid_list =[]
-    #     self.links_direction_list =[]
-    #     self.links_q_dist_list=[]
-
-    #     self.mass = 1.
-    #     self.center_of_mass = Vector[Self.float_dtype,Self.grid.D](fill=0.)
-
+    
     def __init__(
         out self,
         deviceContext:DeviceContext,
-        var fluid_boundary_list:List[Self.Int_Scalar],
-        var links_fluid_list:List[Self.Int_Scalar],
-        var links_direction_list:List[Self.Int_Scalar],
-        var links_q_dist:List[Scalar[Self.float_dtype]],
+        var unique_fluid_ids:List[Self.Int_Scalar],
+        var fluid_boundaries_list:List[Self.Int_Scalar],
+        var lattice_links_list:List[Self.Int_Scalar],
+        var link_distances_list:List[Scalar[Self.float_dtype]],
         )
         raises:
         """Constructs an `ImmersedObject` from pre-computed boundary indices.
@@ -81,101 +68,37 @@ struct RigidStationaryObject[
             links_q_dist: The list of quarter-way distances for each link
                 (ownership is transferred).
         """
-        self.fluid_boundary_list = fluid_boundary_list^
+        self.unique_fluid_ids = unique_fluid_ids^
 
-        self.links_fluid_list = links_fluid_list^
-        self.links_direction_list =links_direction_list^
-        self.links_q_dist_list= links_q_dist^
+        self.fluid_boundaries_list = fluid_boundaries_list^
+        self.lattice_links_list =lattice_links_list^
+        self.link_distances_list= link_distances_list^
 
-        if len(self.links_fluid_list) != len(self.links_direction_list) or len(self.links_fluid_list) != len(self.links_q_dist_list):
+        if len(self.fluid_boundaries_list) != len(self.lattice_links_list) or len(self.link_distances_list) != len(self.fluid_boundaries_list):
             raise Error('links_fluid_list, links_direction_list and links_q_dist, should all be the same length')
-
-        self.link_fluids = self.lists_to_Nx2_ContextTileTensor(deviceContext,self.links_fluid_list,self.links_direction_list)
-        self.link_q = self.list_to_1D_ContextTileTensor(deviceContext,self.links_q_dist_list)
-
-    def add_sphere[FlagLayoutType:TensorLayout,flag_origin:Origin[mut=True]](
-        mut self,
-        flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
-        center:List[Scalar[Self.float_dtype]],
-        radius:Scalar[Self.float_dtype],
-        ) raises :
-        """Embeds a sphere into the grid and records its fluid boundary nodes.
-
-        Parameters:
-            FlagLayoutType: The compile-time layout of `flags`.
-            flag_origin: The origin of the `flags` tile tensor.
-
-        Args:
-            flags: The `uint8` tile tensor labeling each node.
-            center: The physical `(x, y, z)` coordinates of the sphere center.
-            radius: The physical radius of the sphere.
-        """
-        self.fluid_boundary_list = get_sphere_boundary_indices[self.grid](flags,center,radius)
-
-
-    def to_ContextTileTensor(
-        self,
-        deviceContext:DeviceContext
-        )
-        raises
-        -> ContextTileTensor[Self.int_dtype,type_of(Self._layout1D) ]:
-
-        """Uploads the fluid boundary indices to a 1D `ContextTileTensor`.
-
-        Args:
-            deviceContext: The device context that owns the buffers.
-
-        Returns:
-            A `ContextTileTensor` holding the linear fluid boundary indices.
-        """
-        N = Int(len(self.fluid_boundary_list))
-        layout  = Self._layout1D
-        out = ContextTileTensor[Self.int_dtype](deviceContext,layout)
-        out.cpu_buffer().enqueue_copy_from(src = Span(self.fluid_boundary_list))
-        return out^ # Must take ownership of ContextTileTensor
-
-
+        
+        self.fluid_boundaries = self.list_to_1D_ContextTileTensor(deviceContext,self.fluid_boundaries_list)
+        self.lattice_links = self.list_to_1D_ContextTileTensor(deviceContext,self.lattice_links_list)
+        self.link_distances = self.list_to_1D_ContextTileTensor(deviceContext,self.link_distances_list)
+        
     @staticmethod
     def list_to_1D_ContextTileTensor[dtype:DType,//]
         (
         deviceContext:DeviceContext,
         ls:List[Scalar[dtype]]
         ) raises
-        -> ContextTileTensor[dtype,type_of(Self._layout1D)]
+        -> ContextTileTensor[dtype,RuntimeColMajor1DType]
         :
         N = Int(len(ls))
-        layout = Self._layout1D
+        layout  = col_major1D(N)
         out = ContextTileTensor[dtype](deviceContext,layout)
         out.cpu_buffer().enqueue_copy_from(src = Span(ls))
         return out^ # Must take ownership of ContextTileTensor
 
 
     @staticmethod
-    def lists_to_Nx2_ContextTileTensor[dtype:DType,//]
-        (
-        deviceContext:DeviceContext,
-        ls_1:List[Scalar[dtype]],
-        ls_2:List[Scalar[dtype]],
-        ) raises
-        -> ContextTileTensor[dtype,type_of(Self._layout2D)]
-        :
-        if len(ls_1) != len(ls_2):
-            raise Error('length of the two lists must be the same!')
-
-        N = Int(len(ls_1))
-        layout = Self._layout2D
-
-        out = ContextTileTensor[dtype](deviceContext,layout)
-
-        buffer = out.cpu_buffer()
-        
-        col_1 = buffer.create_sub_buffer[dtype](0,N)
-        col_2 = buffer.create_sub_buffer[dtype](N,N)
-        col_1.enqueue_copy_from(src = Span(ls_1))
-        col_2.enqueue_copy_from(src = Span(ls_2))
-        
-        return out^ # Must take ownership of ContextTileTensor
-
-    @staticmethod
     def from_stl(filename:String) raises:
         pass
+
+    def num_links(self) -> Int:
+        return self.fluid_boundaries.size()
