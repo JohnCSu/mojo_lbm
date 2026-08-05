@@ -11,7 +11,7 @@ from src.utils import Vector
 from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec
 from src.lbm import LBM_Grid,LBM_Config,Lattice
 from src.lbm import constants
-from src.utils.runtimeLayouts import RuntimeColMajor1DType
+from src.utils.runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType
 
 from src.lbm.kernels.ops import wall_bc,equilibrium_bc,SRT,TRT,KBC,RLBM
 from src.lbm.kernels.utils.moment import (
@@ -50,12 +50,12 @@ def interpolated_BB[
     config:LBM_Config,
     ](
         f_in:TileTensor[config.set_f_dtype(grid.float_dtype),FLayoutType,MutAnyOrigin],
+        force_tensor:TileTensor[grid.float_dtype,RuntimeColMajor2DType,MutAnyOrigin],
         flags:TileTensor[DType.uint8,FlagLayoutType,ImmutAnyOrigin],
         fluid_boundaries:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
         lattice_links:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
         link_distances:TileTensor[grid.float_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
-        # force_tensor:TileTensor[grid.float_dtype,type_of(rowMajor2D[grid.int_dtype]()),MutAnyOrigin],
-        # tau:Scalar[grid.float_dtype],
+        compute_force:Scalar[DType.bool],
     ):
 
     """Computes the drag force on the fluid nodes adjacent to an immersed object.
@@ -92,6 +92,7 @@ def interpolated_BB[
     comptime opposite_index = lattice.opposite_indices
     comptime weights = lattice.weights
     comptime directions = lattice.directions
+    comptime float_directions = lattice.float_directions
 
     comptime assert config.lbm_method == constants.DOUBLE_BUFFER
     # Should be a 1D based kernel loop
@@ -105,9 +106,6 @@ def interpolated_BB[
         index = idx_to_ijk(fluid_idx,flags,tile_shape)
         
         if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
-            # var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
-            # var f_vec = Vector[float_dtype,Q](uninitialized = True)
-            
             i = Int(lattice_links[tid])
             opp_i = Int(opposite_index[i])
             
@@ -115,10 +113,9 @@ def interpolated_BB[
 
             q_dist = link_distances[tid]
             
-            f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,opp_i) # About to be bounced back value
-
-            if q_dist > 0.5: # We need the bounceback and the current value at q        
-                f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
+            f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,i) # About to be bounced back value
+            f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
+            if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
                 f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
             else:
                 # we go double pull
@@ -128,4 +125,9 @@ def interpolated_BB[
                 f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
 
             store_f[config.use_float16c](f_in,f_bb,index,i)
+
+            if compute_force:
+                link_force = float_directions[i]*(f_into_wall + f_bb)
+                comptime for d in range(D):
+                    force_tensor[tid,d] = link_force[d]
 
