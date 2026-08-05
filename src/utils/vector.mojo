@@ -23,7 +23,7 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
 
     Examples:
 
-    ```mojo
+    ``` mojo
     var v = Vector[DType.float32, 3](1.0, 2.0, 3.0)
     var w = Vector[DType.float32, 3](fill=0.0)
     w += v

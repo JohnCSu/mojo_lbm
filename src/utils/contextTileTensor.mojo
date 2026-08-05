@@ -69,7 +69,7 @@ struct ContextTileTensor[dtype: DType, LayoutType: TensorLayout](Movable):
 
     Examples:
 
-    ```mojo
+    ``` mojo
     var a = ContextTileTensor(ctx, layout)
     var cpu_tensor = a.cpu()  # No copy: initial access
     # CPU work here...
@@ -78,6 +78,7 @@ struct ContextTileTensor[dtype: DType, LayoutType: TensorLayout](Movable):
     var gpu_tensor2 = a.gpu() # No copy: previous access was GPU
     var cpu_tensor2 = a.cpu() # Copy device -> host
     ```
+    
     """
 
     # comptime LayoutType = type_of(Self.layout)
