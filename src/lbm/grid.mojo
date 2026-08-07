@@ -219,6 +219,64 @@ struct LBM_Grid[
         )
 
 
+    
+    def get_UnitSystem_with_tau(
+        self,
+        U_phys: Self.Float_Scalar,
+        tau: Self.Float_Scalar,
+        L_phys: Self.Float_Scalar,
+        density: Self.Float_Scalar = 1.0,
+        *,
+        Re:Self.Float_Scalar,
+        min_u:Self.Float_Scalar = 0.001,
+        max_u:Self.Float_Scalar = 0.1,
+    ) raises -> UnitSystem[Self.float_dtype, Self.D]:
+        kinematic_viscosity = U_phys * L_phys / Re
+        return self.get_UnitSystem_with_tau(U_phys,tau,L_phys,kinematic_viscosity,density,min_u = min_u,max_u = max_u)
+
+
+    def get_UnitSystem_with_tau(
+        self,
+        U_phys: Self.Float_Scalar,
+        tau: Self.Float_Scalar,
+        L_phys: Self.Float_Scalar,
+        kinematic_viscosity: Self.Float_Scalar,
+        density: Self.Float_Scalar = 1.0,
+        *,
+        min_u:Self.Float_Scalar = 0.001,
+        max_u:Self.Float_Scalar = 0.1,
+    ) raises -> UnitSystem[Self.float_dtype, Self.D]:
+        """Builds a `UnitSystem` from a kinematic viscosity.
+
+        Args:
+            U_phys: The physical velocity scale.
+            U_lattice: The lattice velocity.
+            L_phys: The physical length scale.
+            kinematic_viscosity: The kinematic viscosity of the fluid.
+            density: The fluid density (defaults to 1).
+
+        Returns:
+            A `UnitSystem` configured for this grid's dimension and dtype.
+        """
+        L_lattice = L_phys / self.dx
+        # tau = v_lat / (1 / 3.0) + 0.5
+        v_lat = (tau - 0.5) * (1/3.0)
+
+        _Re = U_phys * L_phys/kinematic_viscosity
+
+        U_lattice = v_lat*_Re/L_lattice
+
+        if U_lattice < min_u or U_lattice > max_u:
+            raise Error(
+            'Target Tau of {} does not satisfy bounds. Caclulated u lattice = {} \
+            which is outside the given bounds of [{} {}]'.format(tau,U_lattice,min_u,max_u)
+            )
+
+        return UnitSystem[Self.float_dtype, Self.D](
+            U_phys, U_lattice, L_phys, L_lattice, density, kinematic_viscosity
+        )
+
+
 def set_block_shape_and_grid_dim[
     nx: Int, ny: Int, nz: Int, D: Int, tile_size: Int
 ]() -> Tuple[Tuple[Int, Int, Int], Tuple[Int, Int, Int]]:
