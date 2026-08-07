@@ -112,6 +112,7 @@ TileTensor on the cpu or gpu respecitively. Buffer copies between the 2 buffers 
 6. Mojo Packaging
 
 ## Timeline
+- 2026/08/07 Added Rigid Stationary as well as Bouzidi Interpolated Bounceback
 - 2026/07/27 Added Assembly,Solver and OutputRequest Structs for reducing boilerplate
 - 2026/07/24 Added KBC Collision Operator
 - 2026/07/23 Added RLBM Collision Operator
