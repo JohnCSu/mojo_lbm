@@ -100,12 +100,18 @@ def double_buffer_kernel[
         # Pull Stream Step # This is different for methods
         comptime for q in range(Q):
             comptime direction = directions[q]
+            comptime opp_q = Int(opposite_indices[q])
+            
             pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
-            f_new[q] =  load_f_from_xyzq(f_in,pull_index,q)
-        
+            pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
+            
+            if pull_flags[q] == Flags.SOLID:
+                f_new[q] = load_f_from_xyzq(f_in,index,opp_q) # Bounceback
+            else:
+                f_new[q] = load_f_from_xyzq(f_in,pull_index,q)
+            
         # Bounce Back AND PULL FLAGS
-        comptime include_bounceback = True
-        wall_bc[include_bounceback,directions,opposite_indices,weights,config.use_float16c](f_new,pull_flags,f_in,flags,bc,index,grid_shape)
+        wall_bc[directions,opposite_indices,weights,config.use_float16c](f_new,f_in,pull_flags,flags,bc,index,grid_shape)
         
         # Equilibrium BC
         comptime if Flags.EQUILIBRIUM in config.INCLUDED_BCs:

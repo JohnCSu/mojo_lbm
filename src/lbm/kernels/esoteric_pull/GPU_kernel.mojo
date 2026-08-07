@@ -102,8 +102,11 @@ def esoteric_pull_kernel[
 
         # Apply BC
         comptime if config.include_moving_boundary: # We have moving walls
-            comptime include_bounceback = False
-            wall_bc[include_bounceback,directions,opposite_indices,weights,config.use_float16c](f_new,pull_flags,f,flags,bc,index,grid_shape)
+            comptime for q in range(Q):
+                comptime direction = directions[q]
+                pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
+                pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
+            wall_bc[directions,opposite_indices,weights,config.use_float16c](f_new,f,pull_flags,flags,bc,index,grid_shape)
 
         # Get Local Variables moments
         rho = get_density[config.DDF_shift](f_new) 

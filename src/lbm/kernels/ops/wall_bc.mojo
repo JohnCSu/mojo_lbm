@@ -15,7 +15,6 @@ from std.math import sqrt
 
 def wall_bc[
     float_dtype:DType,int_dtype:DType,f_dtype:DType,D:Int,Q:Int,//,
-    include_bounceback:Bool,
     directions:InlineArray[Vector[int_dtype, D], Q],
     opposite_indices:InlineArray[Scalar[int_dtype], Q],
     weights:Vector[float_dtype,Q],
@@ -26,8 +25,8 @@ def wall_bc[
     ]
     (
     mut f_vec:Vector[float_dtype,Q],
-    mut pull_flags:InlineArray[UInt8,Q],
     f:TileTensor[f_dtype,...,address_space = AddressSpace.GENERIC],
+    pull_flags:InlineArray[UInt8,Q],
     flags:TileTensor[DType.uint8,...],
     bc:TileTensor[float_dtype,...],
     index:InlineArray[Int,3],
@@ -79,20 +78,13 @@ def wall_bc[
     comptime for q in range(start_idx,Q):
         comptime direction = directions[q]
         pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
-        pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
         if pull_flags[q] == Flags.SOLID:
             comptime float_direction = directions[q].cast_to[float_dtype]()
             comptime weight = weights[q]
             comptime for ii in range(D):
                 velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
             rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
-
-            comptime if include_bounceback:
-                 # Double Buffer we need to do bounceback 
-                comptime opp_q = Int(opposite_indices[q])
-                f_vec[q] = load_f_from_xyzq(f,index,opp_q) + 2.*3.*weights[q]*rho*(float_direction.dot(velocity))
-            else:
-                f_vec[q] += 2.*3.*weight*rho*(float_direction.dot(velocity))
+            f_vec[q] += 2.*3.*weight*rho*(float_direction.dot(velocity))
 
 
 @always_inline
