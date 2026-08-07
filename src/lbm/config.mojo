@@ -8,7 +8,7 @@ in the FluidX3D reference.
 from .constants import Flags, _FlagSet
 from std.collections import Set
 from src.utils.custom_fp import Float16C
-from src.lbm.constants import Lbm_methods,Collisions
+from src.lbm.constants import LBM_method,Collisions
 
 comptime fp32 = DType.float32
 """Alias for `DType.float32` used throughout the Float16C conversions."""
@@ -16,14 +16,12 @@ comptime uint16 = DType.uint16
 """Alias for `DType.uint16` used throughout the Float16C conversions."""
 
 
-comptime DoubleBufferConfig = LBM_Config[Lbm_methods.DOUBLE_BUFFER]
+comptime DoubleBufferConfig = LBM_Config[LBM_method.DOUBLE_BUFFER]
 """Convenience alias for `LBM_Config` with the double-buffer LBM method."""
 
 
-comptime EsotericPullConfig = LBM_Config[Lbm_methods.ESOTERIC_PULL]
+comptime EsotericPullConfig = LBM_Config[LBM_method.ESOTERIC_PULL]
 """Convenience alias for `LBM_Config` with the esoteric-pull LBM method."""
-
-
 
 
 trait ConfigLike:
@@ -49,7 +47,7 @@ trait ConfigLike:
 
 
 
-struct LBM_Config[lbm_method:StaticString](ConfigLike):
+struct LBM_Config[lbm_method:LBM_method](ConfigLike):
     """Holds the runtime toggles that parameterize an LBM run.
 
     Records whether DDF shifting, Smagorinsky LES, KBC, and Float16C are
@@ -113,7 +111,6 @@ struct LBM_Config[lbm_method:StaticString](ConfigLike):
             include_moving_boundary: Whether to include moving boundary
                 handling (defaults to `False`).
         """
-        comptime assert Self.lbm_method in Lbm_methods.valid_set
 
         self.collision_op = collision_op
         self.DDF_shift = DDF_shift

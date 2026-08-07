@@ -7,7 +7,7 @@ loop, compiling the kernel on construction and exposing `even_step` and
 `odd_step` methods that the caller alternates between.
 """
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
-from src.lbm.constants import Lbm_methods,Collisions
+from src.lbm.constants import LBM_method,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
 from src.lbm import kernels
 from layout import TileTensor
@@ -23,7 +23,7 @@ trait SolverLike:
     kernels.
     """
 
-    comptime lbm_method:StaticString
+    comptime lbm_method:LBM_method
     """The LBM streaming method."""
     comptime gridType:GridLike
     """The compile-time type of the grid."""
@@ -32,7 +32,7 @@ trait SolverLike:
     comptime config:LBM_Config[Self.lbm_method]
     """The compile-time `LBM_Config`."""
  
-struct Solver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_BUFFER]](SolverLike):
+struct Solver[grid_:LBM_Grid,config_:LBM_Config[LBM_method.DOUBLE_BUFFER]](SolverLike):
     """Implements the double-buffer SRT LBM time-stepping loop.
 
     Compiles the double-buffer kernel on construction and exposes
@@ -169,7 +169,7 @@ struct Solver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_BUFFER]](Solv
             tau: The SRT relaxation time.
         """
 
-        comptime if self.lbm_method == Lbm_methods.DOUBLE_BUFFER:
+        comptime if self.lbm_method == LBM_method.DOUBLE_BUFFER:
             f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
             self.double_buffer_step(f_out,f_in,bc,flags,tau)
         else:
@@ -184,7 +184,7 @@ struct Solver[grid_:LBM_Grid,config_:LBM_Config[Lbm_methods.DOUBLE_BUFFER]](Solv
             assembly: The `Assembly` providing the GPU buffers.
             tau: The SRT relaxation time.
         """
-        comptime if self.lbm_method == Lbm_methods.DOUBLE_BUFFER:
+        comptime if self.lbm_method == LBM_method.DOUBLE_BUFFER:
             f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
             self.double_buffer_step(f_in,f_out,bc,flags,tau)
         else:

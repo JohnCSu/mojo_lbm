@@ -8,7 +8,7 @@ setting boundary conditions.
 """
 
 # from layout import TileTensor, coord,CoordLike,ComptimeInt
-from src.lbm.constants import Lbm_methods,Collisions
+from src.lbm.constants import LBM_method,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
 from src.lbm import kernels
 from layout import TileTensor
@@ -27,7 +27,7 @@ trait AssemblyLike:
     and the float and distribution function dtypes.
     """
 
-    comptime lbm_method:StaticString
+    comptime lbm_method:LBM_method
     """The LBM streaming method."""
     comptime gridType:GridLike
     """The compile-time type of the grid."""
@@ -92,7 +92,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
         self.bc = ContextTileTensor[self.float_dtype](deviceContext,self.layouts.bc_layout)
         self.f = ContextTileTensor[self.f_dtype](deviceContext,self.layouts.f_layout)
 
-        if Self.lbm_method == Lbm_methods.ESOTERIC_PULL:
+        if Self.lbm_method == LBM_method.ESOTERIC_PULL:
             self.f2 = None
         else:
             self.f2 = ContextTileTensor[self.f_dtype](deviceContext,self.layouts.f_layout)
@@ -112,7 +112,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
             Error: If the LBM method is not esoteric-pull.
         """
 
-        if self.lbm_method != Lbm_methods.ESOTERIC_PULL:
+        if self.lbm_method != LBM_method.ESOTERIC_PULL:
             raise Error('This function is only valid if the lbm method is Double Buffer')
 
         return (self.f.cpu(),self.bc.cpu(),self.flags.cpu())
@@ -132,7 +132,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
             Error: If the LBM method is not esoteric-pull.
         """
 
-        if self.lbm_method != Lbm_methods.ESOTERIC_PULL:
+        if self.lbm_method != LBM_method.ESOTERIC_PULL:
             raise Error('This function is only valid if the lbm method is Double Buffer')
 
         return (self.f.gpu(),self.bc.gpu(),self.flags.gpu())
@@ -155,7 +155,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
             Error: If `f2` has not been allocated.
         """
 
-        if self.lbm_method != Lbm_methods.DOUBLE_BUFFER:
+        if self.lbm_method != LBM_method.DOUBLE_BUFFER:
             raise Error('This function is only valid if the lbm method is Double Buffer')
 
         if not self.f2:
@@ -180,7 +180,7 @@ struct Assembly[gridType_:GridLike,//,grid_:gridType_,config_:LBM_Config](Assemb
             Error: If `f2` has not been allocated.
         """
 
-        if self.lbm_method != Lbm_methods.DOUBLE_BUFFER:
+        if self.lbm_method != LBM_method.DOUBLE_BUFFER:
             raise Error('This function is only valid if the lbm method is Double Buffer')
 
         if not self.f2:

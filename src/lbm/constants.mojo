@@ -17,7 +17,7 @@ trait Enum(ImplicitlyCopyable & Hashable & Equatable):
     ...
 
 @fieldwise_init
-struct LBM_methods(Enum):
+struct LBM_method(Enum):
     """Collects the LBM streaming-method names as compile-time constants.
 
     The valid methods are `DOUBLE_BUFFER` and `ESOTERIC_PULL`. The
@@ -25,29 +25,17 @@ struct LBM_methods(Enum):
     compile time.
     """
     var _value:Int
-    comptime DOUBLE_BUFFER = LBM_methods(0)
-    comptime ESOTERIC_PULL = LBM_methods(1)
-    comptime MOMENT_REPRESENTATION = LBM_methods(2)
-    comptime valid_set:Set[LBM_methods] = {Self.DOUBLE_BUFFER,Self.ESOTERIC_PULL}
+    comptime DOUBLE_BUFFER = LBM_method(0)
+    comptime ESOTERIC_PULL = LBM_method(1)
+    comptime MOMENT_REPRESENTATION = LBM_method(2)
+    comptime valid_set:Set[LBM_method] = {Self.DOUBLE_BUFFER,Self.ESOTERIC_PULL}
 
 
 
-struct Lbm_methods:
-    """Collects the LBM streaming-method names as compile-time constants.
-
-    The valid methods are `DOUBLE_BUFFER` and `ESOTERIC_PULL`. The
-    `valid_set` alias is used by `LBM_Config` to reject unknown methods at
-    compile time.
-    """
-    comptime DOUBLE_BUFFER:StaticString = 'double buffer'
-    comptime ESOTERIC_PULL:StaticString = 'esoteric pull'
-    comptime MOMENT_REPRESENTATION:StaticString = 'moment representation'
-    comptime valid_set:Set[StaticString] = {Self.DOUBLE_BUFFER,Self.ESOTERIC_PULL}
-
-comptime DOUBLE_BUFFER:StaticString = Lbm_methods.DOUBLE_BUFFER
-"""Convenience alias for `Lbm_methods.DOUBLE_BUFFER`."""
-comptime ESOTERIC_PULL:StaticString = Lbm_methods.ESOTERIC_PULL
-"""Convenience alias for `Lbm_methods.ESOTERIC_PULL`."""
+comptime DOUBLE_BUFFER = LBM_method.DOUBLE_BUFFER
+"""Convenience alias for `LBM_method.DOUBLE_BUFFER`."""
+comptime ESOTERIC_PULL = LBM_method.ESOTERIC_PULL
+"""Convenience alias for `LBM_method.ESOTERIC_PULL`."""
 # comptime lbm_methods:Set[StaticString] = {DOUBLE_BUFFER,ESOTERIC_PULL}
     
 struct Collisions:
@@ -92,10 +80,10 @@ struct Flags:
 
 
 @fieldwise_init
-struct Bounceback_methods(Enum):
+struct Bounceback_method(Enum):
     var _value:Int
-    comptime MID_GRID = Bounceback_methods(0) 
-    comptime BOUZIDI = Bounceback_methods(1)
+    comptime MID_GRID = Bounceback_method(0) 
+    comptime BOUZIDI = Bounceback_method(1)
 
 
 comptime _FlagSet = {Flags.FLUID, Flags.SOLID, Flags.EQUILIBRIUM}

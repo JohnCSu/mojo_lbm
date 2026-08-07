@@ -18,7 +18,7 @@ from src.lbm.kernels.utils.moment import (
                                             get_density,
                                             get_velocity,
                                         )
-
+from src.lbm.constants import Bounceback_method
 
 
 def idx_to_ijk[
@@ -43,11 +43,12 @@ def idx_to_ijk[
     return index
 
 
-def interpolated_BB[
+def object_bounceback_kernel[
+    bounceback_method:Bounceback_method,
     FLayoutType:TensorLayout,
     FlagLayoutType:TensorLayout,
     grid: LBM_Grid,
-    config:LBM_Config,
+    config:LBM_Config[_],
     ](
         f_in:TileTensor[config.set_f_dtype(grid.float_dtype),FLayoutType,MutAnyOrigin],
         force_tensor:TileTensor[grid.float_dtype,RuntimeColMajor2DType,MutAnyOrigin],
@@ -108,23 +109,27 @@ def interpolated_BB[
         if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
             i = Int(lattice_links[tid])
             opp_i = Int(opposite_index[i])
-            
-            direction = directions[i]
 
+            direction = directions[i]
             q_dist = link_distances[tid]
             
             f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,i) # About to be bounced back value
-            f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
-            if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
-                f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
-            else:
-                # we go double pull
-                # f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
-                xff_index = get_adjacent_idx[-1](index,grid_shape,direction) # xff is in opp direction to i direction
-                f_at_xff = load_f[float_dtype,config.DDF_shift](f_in,xff_index,opp_i)
-                f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
+            
+            comptime if bounceback_method == Bounceback_method.BOUZIDI:
+                if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
+                    f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
+                    f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
+                else:
+                    # we go double pull
+                    # f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
+                    xff_index = get_adjacent_idx[-1](index,grid_shape,direction) # xff is in opp direction to i direction
+                    f_at_xff = load_f[float_dtype,config.DDF_shift](f_in,xff_index,opp_i)
+                    f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
 
-            store_f[config.use_float16c](f_in,f_bb,index,i)
+                store_f[config.use_float16c](f_in,f_bb,index,i)
+
+            else: # Standard Mid Grid Bounceback
+                f_bb = f_into_wall
 
             if compute_force:
                 link_force = float_directions[i]*(f_into_wall + f_bb)

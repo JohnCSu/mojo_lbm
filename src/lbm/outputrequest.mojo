@@ -6,7 +6,7 @@ NumPy viewing, and provides methods to extract a frame from the GPU buffers.
 """
 # from layout import TileTensor, coord,CoordLike,ComptimeInt
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
-from src.lbm.constants import Lbm_methods,Collisions
+from src.lbm.constants import LBM_method,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
 from src.lbm.output import calculate_rho_and_velocity,calculate_Q_criterion
 # from src.lbm.output.velocity import calculate_rho_and_velocity_temp
