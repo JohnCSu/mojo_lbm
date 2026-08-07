@@ -1,5 +1,5 @@
-from src.lbm import LBM_Grid,Lattice,GridLike
-from src.lbm.constants import Flags
+from src.lbm import LBM_Grid,Lattice,GridLike,LBM_Config
+from src.lbm.constants import Flags,LBM_method
 from std.gpu.host import DeviceContext
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
@@ -15,14 +15,16 @@ def get_rigid_sphere[
     flag_origin:Origin[mut=True],
     FlagLayoutType:TensorLayout,
     //,
-    grid:LBM_Grid
+    grid:LBM_Grid,
+    lbm_method:LBM_method,
+    config:LBM_Config[lbm_method]
     ]
     (
         ctx:DeviceContext,
         flags:TileTensor[DType.uint8,FlagLayoutType,flag_origin],
         center:List[Scalar[grid.float_dtype]],
         radius:Scalar[grid.float_dtype],
-        ) raises -> RigidStationaryObject[grid]:
+        ) raises -> RigidStationaryObject[grid,lbm_method,config]:
     """Marks a sphere solid and returns the fluid-boundary links as a `BitmaskCSR`.
 
     Writes `Flags.SOLID` into `flags` for every node inside the sphere and
@@ -123,7 +125,7 @@ def get_rigid_sphere[
                 xs = coord_test
                 q_dists.append(get_q_for_sphere(xf,xs,center_vec,radius))
 
-    sphere = RigidStationaryObject[grid](ctx,unique_fluid_id^,fluid_boundary_id^,lattice_direction^,q_dists^)
+    sphere = RigidStationaryObject[grid,lbm_method,config](ctx,unique_fluid_id^,fluid_boundary_id^,lattice_direction^,q_dists^)
     return sphere^
 
 

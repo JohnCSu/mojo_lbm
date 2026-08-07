@@ -8,16 +8,19 @@ from std.memory import Pointer
 from layout import TileTensor,CoordLike
 from layout.tile_layout import TensorLayout,Layout
 from .primatives import add_box,add_sphere,get_sphere_boundary_indices
-from src.lbm import LBM_Grid,Lattice
+from src.lbm import LBM_Grid,Lattice,LBM_Config
 from layout import TileTensor,row_major,col_major,coord
 from src.utils import ContextTileTensor
 from std.gpu.host import DeviceContext
 from src.utils import Vector
 from src.utils.runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType,col_major1D,col_major2D
-
+from .interpolated_BB import object_bounceback_kernel
+from src.lbm.constants import Bounceback_method,LBM_method
 
 struct RigidStationaryObject[
-    grid:LBM_Grid
+    grid: LBM_Grid,
+    lbm_method:LBM_method,
+    config:LBM_Config[lbm_method],
     ](Movable):
     """Collects the fluid boundary nodes adjacent to an immersed solid.
 
@@ -44,6 +47,7 @@ struct RigidStationaryObject[
     var lattice_links:ContextTileTensor[Self.int_dtype,RuntimeColMajor1DType]
     var link_distances:ContextTileTensor[Self.float_dtype,RuntimeColMajor1DType]
     var link_forces:ContextTileTensor[Self.float_dtype,RuntimeColMajor2DType]
+    var deviceContext:DeviceContext
     # var bounceback_method
     def __init__(
         out self,
@@ -68,7 +72,7 @@ struct RigidStationaryObject[
                 (ownership is transferred).
         """
         self.unique_fluid_ids = unique_fluid_ids^
-
+        self.deviceContext = deviceContext
         self.fluid_boundaries_list = fluid_boundaries_list^
         self.lattice_links_list =lattice_links_list^
         self.link_distances_list= link_distances_list^
@@ -115,3 +119,29 @@ struct RigidStationaryObject[
 
     def num_links(self) -> Int:
         return self.fluid_boundaries.size()
+
+    def bounceback[
+        FLayoutType:TensorLayout,
+        FlagLayoutType:TensorLayout,
+        f_dtype:DType,
+        //,
+        bounceback:Bounceback_method
+        ](
+        mut self,
+        f_in:TileTensor[f_dtype,FLayoutType,MutAnyOrigin],
+        flags:TileTensor[DType.uint8,FlagLayoutType,_],
+        compute_force:Bool = True,
+        ) raises:
+
+        comptime kernel = object_bounceback_kernel[bounceback,FLayoutType,FlagLayoutType,Self.grid,Self.config]
+        self.deviceContext.enqueue_function[kernel](
+            f_in,
+            self.link_forces.gpu(),
+            flags.as_immut(),
+            self.fluid_boundaries.gpu().as_immut(),
+            self.lattice_links.gpu().as_immut(),
+            self.link_distances.gpu().as_immut(),
+            Scalar[DType.bool](compute_force),
+            grid_dim = self.num_links()//256 + 1,
+            block_dim = 256,
+            )
