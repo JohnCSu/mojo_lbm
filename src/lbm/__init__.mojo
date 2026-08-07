@@ -7,7 +7,15 @@ SRT kernel serves all dimensions and lattice models through compile-time
 parameterization.
 """
 
-from .constants import SOLID_NODE,FLUID_NODE,FLUID_BOUNDARY_NODE,Flags,Collisions,Lbm_methods,cs_squared,DOUBLE_BUFFER,ESOTERIC_PULL
+from .constants import (
+    SOLID_NODE,
+    FLUID_NODE,
+    FLUID_BOUNDARY_NODE,
+    Flags,
+    Collisions,
+    LBM_method,
+    Bounceback_method,
+    cs_squared,DOUBLE_BUFFER,ESOTERIC_PULL)
 from .grid import LBM_Grid, GridLike
 from .preprocess.boundary_condition import (
     set_exterior_walls,
