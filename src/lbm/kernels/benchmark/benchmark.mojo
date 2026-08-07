@@ -40,7 +40,7 @@ def benchmark_func_tiled_3D[
     lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    lbm_method:StaticString,
+    lbm_method:LBM_method,
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     grid: LBM_Grid[lattice,nx,ny,nz,...],
@@ -54,8 +54,8 @@ def benchmark_func_tiled_3D[
     to `run_benchmark` with row-major density and velocity outputs.
 
     Parameters:
-        lbm_method: The LBM streaming method (`'double buffer'` or
-            `'esoteric pull'`).
+        lbm_method: The LBM streaming method (`LBM_method.DOUBLE_BUFFER` or
+            `LBM_method.ESOTERIC_PULL`).
         U: The lid velocity in lattice units.
         tau: The SRT relaxation time.
         grid: The compile-time `LBM_Grid` describing the domain.
@@ -66,7 +66,7 @@ def benchmark_func_tiled_3D[
         b: The `Bencher` used to time the kernel.
     """
     comptime assert D == 3
-    comptime assert lbm_method in {'esoteric pull','double buffer'}
+    # 
     # This can be stored in LBM Grid
     #(32,32,64), (8,8,4)
     
@@ -87,9 +87,9 @@ def benchmark_func_tiled_3D[
     comptime density_layout = row_major[nx,ny,nz]()
     comptime velocity_layout = row_major[D,nx,ny,nz]()
 
-    comptime if lbm_method == 'esoteric pull':
+    comptime if lbm_method == LBM_method.ESOTERIC_PULL:
         esoteric.run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config](b)
-    comptime if lbm_method == 'double buffer':
+    comptime if lbm_method == LBM_method.DOUBLE_BUFFER:
         double_buffer.run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config](b)
 
 
@@ -99,7 +99,7 @@ def benchmark_func_3D_non_tiled[
     lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
     //,
-    lbm_method:StaticString,
+    lbm_method:LBM_method,
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     grid: LBM_Grid[lattice,nx,ny,nz,_],
@@ -113,8 +113,8 @@ def benchmark_func_3D_non_tiled[
     outputs.
 
     Parameters:
-        lbm_method: The LBM streaming method (`'double buffer'` or
-            `'esoteric pull'`).
+        lbm_method: The LBM streaming method (`LBM_method.DOUBLE_BUFFER` or
+            `LBM_method.ESOTERIC_PULL`).
         U: The lid velocity in lattice units.
         tau: The SRT relaxation time.
         grid: The compile-time `LBM_Grid` describing the domain.
@@ -126,7 +126,7 @@ def benchmark_func_3D_non_tiled[
     """
 
     comptime assert D == 3
-    comptime assert lbm_method in {'esoteric pull','double buffer'}
+    
     # This can be stored in LBM Grid
     comptime all_slice = slice(None,None,None)
     comptime simd_width = 4
@@ -138,9 +138,9 @@ def benchmark_func_3D_non_tiled[
     comptime density_layout = row_major[nx,ny,nz]()
     comptime velocity_layout = row_major[D,nx,ny,nz]()
 
-    comptime if lbm_method == 'esoteric pull':
+    comptime if lbm_method == LBM_method.ESOTERIC_PULL:
         esoteric.run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config](b)
-    comptime if lbm_method == 'double buffer':
+    comptime if lbm_method == LBM_method.DOUBLE_BUFFER:
         double_buffer.run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config](b)
 
 
