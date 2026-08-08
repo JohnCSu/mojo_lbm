@@ -129,19 +129,15 @@ TileTensor on the cpu or gpu respecitively. Buffer copies between the 2 buffers 
 - 2026/06/04 Implemeted First Variation that uses thread reording
 - 2026/05/20 LBM working with mid-gridbounce bounceback and moving wall BC. Row Major. Base Example
 
-# ToDo
-- [X] Create function to set BC - Moving and No Slip
-- [X] Create LBM kernel with mid grid bounceback
 
-## Optimisation Tasks
-- [X] Use Benchmarking to determine speed ups and optimisations 
-- [] Add Simd optimisation
-- [X] Add Layout Analysis
+# AI Disclaimer
 
-## Other
-- [X] Implement 3D lattice models
-- [] Implement Custom Floating Point
-- [] Equilibrium Conditions
+99% of code in src itself has been written and vetted by me.
+
+AI has been used for the following qol:
+- help generate the docstrings for functions and structs and as an assistant
+- help in identifying bugs or reasons for failed compilations. Changes were added in manually. 
+- sytax updates across project due to changes in syntax or refactors
 
 
 # Reflection
