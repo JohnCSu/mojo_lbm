@@ -72,10 +72,9 @@ struct Flags:
     """Flag value for a solid (wall) node."""
     comptime EQUILIBRIUM: UInt8 = 2
     """Flag value for an equilibrium boundary node."""
-    comptime FLUID_BOUNDARY: UInt8 = 2
+    comptime FLUID_BOUNDARY: UInt8 = 3
     """Flag value for a fluid node adjacent to a solid (shares value with
     `EQUILIBRIUM` for now)."""
-
 
 
 
