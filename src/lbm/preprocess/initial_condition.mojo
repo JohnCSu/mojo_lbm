@@ -16,7 +16,7 @@ from src.lbm.kernels.utils.equilibrium import f_eq
 from src.lbm.kernels.utils.load_and_store import store_f,esoteric_pull_store_f_vec
 from src.lbm.constants import cs_squared
 from std.reflection import get_function_name
-from src.lbm import GridLike
+from src.lbm import GridLike,LBM_method
 
 
 def _do_nothing[
@@ -168,11 +168,11 @@ def initialize_f_from_func[
                         f_i += fi_neq[directions](q,weights[q],rho,tau,grad)
                     f_vec[q] = f_i
                 
-                comptime if config.lbm_method == ESOTERIC_PULL:
+                comptime if config.lbm_method == LBM_method.ESOTERIC_PULL:
                     comptime is_even_time_step = False
                     esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_vec,index,grid_shape)
 
-                elif config.lbm_method == DOUBLE_BUFFER:
+                elif config.lbm_method == LBM_method.DOUBLE_BUFFER:
                     comptime for q in range(Q):
                         store_f[config.use_float16c](f,f_vec[q],index,q)
 
