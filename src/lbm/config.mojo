@@ -88,7 +88,7 @@ struct LBM_Config[lbm_method:LBM_method](ConfigLike):
         DDF_shift: Bool = False,
         use_float16c: Bool = False,
         f_dtype: Optional[DType] = None,
-        include_moving_boundary:Bool = False,
+        include_moving_boundary:Bool = True,
     ):
         """Constructs an `LBM_Config` from the supplied toggles.
 
@@ -116,7 +116,8 @@ struct LBM_Config[lbm_method:LBM_method](ConfigLike):
         self.DDF_shift = DDF_shift
         self.LES = LES
         self.KBC = False
-        self.include_moving_boundary = include_moving_boundary
+
+        self.include_moving_boundary = include_moving_boundary        
         self.second_moment = True if (LES) else False
         self.use_float16c = use_float16c
         self.f_dtype = DType.uint16 if use_float16c else f_dtype
@@ -138,9 +139,8 @@ struct LBM_Config[lbm_method:LBM_method](ConfigLike):
                 )
             # Ensure that fluid and solid nodes are always in the valid BC
             self.INCLUDED_BCs = {Flags.FLUID, Flags.SOLID}.union(BCs)
-
+            
         assert self.collision_op_is_valid()
-
     def implies_f_noneq(self) -> Bool:
         """Returns `True` when the config requires the non-equilibrium part of `f`.
 
