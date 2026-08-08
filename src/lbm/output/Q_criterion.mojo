@@ -97,7 +97,7 @@ def calculate_Q_criterion[
     grid: LBM_Grid,
     config:LBM_Config,
     *,
-    current_step_is_odd:Optional[Bool] = None,
+    after_odd_step:Optional[Bool] = None,
     ]
     (
         Q_tensor:TileTensor[grid.float_dtype,QLayoutType,MutAnyOrigin],
@@ -129,7 +129,7 @@ def calculate_Q_criterion[
             tensor, indexed as `[x, y, z, D]`.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
-        current_step_is_odd: When `True`, load from the positive half of the
+        after_odd_step: When `True`, load from the positive half of the
             lattice in the esoteric-pull scheme (defaults to `None`).
 
     Args:
@@ -200,8 +200,8 @@ def calculate_Q_criterion[
         pull_flags[0] = flag
 
         comptime if config.lbm_method == ESOTERIC_PULL:
-            comptime assert current_step_is_odd, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
-            f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,current_step_is_odd.value(),config.use_float16c](f,index,grid_shape)
+            comptime assert after_odd_step, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
+            f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,after_odd_step.value(),config.use_float16c](f,index,grid_shape)
             
         elif config.lbm_method == DOUBLE_BUFFER:
             f_vec = double_buffer_pull_load_f[float_dtype,directions,config.use_float16c](f,index,grid_shape)
