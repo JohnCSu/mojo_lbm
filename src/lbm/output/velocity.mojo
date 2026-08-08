@@ -11,12 +11,12 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from layout.tile_tensor import stack_allocation
 from std.gpu.memory import AddressSpace
 
-from src.lbm import LBM_Grid,LBM_Config,Lattice,GridLike
+from src.lbm import LBM_Grid,LBM_Config,Lattice,GridLike,LBM_method
 from src.utils import Vector,ContextTileTensor
 
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
 from src.lbm.kernels.ops import wall_bc
-from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,double_buffer_pull_load_f
+from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,double_buffer_pull_load_f,set_adjacent_flags
 from src.lbm.kernels.utils.moment import get_density,get_velocity,get_strain_rate_tensor,get_strain_rate_tensor_norm_squared,get_non_eq_second_order_moment
 from src.lbm.kernels.utils.finite_difference import get_velocity_gradient
 from src.lbm.kernels.utils.shared_tile import get_global_index_for_shared_memory,sync_load_rank4_tensor_to_shared_with_halo
@@ -31,7 +31,7 @@ def calculate_rho_and_velocity[
     grid: Some[GridLike],
     config:LBM_Config,
     *,
-    current_step_is_odd:Optional[Bool] = None,
+    after_odd_step:Optional[Bool] = None,
     ]
     (
         density:TileTensor[grid.float_dtype,RhoLayoutType,MutAnyOrigin],
@@ -64,8 +64,8 @@ def calculate_rho_and_velocity[
             tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
-        current_step_is_odd: When `True`, load from the positive half in the
-            esoteric-pull scheme (defaults to `None`).
+        after_odd_step: When `True`, load from the positive half in the
+            esoteric-pull scheme (defaults to `None`). Must not be None if used for esoteric step
 
     Args:
         density: The output density tile tensor (rank 3).
@@ -105,18 +105,20 @@ def calculate_rho_and_velocity[
         if flag != SOLID_NODE:
             var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
             pull_flags[0] = flag
-            comptime if config.lbm_method == ESOTERIC_PULL:
-                comptime assert current_step_is_odd, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
-                f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,current_step_is_odd.value(),config.use_float16c](f,index,grid_shape)
+            set_adjacent_flags[directions](pull_flags,flags,index,grid_shape)
             
-            elif config.lbm_method == DOUBLE_BUFFER:
-                f_vec = double_buffer_pull_load_f[float_dtype,directions,config.use_float16c](f,index,grid_shape)
+            comptime if config.lbm_method == LBM_method.ESOTERIC_PULL:
+                comptime assert after_odd_step is not None, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
+                f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,after_odd_step.value(),config.use_float16c](f,index,grid_shape)
             
+            elif config.lbm_method == LBM_method.DOUBLE_BUFFER:
+                f_vec = double_buffer_pull_load_f[float_dtype,directions,opposite_indices,config.use_float16c](f,pull_flags,index,grid_shape)
             else:
                 comptime assert False, 'lbm_method not valid'
                             
-            comptime include_bounceback = False if config.lbm_method == ESOTERIC_PULL else True
-            wall_bc[include_bounceback,directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,f,flags,bc,index,grid_shape)
+            # comptime include_bounceback = False if config.lbm_method == ESOTERIC_PULL else True
+            comptime if config.include_moving_boundary:
+                wall_bc[directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
 
             rho = get_density[config.DDF_shift](f_vec)
             u = get_velocity[lattice.directions](f_vec,rho)
