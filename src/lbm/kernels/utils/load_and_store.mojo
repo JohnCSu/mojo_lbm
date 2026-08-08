@@ -321,15 +321,21 @@ def esoteric_pull_store_f_vec[
 
 @always_inline
 def double_buffer_pull_load_f[
-    int_dtype:DType,f_dtype:DType,D:Int,Q:Int,//,
+    int_dtype:DType,
+    f_dtype:DType,
+    D:Int,
+    Q:Int,
+    //,
     float_dtype:DType,
     directions:InlineArray[Vector[int_dtype, D], Q],
+    opposite_indices:InlineArray[Scalar[int_dtype], Q],
     use_float16c:Bool,
     *,
-    non_temporal:Bool = False
+    non_temporal:Bool = False,
     ]
     (
     f:TileTensor[f_dtype,...,address_space = AddressSpace.GENERIC],
+    pull_flags:InlineArray[UInt8,Q],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
     ) -> Vector[float_dtype,Q]:
@@ -362,7 +368,37 @@ def double_buffer_pull_load_f[
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
     comptime for q in range(Q):
         comptime direction = directions[q]
+        comptime opp_q = Int(opposite_indices[q])
         pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
         f_vec[q] =  load_f_from_xyzq(f,pull_index,q)
 
+        if pull_flags[q] == Flags.SOLID:
+            f_vec[q] = load_f_from_xyzq(f,index,opp_q) # Bounceback
+        else:
+            f_vec[q] = load_f_from_xyzq(f,pull_index,q)
+
     return f_vec 
+
+
+def set_adjacent_flags[
+    int_dtype:DType,
+    Q:Int,
+    D:Int,
+    FlaglayoutType:TensorLayout,
+    //,
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    start_idx:Int = 1,
+    *,
+    end_idx:Int = Q,
+    shift:Int = -1
+    ](
+    mut pull_flags:InlineArray[UInt8,Q],
+    flags:TileTensor[DType.uint8,FlaglayoutType,_],
+    index:InlineArray[Int,3],
+    grid_shape:InlineArray[Int,3]
+    ):
+
+    comptime for q in range(start_idx,end_idx):
+        comptime direction = directions[q]
+        pull_index = get_adjacent_idx[shift](index,grid_shape,direction) # Pulling Scheme
+        pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]

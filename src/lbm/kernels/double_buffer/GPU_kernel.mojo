@@ -16,7 +16,7 @@ from std.math import sqrt
 from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared,Collisions
 from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.utils.load_and_store import load_f,store_f
+from src.lbm.kernels.utils.load_and_store import load_f,store_f,double_buffer_pull_load_f,set_adjacent_flags
 
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.moment import (
@@ -89,30 +89,18 @@ def double_buffer_kernel[
     z = block_idx.z*block_dim.z + thread_idx.z
 
     var index:InlineArray[Int,3] = [x,y,z]
-    var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
+    
     # var pull_indices = InlineArray[InlineArray[Int,3],Q](uninitialized = True)
     # Main Compute
-    pull_flags[0] = flags.load(coord[DType.uint32]((x,y,z)))[0]
-
+    var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
+    set_adjacent_flags[directions,start_idx = 0,end_idx = 1](pull_flags,flags,index,grid_shape)    
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]) and pull_flags[0] != SOLID_NODE: # Basic Guard
-        var f_new = Vector[float_dtype,Q](fill = 0.)
+        set_adjacent_flags[directions,start_idx = 1](pull_flags,flags,index,grid_shape)
 
-        # Pull Stream Step # This is different for methods
-        comptime for q in range(Q):
-            comptime direction = directions[q]
-            comptime opp_q = Int(opposite_indices[q])
-            
-            pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
-            pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
-            
-            if pull_flags[q] == Flags.SOLID:
-                f_new[q] = load_f_from_xyzq(f_in,index,opp_q) # Bounceback
-            else:
-                f_new[q] = load_f_from_xyzq(f_in,pull_index,q)
-            
+        var f_new = double_buffer_pull_load_f[float_dtype,directions,opposite_indices,config.use_float16c](f_in,pull_flags,index,grid_shape)
         # Bounce Back AND PULL FLAGS
-        wall_bc[directions,opposite_indices,weights,config.use_float16c](f_new,f_in,pull_flags,flags,bc,index,grid_shape)
-        
+        comptime if config.include_moving_boundary:
+            wall_bc[directions,opposite_indices,weights,config.use_float16c](f_new,pull_flags,bc,index,grid_shape)
         # Equilibrium BC
         comptime if Flags.EQUILIBRIUM in config.INCLUDED_BCs:
             equilibrium_bc[directions,weights,config.DDF_shift](f_new,pull_flags,bc,index,grid_shape)
