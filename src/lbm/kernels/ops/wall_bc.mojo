@@ -14,7 +14,7 @@ from std.utils.numerics import nan,isnan
 from std.math import sqrt
 
 def wall_bc[
-    float_dtype:DType,int_dtype:DType,f_dtype:DType,D:Int,Q:Int,//,
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     directions:InlineArray[Vector[int_dtype, D], Q],
     opposite_indices:InlineArray[Scalar[int_dtype], Q],
     weights:Vector[float_dtype,Q],
@@ -25,9 +25,7 @@ def wall_bc[
     ]
     (
     mut f_vec:Vector[float_dtype,Q],
-    f:TileTensor[f_dtype,...,address_space = AddressSpace.GENERIC],
     pull_flags:InlineArray[UInt8,Q],
-    flags:TileTensor[DType.uint8,...],
     bc:TileTensor[float_dtype,...],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
@@ -68,9 +66,6 @@ def wall_bc[
         index: The `(x, y, z)` index of the current node.
         grid_shape: The `[nx, ny, nz]` shape of the grid.
     """
-
-    comptime assert bc.rank == 4 and flags.rank == 3 and f.rank == 4
-    comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
 
     var velocity = Vector[float_dtype,D](uninitialized = True)
     var rho:Scalar[float_dtype]
