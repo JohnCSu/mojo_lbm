@@ -42,6 +42,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         type_of(Self.velocity_layout),
         Self.grid,
         Self.config,
+        ...
         ]
 
     comptime output_Q_criterion_func = calculate_Q_criterion[
@@ -52,6 +53,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         type_of(Self.velocity_layout),
         Self.grid,
         Self.config,
+        ...
     ]
 
     var velocity: Optional[ContextTileTensor[Self.float_dtype,type_of(Self.velocity_layout)]]
@@ -112,7 +114,9 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         velocity_origin:Origin[mut=True],
         f_layout_type:TensorLayout,
         bc_layout_type:TensorLayout,
-        flags_layout_type:TensorLayout,//
+        flags_layout_type:TensorLayout,
+        //,
+        after_odd_step:Bool,
         ](
         deviceContext:DeviceContext,
         density:TileTensor[float_dtype,type_of(Self.density_layout),density_origin],
@@ -126,7 +130,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         ) raises:
         GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
         BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
-        deviceContext.enqueue_function[Self.output_density_and_velocity_func](density,velocity,f.as_immut(),bc.as_immut(),flags.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        deviceContext.enqueue_function[Self.output_density_and_velocity_func[after_odd_step = after_odd_step]](density,velocity,f.as_immut(),bc.as_immut(),flags.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
 
     @staticmethod
@@ -136,7 +140,9 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         Q_origin:Origin[mut=True],
         f_layout_type:TensorLayout,
         bc_layout_type:TensorLayout,
-        flags_layout_type:TensorLayout,//
+        flags_layout_type:TensorLayout,
+        //,
+        after_odd_step:Bool
         ](
         deviceContext:DeviceContext,
         Q:TileTensor[float_dtype,type_of(Self.Q_criterion_layout),Q_origin],
@@ -150,7 +156,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         ) raises:
         GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
         BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
-        deviceContext.enqueue_function[Self.output_Q_criterion_func](Q,f.as_immut(),bc.as_immut(),flags.as_immut(),velocity.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
+        deviceContext.enqueue_function[Self.output_Q_criterion_func[after_odd_step = after_odd_step]](Q,f.as_immut(),bc.as_immut(),flags.as_immut(),velocity.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
 
     def velocity_frame[after_odd_step:Bool](mut self,mut assembly:Assembly[Self.grid,Self.config]) raises:
@@ -167,12 +173,20 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         Args:
             assembly: The `Assembly` providing the GPU buffers.
         """
-        f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
-        
-        comptime if after_odd_step:
-            self.get_rho_and_velocity(self.deviceContext,self.density.value().gpu(),self.velocity.value().gpu(),f1,bc,flags)
+        comptime if self.lbm_method == LBM_method.DOUBLE_BUFFER:
+            f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
+            comptime if after_odd_step:
+                self.get_rho_and_velocity[after_odd_step](self.deviceContext,self.density.value().gpu(),self.velocity.value().gpu(),f1,bc,flags)
+            else:
+                self.get_rho_and_velocity[after_odd_step](self.deviceContext,self.density.value().gpu(),self.velocity.value().gpu(),f2,bc,flags)
+                
+        elif self.lbm_method == LBM_method.ESOTERIC_PULL:
+            f1,bc,flags = assembly.get_gpu_tensors_for_esoteric_pull()
+            self.get_rho_and_velocity[after_odd_step](self.deviceContext,self.density.value().gpu(),self.velocity.value().gpu(),f1,bc,flags)
+
         else:
-            self.get_rho_and_velocity(self.deviceContext,self.density.value().gpu(),self.velocity.value().gpu(),f2,bc,flags)
+            raise Error('For Q Criterion, the LBM Method was not valid!')
+        
     
 
     def Q_criterion_frame[after_odd_step:Bool](mut self,mut assembly:Assembly[Self.grid,Self.config]) raises:
@@ -190,12 +204,24 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         Args:
             assembly: The `Assembly` providing the GPU buffers.
         """
-        f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
 
-        comptime if after_odd_step:
-            self.get_Q_criterion(self.deviceContext,self.Q_criterion.value().gpu(),f1,bc,flags,self.velocity.value().gpu())
+        comptime if self.lbm_method == LBM_method.DOUBLE_BUFFER:
+            f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
+            comptime if after_odd_step:
+                self.get_Q_criterion[after_odd_step](self.deviceContext,self.Q_criterion.value().gpu(),f1,bc,flags,self.velocity.value().gpu())
+            else:
+                self.get_Q_criterion[after_odd_step](self.deviceContext,self.Q_criterion.value().gpu(),f2,bc,flags,self.velocity.value().gpu())
+
+        elif self.lbm_method == LBM_method.ESOTERIC_PULL:
+            f1,bc,flags = assembly.get_gpu_tensors_for_esoteric_pull()
+            self.get_Q_criterion[after_odd_step](self.deviceContext,self.Q_criterion.value().gpu(),f1,bc,flags,self.velocity.value().gpu())
+
         else:
-            self.get_Q_criterion(self.deviceContext,self.Q_criterion.value().gpu(),f2,bc,flags,self.velocity.value().gpu())
+            raise Error('For Q Criterion, the LBM Method was not valid!')
+        # comptime if after_odd_step:
+        #     self.get_Q_criterion[after_odd_step](self.deviceContext,self.Q_criterion.value().gpu(),f1,bc,flags,self.velocity.value().gpu())
+        # else:
+        #     self.get_Q_criterion[after_odd_step](self.deviceContext,self.Q_criterion.value().gpu(),f2,bc,flags,self.velocity.value().gpu())
 
 
     
