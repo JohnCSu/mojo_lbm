@@ -32,7 +32,7 @@ trait SolverLike:
     comptime config:LBM_Config[Self.lbm_method]
     """The compile-time `LBM_Config`."""
  
-struct Solver[grid_:LBM_Grid,config_:LBM_Config[LBM_method.DOUBLE_BUFFER]](SolverLike):
+struct Solver[grid_:LBM_Grid,config_:LBM_Config](SolverLike):
     """Implements the double-buffer SRT LBM time-stepping loop.
 
     Compiles the double-buffer kernel on construction and exposes
