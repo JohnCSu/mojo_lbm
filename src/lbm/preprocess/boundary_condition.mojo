@@ -17,6 +17,64 @@ from src.lbm import UnitSystem
 from src.lbm import LBM_Grid,Lattice,GridLike
 
 
+def _error_check[
+    float_dtype:DType,
+    //,
+    config:LBM_Config
+    ]
+    (
+    D:Int,
+    side:String,
+    boundary_type:Scalar[DType.uint8],
+    u:List[Scalar[float_dtype]],
+    rho:Scalar[float_dtype],
+    ) raises:
+
+    valid_strings:Set[String] = {'-X','+X','-Y','+Y','-Z','+Z'}
+    VALID_BOUNDARIES = materialize[config.INCLUDED_BCs]()
+
+    if boundary_type not in VALID_BOUNDARIES:
+        raise Error('Input Boundary Type was {} but valid boundary types are: {}'.format(boundary_type,VALID_BOUNDARIES))
+
+    if side not in valid_strings:
+        raise Error('Side not valid. Input was {} but expects {}'.format(side,valid_strings))
+    
+
+    # Checking combinations of u, rho and specified boundary condition
+
+    u_is_empty = (len(u) == 0)
+
+    if u_is_empty and isnan(rho):
+        raise Error('Either velocity or density or both have to be specified. Both cant be left as None')
+
+    if not u_is_empty: # If free
+        if len(u) != D:
+            raise Error('Input velocity list was of length {} but Grid is {} Dimensional'.format(len(u),D))
+
+        if any([isnan(ui) for ui in u]):
+            raise Error('either all components of velocity must be free or specified (cannot be NaN)')
+        
+    if (boundary_type ==  SOLID_NODE):
+        if (u_is_empty or isnan(rho)):
+            raise Error('For Solid Type you must specify both u and rho')
+
+        if not config.include_moving_boundary: # U is guranteed not empty
+            u_is_non_zero = any([ui != 0. for ui in u])
+            if u_is_non_zero: # If moving bc specified but config is not set for it
+                raise Error('include_moving_boundary in config was set to False but a non zero velocity was specified, Please set config.include_moving_boundary to True First')
+
+    if (boundary_type ==  Flags.EQUILIBRIUM):
+        if  (not u_is_empty): # Only Check if u is specified, we need density to also be defined
+            if isnan(rho):
+                raise Error('For Equilibrium BC, if u is specified then the density must also be specified')
+
+
+    
+
+     
+        
+        
+
 def set_exterior_walls[
                     flag_origin:Origin[mut=True],
                     bc_origin:Origin[mut=True],
@@ -78,39 +136,23 @@ def set_exterior_walls[
     comptime ny = grid.shape[1]
     comptime nz = grid.shape[2]
 
-    VALID_BOUNDARIES = materialize[config.INCLUDED_BCs]()
-
+    _error_check[config](D,side,boundary_type,u,rho)
+    
     axes:Dict[String,Int] = {'X':0,
                     'Y':1,
                     'Z':2,}
-    valid_strings:Set[String] = {'-X','+X','-Y','+Y','-Z','+Z'}
 
     u_is_empty = (len(u) == 0)
-    if u_is_empty and isnan(rho):
-        raise Error('Either velocity or density or both have to be specified. Both cant be left as None')
-
     velocity = [nan[float_dtype]() for _ in range(D)] if u_is_empty else u.copy()
     density:Scalar[float_dtype] = rho
-
-    if (boundary_type ==  SOLID_NODE) and (u_is_empty or isnan(rho)):
-        raise Error('For Solid Type you must specify both u and rho')
-
-    if len(velocity) != D:
-        raise Error('Input velocity list was of length {} but Grid is {} Dimensional'.format(len(velocity),D))
-
-    if boundary_type not in VALID_BOUNDARIES:
-        raise Error('Input Boundary Type was {} but valid boundary types are: {}'.format(boundary_type,VALID_BOUNDARIES))
-
-    if side not in valid_strings:
-        raise Error('Side not valid. Input was {} but expects {}'.format(side,valid_strings))
-
-    if unitSystem: # if not None then implies bc give are not in
-        density *=unitSystem.value().density.C_phys_to_lat()
-        velocity = [unitSystem.value().U.C_phys_to_lat()*u for u in velocity]
 
     axis = axes[String(side[byte = 1])]
     end_values = grid.shape
     
+    if unitSystem: # if not None then implies bc give are not in
+        density *=unitSystem.value().density.C_phys_to_lat()
+        velocity = [unitSystem.value().U.C_phys_to_lat()*u for u in velocity]
+
     if side[byte = 0] == '-':
         fixed = 0
     else:
@@ -120,7 +162,6 @@ def set_exterior_walls[
         for y in range(ny):
             for z in range(nz):
                 flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
-                # flags_lt[fixed,y,z] = flags.ElementType(boundary_type)
                 comptime for i in range(D):
                     bc.store(coord[DType.int32]((x,y,z,i)),velocity[i])
                 bc.store(coord[DType.int32]((x,y,z,D)),density)
@@ -209,24 +250,17 @@ def set_exterior_walls_with_func[
     comptime nz = grid.shape[2]
     # comptime assert u is not None
     comptime u_func = u
-    VALID_BOUNDARIES = materialize[config.INCLUDED_BCs]()
+   
 
     axes:Dict[String,Int] = {'X':0,
                     'Y':1,
                     'Z':2,}
-    valid_strings:Set[String] = {'-X','+X','-Y','+Y','-Z','+Z'}
+
+
+    fake_u:List[Scalar[float_dtype]] = [1. for _ in range(D)] # For Error Checking. Here we assume that u_func will return non zero velocities
+    _error_check[config](D,side,boundary_type,fake_u,rho)
 
     density:Scalar[float_dtype] = rho
-
-    if (boundary_type ==  SOLID_NODE) and (isnan(rho)):
-        raise Error('For Solid Type you must specify both u and rho')
-
-    if boundary_type not in VALID_BOUNDARIES:
-        raise Error('Input Boundary Type was {} but valid boundary types are: {}'.format(boundary_type,VALID_BOUNDARIES))
-
-    if side not in valid_strings:
-        raise Error('Side not valid. Input was {} but expects {}'.format(side,valid_strings))
-
     if unitSystem: # if not None then implies bc give are not in
         density *=unitSystem.value().density.C_phys_to_lat()
         # velocity = [unitSystem.value().U.C_phys_to_lat()*u for u in velocity]
