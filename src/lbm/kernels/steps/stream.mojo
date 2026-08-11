@@ -77,7 +77,7 @@ def set_f_vector_and_flags[
     ):
     pull_flags[0] = current_flag
     comptime if lbm_method == lbm_method.ESOTERIC_PULL:
-        comptime assert is_even_time_step, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
+        comptime assert is_even_time_step is not None, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
         f_vec = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step.value(),use_float16c](f,index,grid_shape)
         comptime if implies_get_adjacent_flags: # If we have set include moving boundary or double buffer
             set_adjacent_flags[directions](pull_flags,flags,index,grid_shape)
