@@ -141,13 +141,17 @@ struct LBM_Config[lbm_method:LBM_method](ConfigLike):
             self.INCLUDED_BCs = {Flags.FLUID, Flags.SOLID}.union(BCs)
             
         assert self.collision_op_is_valid()
-    def implies_f_noneq(self) -> Bool:
+    def implies_f_noneq(self,*,force:Bool = False) -> Bool:
         """Returns `True` when the config requires the non-equilibrium part of `f`.
 
         Returns:
             `True` when LES is enabled, `False` otherwise.
         """
-        return self.LES or (self.collision_op in materialize[Collisions.that_need_fneq]()) #self.collision_op == Collisions.KBC or self.collision_op == Collisions.RLBM  #
+        return self.LES or (self.collision_op in materialize[Collisions.that_need_fneq]()) or force #self.collision_op == Collisions.KBC or self.collision_op == Collisions.RLBM  #
+
+    def implies_get_adjacent_flags(self,*,force:Bool = False) -> Bool:
+        return self.lbm_method == LBM_method.DOUBLE_BUFFER or self.include_moving_boundary or force
+
 
     def set_f_dtype(self, float_dtype_for_math_ops: DType) -> DType:
         """Returns the `DType` to use for `f` math operations.
