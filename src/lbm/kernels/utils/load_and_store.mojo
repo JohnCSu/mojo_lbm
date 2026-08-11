@@ -7,7 +7,7 @@ indexing convention used throughout the solver.
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
-from src.lbm import LBM_Grid,LBM_Config
+from src.lbm import LBM_Grid,LBM_Config,Flags
 from src.utils import Vector
 from .index import get_adjacent_idx
 
@@ -110,58 +110,6 @@ def load_f[
         return pulled_f
 
 
-@always_inline
-def get_flags
-    [
-    int_dtype:DType,
-    Q:Int,D:Int,
-    flagLayoutType:TensorLayout,
-    //,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    shift:Int,
-    *,
-    start_idx:Int = 0,
-    ]
-    (
-    flags:TileTensor[DType.uint8,flagLayoutType,ImmutAnyOrigin],
-    index:InlineArray[Int,3],
-    grid_shape:InlineArray[Int,3]
-    )
-    -> InlineArray[UInt8,Q] where start_idx >= 0:
-    """Gathers the neighbor indices and flags around a lattice node.
-
-    For each discrete velocity, computes the neighbor index with the given
-    `shift` and loads the corresponding flag value.
-
-    Parameters:
-        int_dtype: The `DType` of the integer directions.
-        Q: The number of discrete velocities per node.
-        D: The spatial dimension.
-        flagLayoutType: The compile-time layout of `flags`.
-        directions: The compile-time discrete velocity directions.
-        shift: The shift applied to each direction (`-1` for pull, `1` for
-            push).
-        start_idx: The index of the first direction to process (defaults to
-            0).
-
-    Args:
-        flags: The `uint8` tile tensor labeling each node.
-        index: The `(x, y, z)` index of the central node.
-        grid_shape: The `[nx, ny, nz]` shape of the grid.
-
-    Returns:
-        A tuple of `(neighbor_indices, neighbor_flags)` as `InlineArray`s
-        of length `Q`.
-    """
-    comptime assert flags.rank == 3
-    var neighbor_flags = InlineArray[UInt8,Q](uninitialized = True)
-    
-    comptime for q in range(start_idx,Q):
-        comptime direction = directions[q]
-        neighbor_index = get_adjacent_idx[shift = shift](index,grid_shape,direction) # Pulling Scheme
-        neighbor_flags[q] = flags.load(coord[DType.int32]((neighbor_index[0],neighbor_index[1],neighbor_index[2])))[0]
-
-    return neighbor_flags^
 
 
 def esoteric_pull_load_f_vec[
@@ -379,7 +327,7 @@ def double_buffer_pull_load_f[
 
     return f_vec 
 
-
+@always_inline
 def set_adjacent_flags[
     int_dtype:DType,
     Q:Int,
@@ -402,3 +350,4 @@ def set_adjacent_flags[
         comptime direction = directions[q]
         pull_index = get_adjacent_idx[shift](index,grid_shape,direction) # Pulling Scheme
         pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
+        
