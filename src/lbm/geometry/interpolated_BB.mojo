@@ -43,7 +43,7 @@ def idx_to_ijk[
     return index
 
 
-def object_bounceback_kernel[
+def linkwise_bounceback_kernel[
     bounceback_method:Bounceback_method,
     FLayoutType:TensorLayout,
     FlagLayoutType:TensorLayout,

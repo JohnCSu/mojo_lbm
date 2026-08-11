@@ -14,7 +14,7 @@ from src.utils import ContextTileTensor
 from std.gpu.host import DeviceContext
 from src.utils import Vector
 from src.utils.runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType,col_major1D,col_major2D
-from .interpolated_BB import object_bounceback_kernel
+from .interpolated_BB import linkwise_bounceback_kernel
 from src.lbm.constants import Bounceback_method,LBM_method
 from std.python import Python, PythonObject
 
@@ -137,7 +137,7 @@ struct RigidStationaryObject[
         compute_force:Bool = True,
         ) raises:
 
-        comptime kernel = object_bounceback_kernel[bounceback,FLayoutType,FlagLayoutType,Self.grid,Self.config]
+        comptime kernel = linkwise_bounceback_kernel[bounceback,FLayoutType,FlagLayoutType,Self.grid,Self.config]
         self.deviceContext.enqueue_function[kernel](
             f_in,
             self.link_forces.gpu(),
