@@ -49,3 +49,12 @@ def rest_direction_is_zero[int_dtype:DType,D:Int,Q:Int,//](directions:InlineArra
         otherwise.
     """
     return False if directions[0].any_true() else True
+
+
+@always_inline
+def is_valid_thread(index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],flag:UInt8) -> Bool:
+    valid_index = (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2])
+
+    node_to_be_excluded = Flags.is[Flags.SOLID](flag) or Flags.has[Flags.EXCLUDE](flag) 
+
+    return  valid_index and not node_to_be_excluded
