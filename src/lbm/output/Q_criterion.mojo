@@ -14,7 +14,7 @@ from src.lbm import LBM_Grid,LBM_Config,Lattice
 
 from src.lbm.constants import ESOTERIC_PULL,DOUBLE_BUFFER
 from src.utils import Vector,ContextTileTensor
-from src.lbm.kernels.ops import wall_bc,set_f_vector_and_flags
+from src.lbm.kernels.steps import stream,apply_boundary_conditions
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
 from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,double_buffer_pull_load_f,set_adjacent_flags
 from src.lbm.kernels.utils.moment import get_density,get_velocity,get_strain_rate_tensor,get_strain_rate_tensor_norm_squared,get_non_eq_second_order_moment
@@ -200,10 +200,8 @@ def calculate_Q_criterion[
         pull_flags[0] = flag
 
         comptime is_even_time_step = after_odd_step # after_odd_step implies is_even_time_step
-        set_f_vector_and_flags[grid,config,is_even_time_step = is_even_time_step](f_vec,pull_flags,f,flags,index,grid_shape)
-
-        comptime if config.include_moving_boundary:
-            wall_bc[directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
+        stream[grid,config,is_even_time_step = is_even_time_step](f_vec,pull_flags,f,flags,flag,index,grid_shape)
+        apply_boundary_conditions[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
 
         var rho = get_density[config.DDF_shift](f_vec)
         var u = get_velocity[lattice.directions](f_vec,rho)
