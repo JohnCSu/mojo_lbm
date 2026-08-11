@@ -75,7 +75,45 @@ struct Flags:
     comptime FLUID_BOUNDARY: UInt8 = 3
     """Flag value for a fluid node adjacent to a solid (shares value with
     `EQUILIBRIUM` for now)."""
+    
 
+    comptime EXCLUDE:UInt8 = 0b10000000
+
+    comptime valid_enums = {Flags.FLUID, Flags.SOLID, Flags.EQUILIBRIUM}
+    comptime valid_bitmasks = {Self.EXCLUDE}
+
+
+    @always_inline
+    @staticmethod
+    def is[enum_flag:UInt8](flag:UInt8) -> Bool:
+        comptime assert enum_flag in Self.valid_enums
+        return Bool(Self.get_enum_flag(flag) == enum_flag )
+
+    @always_inline
+    @staticmethod
+    def has[bitmask_flag:UInt8](flag:UInt8) -> Bool:
+        comptime assert bitmask_flag in Self.valid_bitmasks
+        return (bitmask_flag & flag) != 0
+
+    @always_inline
+    @staticmethod
+    def get_bitmask_flags(flag:UInt8) ->UInt8:
+        return flag >> 4
+
+    @always_inline
+    @staticmethod
+    def get_enum_flag(flag:UInt8) -> UInt8:
+        return flag & 0x0F
+
+    @always_inline
+    @staticmethod
+    def add_exclude_to_flag(flag:UInt8) -> UInt8:
+        return Self.EXCLUDE | flag
+
+    @always_inline
+    @staticmethod
+    def is_excluded(flag:UInt8) -> Bool:
+        return Bool(Self.EXCLUDE & flag)
 
 
 @fieldwise_init
