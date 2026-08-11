@@ -8,7 +8,7 @@ from std.collections import Set
 from std.math import sqrt
 from . import RigidStationaryObject
 from src.lbm.kernels.utils.index import index_to_coord
-from CSR import BitmaskCSR
+# from CSR import BitmaskCSR
 
 
 def get_rigid_sphere[
