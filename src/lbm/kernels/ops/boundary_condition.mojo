@@ -73,7 +73,7 @@ def wall_bc[
     comptime for q in range(start_idx,Q):
         comptime direction = directions[q]
         pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
-        if pull_flags[q] == Flags.SOLID:
+        if Flags.is[Flags.SOLID](pull_flags[q]):
             comptime float_direction = directions[q].cast_to[float_dtype]()
             comptime weight = weights[q]
             comptime for ii in range(D):
@@ -91,7 +91,7 @@ def equilibrium_bc[
     ]
     (
     mut f_vec:Vector[float_dtype,Q],
-    mut pull_flags:InlineArray[UInt8,Q],
+    pull_flags:InlineArray[UInt8,Q],
     bc:TileTensor[float_dtype,...],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
@@ -122,7 +122,7 @@ def equilibrium_bc[
         grid_shape: The `[nx, ny, nz]` shape of the grid.
     """
     current_flag = pull_flags[0] # comptime assert gurantees this is the flag for the current node
-    if current_flag  == Flags.EQUILIBRIUM:
+    if Flags.is[Flags.EQUILIBRIUM](current_flag):
         var velocity = Vector[float_dtype,D](uninitialized = True)
         comptime for ii in range(D):
             velocity[ii] = bc.load(coord[DType.uint32]((index[0],index[1],index[2],ii)))[0]
