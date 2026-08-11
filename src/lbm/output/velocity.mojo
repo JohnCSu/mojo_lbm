@@ -15,7 +15,7 @@ from src.lbm import LBM_Grid,LBM_Config,Lattice,GridLike,LBM_method
 from src.utils import Vector,ContextTileTensor
 
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
-from src.lbm.kernels.ops import wall_bc
+from src.lbm.kernels.ops import wall_bc,set_f_vector_and_flags
 from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,double_buffer_pull_load_f,set_adjacent_flags
 from src.lbm.kernels.utils.moment import get_density,get_velocity,get_strain_rate_tensor,get_strain_rate_tensor_norm_squared,get_non_eq_second_order_moment
 from src.lbm.kernels.utils.finite_difference import get_velocity_gradient
@@ -105,17 +105,9 @@ def calculate_rho_and_velocity[
         if flag != SOLID_NODE:
             var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
             pull_flags[0] = flag
-            set_adjacent_flags[directions](pull_flags,flags,index,grid_shape)
+            comptime is_even_time_step = after_odd_step # after_odd_step implies is_even_time_step
+            set_f_vector_and_flags[grid,config,is_even_time_step = is_even_time_step](f_vec,pull_flags,f,flags,index,grid_shape)
             
-            comptime if config.lbm_method == LBM_method.ESOTERIC_PULL:
-                comptime assert after_odd_step is not None, 'If lbm_method is set to esoteric_pull, is_even_time_step must be defined'
-                f_vec = esoteric_pull_load_f_vec[float_dtype,lattice.directions,after_odd_step.value(),config.use_float16c](f,index,grid_shape)
-            
-            elif config.lbm_method == LBM_method.DOUBLE_BUFFER:
-                f_vec = double_buffer_pull_load_f[float_dtype,directions,opposite_indices,config.use_float16c](f,pull_flags,index,grid_shape)
-            else:
-                comptime assert False, 'lbm_method not valid'
-                            
             # comptime include_bounceback = False if config.lbm_method == ESOTERIC_PULL else True
             comptime if config.include_moving_boundary:
                 wall_bc[directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
