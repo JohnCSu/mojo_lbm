@@ -19,18 +19,12 @@ from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
 from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec
 
-from src.utils import Vector,ContextTileTensor
-from src.lbm.kernels.utils.moment import (
-                                            get_density,
-                                            get_velocity,
-                                            get_strain_rate_tensor,
-                                            get_non_eq_second_order_moment,
-                                            get_density_and_velocity_for_eq_BC)
-# from src.lbm.kernels.utils.turbulence import get_Smagorinsky_LES_tau
+from src.lbm.kernels.utils.checks import is_valid_thread
+from src.lbm.kernels.utils.index import get_adjacent_idx
+from src.lbm.kernels.utils.load_and_store import store_f
 
-from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec,f_eq
-
-from src.lbm.kernels.ops import SRT,wall_bc
+from src.utils import Vector
+from src.lbm.kernels.steps import stream,collide,apply_boundary_conditions
 
 def esoteric_pull_kernel[ 
     is_even_time_step:Bool,
@@ -87,33 +81,35 @@ def esoteric_pull_kernel[
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
     comptime assert lattice.is_valid_for_esoteric_pull(),'Except the first direction, velocitys direction should be followed by their opposite direction'
 
+    comptime D = grid.D
+    comptime Q = grid.Q
+    comptime float_dtype = grid.float_dtype
+    comptime lattice = grid.lattice
+    comptime directions = lattice.directions
+    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    comptime non_temporal = True
+    # comptime assert f_out.flat_rank == 8
+    comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
+
     x = block_idx.x*block_dim.x + thread_idx.x
     y = block_idx.y*block_dim.y + thread_idx.y
     z = block_idx.z*block_dim.z + thread_idx.z
 
     var index:InlineArray[Int,3] = [x,y,z]
-    var pull_flags = InlineArray[UInt8,Q](uninitialized = True)
-    pull_flags[0] = flags.load(coord[DType.uint32]((x,y,z)))[0]
-    
 
-    if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]) and pull_flags[0] != SOLID_NODE: # Basic Guard
-        # Load and Stream From Global
-        f_new: Vector[float_dtype,Q] = esoteric_pull_load_f_vec[float_dtype,directions,is_even_time_step,config.use_float16c](f,index,grid_shape)
+    # Main Compute
+    coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+    var flag = flags.load(coord_index)[0]
 
-        # Apply BC
-        comptime if config.include_moving_boundary: # We have moving walls
-            comptime for q in range(1,Q):
-                comptime direction = directions[q]
-                pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
-                pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
-            wall_bc[directions,opposite_indices,weights,config.use_float16c](f_new,pull_flags,bc,index,grid_shape)
-        # Get Local Variables moments
-        rho = get_density[config.DDF_shift](f_new) 
-        velocity = get_velocity[directions](f_new,rho)
-        tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
+    if is_valid_thread(index,grid_shape,flag):
+        # Streaming And Load Step
+        var f_vec = Vector[float_dtype,Q](fill = 0)
+        var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
+        stream[grid,config,is_even_time_step = is_even_time_step](f_vec,pull_flags,f,flags,flag,index,grid_shape)
+        #BC
+        apply_boundary_conditions[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
+        # Collision Step + Any Turbulence modelling etc.
+        collide[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
 
-        # Collision Term
-        SRT[directions,weights,config.DDF_shift](f_new,velocity,rho,tau_local)
-        
         # Store To Global
-        esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_new,index,grid_shape)
+        esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_vec,index,grid_shape)
