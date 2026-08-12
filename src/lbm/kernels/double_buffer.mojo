@@ -32,7 +32,7 @@ def double_buffer_kernel[
     (
     f_out:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,MutAnyOrigin],
     f_in:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,ImmutAnyOrigin],
-    bc:TileTensor[grid.float_dtype,BClayoutType,ImmutAnyOrigin],
+    bc:TileTensor[grid.float_dtype,BClayoutType,MutAnyOrigin if config.implies_bc_is_mutable() else ImmutAnyOrigin],
     flags:TileTensor[DType.uint8,FlaglayoutType,ImmutAnyOrigin],
     tau:Scalar[grid.float_dtype],
     # params:RuntimeParams[grid.float_dtype]
