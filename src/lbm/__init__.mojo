@@ -10,7 +10,6 @@ parameterization.
 from .constants import (
     SOLID_NODE,
     FLUID_NODE,
-    FLUID_BOUNDARY_NODE,
     Flags,
     Collisions,
     LBM_method,

@@ -131,7 +131,6 @@ comptime FLUID_NODE: Scalar[DType.uint8] = Flags.FLUID
 """Flag value for a fluid node."""
 comptime SOLID_NODE: Scalar[DType.uint8] = Flags.SOLID
 """Flag value for a solid (wall) node."""
-comptime FLUID_BOUNDARY_NODE: Scalar[DType.uint8] = Flags.FLUID_BOUNDARY
-"""Flag value for a fluid node adjacent to a solid."""
+
 
 
