@@ -5,7 +5,7 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
 from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared,Collisions
-from src.lbm.kernels.utils.index import get_adjacent_idx
+from src.lbm.kernels.utils.index import get_adjacent_idx,get_rank4_coord
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
 from src.lbm.kernels.ops.load_and_store import double_buffer_pull_load_f,set_adjacent_flags
 
@@ -39,6 +39,7 @@ def collide[
     index:InlineArray[Int,3],
     tau:Scalar[grid.float_dtype],
     ):
+    comptime D = grid.D
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
     comptime lattice = grid.lattice
@@ -53,6 +54,17 @@ def collide[
     velocity = get_velocity[directions](f_vec,rho)
     tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
 
+    comptime if config.capture_density:
+        comptime assert bc.mut,'BC tiletensor must be mutable if config.capture_velocity or capture_density is set'
+        if Flags.has[Flags.CAPTURE_DENSITY](pull_flags[0]):
+            bc.store(get_rank4_coord(index,D),rho)
+    
+    comptime if config.capture_velocity:
+        comptime assert bc.mut,'BC tiletensor must be mutable if config.capture_velocity or capture_density is set'
+        if Flags.has[Flags.CAPTURE_VELOCITY](pull_flags[0]):
+            comptime for d in range(D):
+                bc.store(get_rank4_coord(index,d),velocity[d])
+    
     # Non eq ops
     comptime if config.implies_f_noneq():
         f_neq = get_f_noneq_vec[False,directions,weights,config.DDF_shift](f_vec,rho,velocity,tau_local)
