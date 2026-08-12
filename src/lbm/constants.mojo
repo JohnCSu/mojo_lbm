@@ -72,16 +72,16 @@ struct Flags:
     """Flag value for a solid (wall) node."""
     comptime EQUILIBRIUM: UInt8 = 2
     """Flag value for an equilibrium boundary node."""
-    comptime FLUID_BOUNDARY: UInt8 = 3
+    comptime FLUID_SOLID_BOUNDARY: UInt8 = 3
     """Flag value for a fluid node adjacent to a solid (shares value with
     `EQUILIBRIUM` for now)."""
     
-
     comptime EXCLUDE:UInt8 = 0b10000000
+    comptime CAPTURE_DENSITY:UInt8 = 0b01000000
+    comptime CAPTURE_VELOCITY:UInt8 = 0b00100000
 
-    comptime valid_enums = {Flags.FLUID, Flags.SOLID, Flags.EQUILIBRIUM}
-    comptime valid_bitmasks = {Self.EXCLUDE}
-
+    comptime valid_enums = {Flags.FLUID, Flags.SOLID, Flags.EQUILIBRIUM,Flags.FLUID_SOLID_BOUNDARY}
+    comptime valid_bitmasks = {Self.EXCLUDE,Self.CAPTURE_DENSITY,Self.CAPTURE_VELOCITY}
 
     @always_inline
     @staticmethod

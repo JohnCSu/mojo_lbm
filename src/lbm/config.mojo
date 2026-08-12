@@ -79,6 +79,9 @@ struct LBM_Config[lbm_method:LBM_method](ConfigLike):
     var collision_op:StaticString
     """The collision operator name (`'SRT'`, `'TRT'`, `'KBC'`, or `'RLBM'`)."""
 
+    var capture_density:Bool
+    var capture_velocity:Bool
+
     def __init__(
         out self,
         *,
@@ -89,6 +92,10 @@ struct LBM_Config[lbm_method:LBM_method](ConfigLike):
         use_float16c: Bool = False,
         f_dtype: Optional[DType] = None,
         include_moving_boundary:Bool = True,
+
+        capture_density:Bool = False,
+        capture_velocity:Bool = False,
+
     ):
         """Constructs an `LBM_Config` from the supplied toggles.
 
@@ -111,6 +118,9 @@ struct LBM_Config[lbm_method:LBM_method](ConfigLike):
             include_moving_boundary: Whether to include moving boundary
                 handling (defaults to `False`).
         """
+        
+        self.capture_density = capture_density
+        self.capture_velocity = capture_velocity
 
         self.collision_op = collision_op
         self.DDF_shift = DDF_shift
@@ -152,6 +162,8 @@ struct LBM_Config[lbm_method:LBM_method](ConfigLike):
     def implies_get_adjacent_flags(self,*,force:Bool = False) -> Bool:
         return self.lbm_method == LBM_method.DOUBLE_BUFFER or self.include_moving_boundary or force
 
+    def implies_bc_is_mutable(self) -> Bool:
+        return self.capture_density or self.capture_velocity
 
     def set_f_dtype(self, float_dtype_for_math_ops: DType) -> DType:
         """Returns the `DType` to use for `f` math operations.
