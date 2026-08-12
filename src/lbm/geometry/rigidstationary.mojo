@@ -135,6 +135,7 @@ struct RigidStationaryObject[
         f_in:TileTensor[f_dtype,FLayoutType,MutAnyOrigin],
         flags:TileTensor[DType.uint8,FlagLayoutType,_],
         compute_force:Bool = True,
+        q_min:Scalar[Self.grid.float_dtype] = 0.,
         ) raises:
 
         comptime kernel = linkwise_bounceback_kernel[bounceback,FLayoutType,FlagLayoutType,Self.grid,Self.config]
@@ -146,6 +147,7 @@ struct RigidStationaryObject[
             self.lattice_links.gpu().as_immut(),
             self.link_distances.gpu().as_immut(),
             Scalar[DType.bool](compute_force),
+            q_min,
             grid_dim = self.num_links()//256 + 1,
             block_dim = 256,
             )

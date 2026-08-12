@@ -57,6 +57,7 @@ def linkwise_bounceback_kernel[
         lattice_links:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
         link_distances:TileTensor[grid.float_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
         compute_force:Scalar[DType.bool],
+        q_clamp:Scalar[grid.float_dtype],
     ):
 
     """Computes the drag force on the fluid nodes adjacent to an immersed object.
@@ -107,14 +108,16 @@ def linkwise_bounceback_kernel[
         index = idx_to_ijk(fluid_idx,flags,tile_shape)
         
         if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
+            
             i = Int(lattice_links[tid])
             opp_i = Int(opposite_index[i])
 
             direction = directions[i]
             q_dist = link_distances[tid]
+            q_dist = max(q_dist,q_clamp)
             
             f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,i) # About to be bounced back value
-            
+
             comptime if bounceback_method == Bounceback_method.BOUZIDI:
                 if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
                     f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
