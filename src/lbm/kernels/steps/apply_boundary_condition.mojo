@@ -14,6 +14,8 @@ def apply_boundary_conditions[
     //,
     grid: Some[GridLike],
     config:LBM_Config,
+    *,
+    exclude_moving_wall:Bool = False
     ](
     mut f_vec:Vector[grid.float_dtype,grid.Q],
     f:TileTensor[config.set_f_dtype(grid.float_dtype),FlayoutType,_],
@@ -32,7 +34,7 @@ def apply_boundary_conditions[
     comptime grid_shape:InlineArray[Int,3] = grid.shape
     
     # Bounce Back AND PULL FLAGS
-    comptime if config.include_moving_boundary:
+    comptime if config.include_moving_boundary and not exclude_moving_wall:
         moving_wall_bc[directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
     # Equilibrium BC
     comptime if Flags.EQUILIBRIUM in config.INCLUDED_BCs:
