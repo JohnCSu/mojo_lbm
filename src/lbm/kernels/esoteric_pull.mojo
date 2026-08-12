@@ -17,11 +17,9 @@ from std.math import sqrt
 from src.lbm import LBM_Grid,LBM_Config,Lattice
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
 from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.utils.load_and_store import load_f,store_f,esoteric_pull_load_f_vec,esoteric_pull_store_f_vec
-
+from src.lbm.kernels.ops.load_and_store import esoteric_pull_store_f_vec
 from src.lbm.kernels.utils.checks import is_valid_thread
-from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.utils.load_and_store import store_f
+
 
 from src.utils import Vector
 from src.lbm.kernels.steps import stream,collide,apply_boundary_conditions

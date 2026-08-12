@@ -13,7 +13,8 @@ from src.utils import Vector,ContextTileTensor
 from std.utils.numerics import nan,isnan
 from src.lbm.units import UnitSystem
 from src.lbm.kernels.utils.equilibrium import f_eq
-from src.lbm.kernels.utils.load_and_store import store_f,esoteric_pull_store_f_vec
+from src.lbm.kernels.utils.load_and_store import store_f
+from src.lbm.kernels.ops.load_and_store import esoteric_pull_store_f_vec
 from src.lbm.constants import cs_squared
 from std.reflection import get_function_name
 from src.lbm import GridLike,LBM_method

@@ -7,7 +7,7 @@ from src.lbm import LBM_Grid,LBM_Config,Lattice,GridLike,LBM_method
 from src.utils import Vector,ContextTileTensor
 
 from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.utils.load_and_store import esoteric_pull_load_f_vec,double_buffer_pull_load_f,set_adjacent_flags
+from src.lbm.kernels.ops.load_and_store import esoteric_pull_load_f_vec,double_buffer_pull_load_f,set_adjacent_flags
 
 @always_inline
 def stream[
