@@ -5,7 +5,7 @@ and a combined gather of neighbor indices and flags used by the streaming
 step.
 """
 from src.utils import Vector
-from layout import TileTensor,coord
+from layout import TileTensor,coord,Coord
 from layout.tile_layout import TensorLayout
 
 
@@ -114,3 +114,8 @@ def index_to_coord[float_dtype:DType]
     comptime for i in range(3):
         out[i] = Scalar[float_dtype](grid_index[i])*grid_spacing + origin[i]
     return out
+
+
+@always_inline
+def get_rank4_coord(index:InlineArray[Int,3],last_dim:Int) -> Coord[Int32,Int32,Int32,Int32]:
+    return coord[DType.int32]((index[0],index[1],index[3],last_dim))
