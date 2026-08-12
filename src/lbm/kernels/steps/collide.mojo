@@ -6,7 +6,9 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared,Collisions
 from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.utils.load_and_store import load_f,store_f,double_buffer_pull_load_f,set_adjacent_flags
+from src.lbm.kernels.utils.load_and_store import load_f,store_f
+from src.lbm.kernels.ops.load_and_store import double_buffer_pull_load_f,set_adjacent_flags
+
 
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.moment import (
@@ -14,7 +16,7 @@ from src.lbm.kernels.utils.moment import (
                                             get_velocity,
                                             get_strain_rate_tensor,
                                             get_non_eq_second_order_moment,
-                                            get_density_and_velocity_for_eq_BC)
+                                        )
 
 from src.lbm.kernels.utils.equilibrium import get_f_eq_vec, get_f_noneq_vec
 from src.lbm.kernels.ops.turbulence import get_Smagorinsky_LES_tau
