@@ -3,7 +3,7 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared,Collisions
 from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.ops import wall_bc,equilibrium_bc
+from src.lbm.kernels.ops import moving_wall_bc,equilibrium_bc
 from src.utils import Vector,ContextTileTensor
 
 @always_inline
@@ -33,7 +33,7 @@ def apply_boundary_conditions[
     
     # Bounce Back AND PULL FLAGS
     comptime if config.include_moving_boundary:
-        wall_bc[directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
+        moving_wall_bc[directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
     # Equilibrium BC
     comptime if Flags.EQUILIBRIUM in config.INCLUDED_BCs:
         equilibrium_bc[directions,weights,config.DDF_shift](f_vec,pull_flags,bc,index,grid_shape)

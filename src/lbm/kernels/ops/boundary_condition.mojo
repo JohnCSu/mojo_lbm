@@ -8,12 +8,11 @@ from src.utils import Vector
 from layout import TileTensor,coord
 from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f
-from src.lbm.kernels.utils.moment import get_density_and_velocity_for_eq_BC
 from src.lbm.kernels.utils.equilibrium import get_f_eq_vec
 from std.utils.numerics import nan,isnan
 from std.math import sqrt
 
-def wall_bc[
+def moving_wall_bc[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     directions:InlineArray[Vector[int_dtype, D], Q],
     opposite_indices:InlineArray[Scalar[int_dtype], Q],
@@ -134,3 +133,71 @@ def equilibrium_bc[
         rho_local = rho_local if isnan(rho) else rho # Nan means density is free
 
         f_vec = get_f_eq_vec[directions,weights,DDF_shift](f_vec,rho_local,u_local)
+
+
+
+
+@always_inline
+def get_density_and_velocity_for_eq_BC[
+    float_dtype:DType,D:Int,Q:Int,int_dtype:DType,//,
+    directions:InlineArray[Vector[int_dtype,D],Q],
+    DDF_shift:Bool = False]
+    (
+        f_vec:Vector[float_dtype,Q],
+        weights:Vector[float_dtype,Q],
+        index:InlineArray[Int,3],
+        grid_shape:InlineArray[Int,3],
+    )
+    -> Tuple[Scalar[float_dtype],Vector[float_dtype,D]]:
+
+    """Returns density and velocity for an equilibrium boundary node.
+
+    Treats populations pulled from out-of-bounds neighbors as the rest value
+    (the quadrature weight, or zero when `DDF_shift` is `True`) so that
+    unknown directions do not corrupt the moment sums.
+
+    Parameters:
+        float_dtype: The `DType` of the computation.
+        D: The spatial dimension.
+        Q: The number of discrete velocities.
+        int_dtype: The `DType` of the integer directions.
+        directions: The compile-time discrete velocity directions.
+        DDF_shift: When `True`, use the DDF-shifted rest value
+            (defaults to `False`).
+
+    Args:
+        f_vec: The current distribution vector.
+        weights: The quadrature weights.
+        index: The `(x, y, z)` index of the central node.
+        grid_shape: The `[nx, ny, nz]` shape of the grid.
+
+    Returns:
+        A tuple of `(rho, velocity)` as a scalar and a `Vector`.
+    """
+    var velocity = Vector[float_dtype,D](fill = 0.)
+    var rho:Scalar[float_dtype] = 0
+
+    comptime for q in range(Q):
+        comptime if DDF_shift:
+            rest_f:Scalar[float_dtype] = 0.
+        else:
+            rest_f = weights[q]
+
+        is_oob = False
+        comptime pull_direction = -directions[q]
+        comptime for i in range(3):
+            comptime if i < D:
+                comptime pull_i = Int(pull_direction[i])
+                pull_idx = index[i] + pull_i
+                is_oob = (( (pull_idx < 0) or (pull_idx >= grid_shape[i]))  or is_oob)
+
+        # We set unknown fs (i.e from out of bounds/wrapped around fs) to rest value
+        fq = rest_f if is_oob else f_vec[q]
+        rho += fq
+        comptime float_direction = directions[q].cast_to[float_dtype]()
+        velocity += fq*float_direction
+
+    comptime if DDF_shift:
+        rho += 1
+    velocity /= rho
+    return rho,velocity
