@@ -51,17 +51,7 @@ struct Solver[grid_:LBM_Grid,config_:LBM_Config](SolverLike):
     comptime config = Self.config_
     comptime lbm_method = Self.config.lbm_method
     comptime layouts = Self.grid.layouts
-
-    comptime double_buffer = kernels.double_buffer_kernel[
-        type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config
-        ]
-
-    comptime esoteric_pull_odd_step = kernels.esoteric_pull_kernel[
-        False,type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config,]
-        
-    comptime esoteric_pull_even_step = kernels.esoteric_pull_kernel[
-        True,type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config]
-
+   
     var deviceContext:DeviceContext
     """The device context used for kernel compilation and enqueue."""
     
@@ -121,7 +111,11 @@ struct Solver[grid_:LBM_Grid,config_:LBM_Config](SolverLike):
             flags: The `uint8` flag tile tensor.
             tau: The base SRT relaxation time.
         """
-        self.deviceContext.enqueue_function[Self.double_buffer](f_out,f_in.as_immut(),bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
+        comptime double_buffer = kernels.double_buffer_kernel[
+        type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config
+        ]
+
+        self.deviceContext.enqueue_function[double_buffer](f_out,f_in.as_immut(),bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
 
 
     @always_inline
@@ -153,10 +147,18 @@ struct Solver[grid_:LBM_Grid,config_:LBM_Config](SolverLike):
             flags: The `uint8` flag tile tensor.
             tau: The base SRT relaxation time.
         """
+
+        comptime esoteric_pull_odd_step = kernels.esoteric_pull_kernel[
+        False,type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config]
+        
+        comptime esoteric_pull_even_step = kernels.esoteric_pull_kernel[
+        True,type_of(Self.layouts.f_layout),type_of(Self.layouts.bc_layout),type_of(Self.layouts.flag_layout),Self.grid,Self.config]
+
+
         comptime if is_even_step:
-            self.deviceContext.enqueue_function[Self.esoteric_pull_even_step](f,bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
+            self.deviceContext.enqueue_function[esoteric_pull_even_step](f,bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
         else:
-            self.deviceContext.enqueue_function[Self.esoteric_pull_odd_step](f,bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
+            self.deviceContext.enqueue_function[esoteric_pull_odd_step](f,bc.as_immut(),flags.as_immut(),tau,grid_dim = self.GRID_DIM,block_dim = self.BLOCK_SHAPE)
 
 
 
