@@ -13,7 +13,7 @@ from src.lbm import LBM_Grid,LBM_Config,Lattice
 from src.lbm import constants
 from src.utils.runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType
 
-from src.lbm.kernels.steps import stream,collide,apply_boundary_conditions
+from src.lbm.kernels.steps import stream,collide,apply_boundary_conditions,store_f_vec_to_global,load_single_f
 from src.lbm.kernels.utils.moment import (
                                             get_density,
                                             get_velocity,
@@ -50,6 +50,8 @@ def nodewise_bounceback_kernel[
     BClayoutType:TensorLayout,
     grid: LBM_Grid,
     config:LBM_Config[_],
+    *,
+    is_even_time_step:Optional[Bool] = None,
     ](
         f_out:TileTensor[config.set_f_dtype(grid.float_dtype),FLayoutType,MutAnyOrigin],
         force_tensor:TileTensor[grid.float_dtype,RuntimeColMajor2DType,MutAnyOrigin],
@@ -142,7 +144,7 @@ def nodewise_bounceback_kernel[
 
             var moving_wall_term:Scalar[float_dtype] = 0.
             # comptime if bounceback_method != Bounceback_method.MID_GRID:
-            for q in range(1,Q):
+            comptime for q in range(1,Q):
                 if (lattice_link_bitmask & UInt32(1 << q)) != 0: # Check each bit
                     i = ith_valid_link + row_start
                     q_dist = link_distances[i]
@@ -152,9 +154,9 @@ def nodewise_bounceback_kernel[
                     comptime if bounceback_method == Bounceback_method.BOUZIDI:
                         # We need the prestreamed values but we have the streamed values with midgrid Bounceback
                         f_into_wall = f_vec[opp_q] # This value has been bounced back
-
                         if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
                             f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_q)
+                            # f_out_of_wall =  load_single_f[grid,config](f_in,index,opp_q)
                             f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
                         else:
                             # This value has been streamed to the current node
@@ -165,7 +167,7 @@ def nodewise_bounceback_kernel[
 
                         link_force = float_directions[q]*(f_into_wall + f_bb)
                         force_vec += link_force
-                        dm += f_bb - f_into_wall # Measure the change in mass
+                        dm += f_bb - f_into_wall # Measure the change in mass due to interpolation
 
                     ith_valid_link += 1
 
@@ -180,5 +182,5 @@ def nodewise_bounceback_kernel[
             collide[grid,config](f_vec,f_in,bc,flags,pull_flags,index,tau)
         
             # Save here
-
+            store_f_vec_to_global[grid,config,is_even_time_step = is_even_time_step](f_out,f_vec,index)
 
