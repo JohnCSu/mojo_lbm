@@ -2,8 +2,9 @@
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
-from src.lbm import LBM_Grid,LBM_Config,Flags
+from src.lbm import LBM_Grid,LBM_Config,Flags,LBM_method
 from src.utils import Vector
+from src.lbm.kernels.utils.checks import opposite_indices_are_adjacent
 from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
 from src.utils.custom_fp import Float16C
@@ -14,7 +15,6 @@ def esoteric_pull_load_f_vec[
     Q:Int,
     D:Int,
     f_layout:TensorLayout,
-    # f_origin:Origin[mut=True],
     //,
     float_dtype:DType,
     directions:InlineArray[Vector[int_dtype, D], Q],
@@ -58,6 +58,7 @@ def esoteric_pull_load_f_vec[
         The loaded distribution vector of length `Q`.
     """
     # We always pull the 0th idx
+    comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
     # comptime load_f_from_xyzq = load_f[f_dtype,non_temporal = non_temporal] # We load raw values regardles of dtype
     # f_vec = Vector[f_dtype,Q](uninitialized = True)
@@ -84,7 +85,6 @@ def esoteric_pull_load_f_vec[
             f_vec[neg_q] = load_f_from_xyzq(f,push_index,pos_q)
 
     return f_vec
-
 
 
 def esoteric_pull_store_f_vec[
@@ -137,7 +137,7 @@ def esoteric_pull_store_f_vec[
         grid_shape: The `[nx, ny, nz]` shape of the grid.
     """
     store_f[use_float16c,non_temporal](f,f_vec[0],index,0)
-
+    comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
     comptime if is_even_time_step:
         # Store f back to Global
         #  WE stroe the negative directions in to the positve current index
@@ -148,7 +148,6 @@ def esoteric_pull_store_f_vec[
 
             store_f[use_float16c,non_temporal](f,f_vec[pos_q],pull_index,neg_q) # We store it in the pull direction place
             store_f[use_float16c,non_temporal](f,f_vec[neg_q],index,pos_q)
-            
             
     else:
         # We store Negatives at their respective locations at index
@@ -224,6 +223,58 @@ def double_buffer_pull_load_f[
     return f_vec 
 
 
+def load_single_f[
+    int_dtype:DType,
+    f_dtype:DType,
+    D:Int,
+    Q:Int,
+    //,
+    lbm_method:LBM_method,
+    float_dtype:DType,
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    opposite_indices:InlineArray[Scalar[int_dtype], Q],
+    use_float16c:Bool,
+    *,
+    is_even_time_step:Optional[Bool] = None,
+    non_temporal:Bool = False,
+    ]( 
+    f:TileTensor[f_dtype,...,address_space = AddressSpace.GENERIC],
+    index:InlineArray[Int,3],
+    q:Int,
+    grid_shape:InlineArray[Int,3],
+    ) -> Scalar[float_dtype]:
+    comptime load_f_val = load_f[float_dtype,use_float16c,non_temporal]
+    
+    comptime if lbm_method == LBM_method.DOUBLE_BUFFER:
+        return load_f_val(f,index,q)
+
+    elif lbm_method == LBM_method.ESOTERIC_PULL:
+        comptime assert is_even_time_step is not None, 'is_even_time_step cannot be none for esoteric pull config'
+
+        if q == 0:
+            return load_f_val(f,index,0)
+
+        is_pos_q = ((q % 2) == 1) # Odd indices are positive, Even Indices are negative
+        comptime if is_even_time_step.value():
+            neg_q = q+1 if is_pos_q else q
+            direction = directions[neg_q]
+            pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Case if q is neg
+            index_to_load = index if is_pos_q else pull_index
+            q_to_load = q
+
+        else:
+            pos_q = q if is_pos_q else q-1
+            direction = directions[pos_q]
+            push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction)
+            index_to_load = index if is_pos_q else push_index
+            q_to_load = q+1 if is_pos_q else q-1
+        
+        return load_f_val(f,index_to_load,q_to_load)
+
+    else:
+        comptime assert False, 'Invalid lbm method used' 
+
+
 @always_inline
 def set_adjacent_flags[
     int_dtype:DType,
@@ -247,4 +298,4 @@ def set_adjacent_flags[
         comptime direction = directions[q]
         pull_index = get_adjacent_idx[shift](index,grid_shape,direction) # Pulling Scheme
         pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
-        
+    
