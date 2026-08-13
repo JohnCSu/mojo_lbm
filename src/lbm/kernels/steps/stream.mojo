@@ -7,7 +7,7 @@ from src.lbm import LBM_Grid,LBM_Config,Lattice,GridLike,LBM_method
 from src.utils import Vector,ContextTileTensor
 
 from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.ops.load_and_store import esoteric_pull_load_f_vec,double_buffer_pull_load_f,set_adjacent_flags
+from src.lbm.kernels.ops.load_and_store import esoteric_pull_load_f_vec,double_buffer_pull_load_f_vec,set_adjacent_flags
 
 @always_inline
 def stream[
@@ -84,6 +84,6 @@ def set_f_vector_and_flags[
         
     elif lbm_method == lbm_method.DOUBLE_BUFFER:
         set_adjacent_flags[directions](pull_flags,flags,index,grid_shape)
-        f_vec = double_buffer_pull_load_f[float_dtype,directions,opposite_indices,use_float16c](f,pull_flags,index,grid_shape)
+        f_vec = double_buffer_pull_load_f_vec[float_dtype,directions,opposite_indices,use_float16c](f,pull_flags,index,grid_shape)
     else:
         comptime assert False, 'lbm_method not valid'
