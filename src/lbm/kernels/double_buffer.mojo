@@ -11,15 +11,15 @@ from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
 from std.gpu import block_dim,block_idx,thread_idx,barrier
 
-from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
+from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams,LBM_method
 from src.lbm.constants import Flags,cs_squared,Collisions
 
 from src.lbm.kernels.utils.checks import is_valid_thread
-from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import store_f
 
 from src.utils import Vector
-from src.lbm.kernels.steps import stream,collide,apply_boundary_conditions
+
+from src.lbm.kernels.steps import stream,collide,apply_boundary_conditions,store_f_vec_to_global
 
 
 def double_buffer_kernel[
@@ -71,7 +71,7 @@ def double_buffer_kernel[
     comptime non_temporal = True
     # comptime assert f_out.flat_rank == 8
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
-
+    comptime assert config.lbm_method == LBM_method.DOUBLE_BUFFER
     x = block_idx.x*block_dim.x + thread_idx.x
     y = block_idx.y*block_dim.y + thread_idx.y
     z = block_idx.z*block_dim.z + thread_idx.z
@@ -93,6 +93,7 @@ def double_buffer_kernel[
         collide[grid,config](f_vec,f_in,bc,flags,pull_flags,index,tau)
 
         # Store f back to Global
-        comptime for q in range(Q):
-            store_f[config.use_float16c,non_temporal](f_out,f_vec[q],index,q)
+        store_f_vec_to_global[grid,config](f_out,f_vec,index)
+        # comptime for q in range(Q):
+        #     store_f[config.use_float16c,non_temporal](f_out,f_vec[q],index,q)
 

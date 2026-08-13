@@ -15,14 +15,11 @@ from std.utils.numerics import nan,isnan
 from std.math import sqrt
 
 from src.lbm import LBM_Grid,LBM_Config,Lattice
-from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared
-from src.lbm.kernels.utils.index import get_adjacent_idx
-from src.lbm.kernels.ops.load_and_store import esoteric_pull_store_f_vec
+from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared,LBM_method
+
 from src.lbm.kernels.utils.checks import is_valid_thread
-
-
 from src.utils import Vector
-from src.lbm.kernels.steps import stream,collide,apply_boundary_conditions
+from src.lbm.kernels.steps import stream,collide,apply_boundary_conditions,store_f_vec_to_global
 
 def esoteric_pull_kernel[ 
     is_even_time_step:Bool,
@@ -78,6 +75,7 @@ def esoteric_pull_kernel[
     # Comptime asserts
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
     comptime assert lattice.is_valid_for_esoteric_pull(),'Except the first direction, velocitys direction should be followed by their opposite direction'
+    comptime assert config.lbm_method == LBM_method.ESOTERIC_PULL
 
     comptime D = grid.D
     comptime Q = grid.Q
@@ -110,4 +108,5 @@ def esoteric_pull_kernel[
         collide[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
 
         # Store To Global
-        esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_vec,index,grid_shape)
+        store_f_vec_to_global[grid,config,is_even_time_step = is_even_time_step](f,f_vec,index)
+        
