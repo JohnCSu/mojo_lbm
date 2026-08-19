@@ -23,8 +23,7 @@ mojo_lbm = { path = ".", editable = true }
 [tasks]
 build-src = "python buildLBM.py"
 compiletest = "python compiletest.py"
-precompile = "mojo precompile src -o src.mojoc --diagnose-missing-doc-strings"
-
+precompile_test = "mojo precompile src -o src.mojoc --disable-warnings"
 
 [feature.dev.dependencies]
 nodejs = "*" # Node, npm, and npx live here

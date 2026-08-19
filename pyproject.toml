@@ -20,10 +20,6 @@ dev = [
     "poethepoet>=0.47.1",
 ]
 
-[tool.poe.tasks]
-build-LBM = {script = "buildLBM:main"}
-compiletest = {script = "compiletest:main"}
-
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64"]
