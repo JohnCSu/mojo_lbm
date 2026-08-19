@@ -75,13 +75,6 @@ struct Solver[grid_:LBM_Grid,config_:LBM_Config](SolverLike):
         self.GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
         self.BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
 
-    def get_compiled_kernel(self) raises -> type_of(self.deviceContext.compile_function[Self.double_buffer]()):
-        """Recompiles the double-buffer kernel on demand.
-
-        Returns:
-            A new compiled kernel instance.
-        """
-        return self.deviceContext.compile_function[Self.double_buffer]()    
 
 
     @always_inline

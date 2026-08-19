@@ -2,13 +2,10 @@ from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
-
 from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared,Collisions
 from src.lbm.kernels.utils.index import get_adjacent_idx,get_rank4_coord
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
-from src.lbm.kernels.ops.load_and_store import double_buffer_pull_load_f,set_adjacent_flags
-
 
 from src.utils import Vector,ContextTileTensor
 from src.lbm.kernels.utils.moment import (
