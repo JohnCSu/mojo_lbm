@@ -23,3 +23,4 @@ D3.mojo
 !.pixi/config.toml
 .agents
 skills-lock.json
+.vscode
