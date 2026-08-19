@@ -39,12 +39,12 @@ def benchmark_func_tiled_3D[
     float_dtype:DType,D:Int,Q:Int,
     lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
-    //,
     lbm_method:LBM_method,
+    //,
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     grid: LBM_Grid[lattice,nx,ny,nz,...],
-    config:LBM_Config[lbm_method] = LBM_Config[lbm_method](),
+    config:LBM_Config[lbm_method],
     ]
     (mut b:Bencher) capturing raises:
     """Benchmarks one SRT LBM time step on a 3D tiled layout.
@@ -98,12 +98,12 @@ def benchmark_func_3D_non_tiled[
     float_dtype:DType,D:Int,Q:Int,
     lattice:Lattice[D,Q,float_dtype,DType.int32],
     nx:Int,ny:Int,nz:Int,
-    //,
     lbm_method:LBM_method,
+    //,
     U:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     grid: LBM_Grid[lattice,nx,ny,nz,_],
-    config:LBM_Config[lbm_method] = LBM_Config[lbm_method](),
+    config:LBM_Config[lbm_method],
     ]
     (mut b:Bencher) capturing raises:
     """Benchmarks one SRT LBM time step on a 3D non-tiled layout.

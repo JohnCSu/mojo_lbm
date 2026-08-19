@@ -55,15 +55,15 @@ comptime benchmark_5 = base.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
 comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
 
 
-comptime benchmark_9 = benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,DoubleBufferConfig()]
-comptime benchmark_10 =benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,DoubleBufferConfig(use_float16c = True,DDF_shift = True)]
-comptime benchmark_11 =benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,DoubleBufferConfig(LES = True,DDF_shift = True)]
+comptime benchmark_9 = benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig()]
+comptime benchmark_10 =benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig(use_float16c = True,DDF_shift = True)]
+comptime benchmark_11 =benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig(LES = True,DDF_shift = True)]
 
+comptime benchmark_12 = benchmark_func_tiled_3D[U,tau,tiled_grid,EsotericPullConfig()]
+comptime benchmark_13 = benchmark_func_tiled_3D[U,tau,tiled_grid,EsotericPullConfig(use_float16c = True,DDF_shift = True,include_moving_boundary = False)]
 
-comptime benchmark_12 = benchmark_func_tiled_3D['esoteric pull',U,tau,tiled_grid,EsotericPullConfig()]
-comptime benchmark_13 = benchmark_func_tiled_3D['esoteric pull',U,tau,tiled_grid,EsotericPullConfig(use_float16c = True,DDF_shift = True)]
-comptime benchmark_14 = benchmark_func_3D_non_tiled['esoteric pull',U,tau,non_tiled_grid,EsotericPullConfig(LES = True,DDF_shift = True)]
-comptime benchmark_15 = benchmark_func_3D_non_tiled['esoteric pull',U,tau,non_tiled_grid,EsotericPullConfig(use_float16c = True,LES = True,DDF_shift = True)]
+comptime benchmark_14 = benchmark_func_3D_non_tiled[U,tau,non_tiled_grid,EsotericPullConfig(LES = True,DDF_shift = True)]
+comptime benchmark_15 = benchmark_func_3D_non_tiled[U,tau,non_tiled_grid,EsotericPullConfig(use_float16c = True,LES = True,DDF_shift = True,include_moving_boundary = False)]
 
 def main() raises:
     ctx = DeviceContext()
@@ -78,7 +78,9 @@ def main() raises:
     print('Tiled GPU Launch: Grid Dim: {} Block_Shape {} '.format(tiled_grid.GRID_DIM,tiled_grid.BLOCK_SHAPE))
     print('All Indexing assumes of the form: (x,y,z,q)')
 
-    var bench_config = BenchConfig(max_iters=2, num_warmup_iters=1)
+    print('Each Iteration contains 2 lbm steps on the GPU to represent even and odd time steps.')
+
+    var bench_config = BenchConfig(max_iters=10, num_warmup_iters=1)
     var bench = Bench(bench_config.copy())
     bench.bench_function[benchmark_1](BenchId('1. Base Row Major AoS'))
     bench.bench_function[benchmark_2](BenchId('2. Base Col Major SoA'))
