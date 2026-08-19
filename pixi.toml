@@ -11,7 +11,7 @@ glibc = "2.34"
 [dependencies]
 python = ">=3.12"
 pip = "*"
-mojo = "==1.0.0b2"
+mojo = ">=1.0.0,<2"
 matplotlib = ">=3.10.9"
 numpy  = ">=2.4.5"
 pandas = ">=3.0.3"
@@ -21,7 +21,7 @@ pyvista= ">=0.48.4"
 mojo_lbm = { path = ".", editable = true }
 
 [tasks]
-build-src = "python buildLBM.py"
+lbm = "python buildLBM.py"
 compiletest = "python compiletest.py"
 precompile_test = "mojo precompile src -o src.mojoc --disable-warnings"
 
