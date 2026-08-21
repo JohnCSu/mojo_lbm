@@ -243,7 +243,9 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         """
 
         # Weshould use reflection to consoldate this
-        var shape = Python.tuple(Self.materialize[grid.shape]()[0],Self.materialize[grid.shape]()[1],Self.materialize[grid.shape]()[2],Self.grid.D)
+        var grid_shape = materialize[Self.grid.shape]()
+        var shape = Python.tuple(grid_shape[0],grid_shape[1],grid_shape[2])
+
         velocity_buffer = ((self.velocity.value()).buffer_to_numpy()).reshape(shape,order = 'F')
 
         if convert_from_lattice_units:
@@ -272,7 +274,8 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
             The Q-criterion field as a NumPy array.
         """
         
-        var shape = Python.tuple(Self.materialize[grid.shape]()[0],Self.materialize[grid.shape]()[1],Self.materialize[grid.shape]()[2])
+        var grid_shape = materialize[Self.grid.shape]()
+        var shape = Python.tuple(grid_shape[0],grid_shape[1],grid_shape[2])
         # shape.append(Self.grid.D)
 
         Q_criterion_np = ((self.Q_criterion.value()).buffer_to_numpy()).reshape(shape,order = 'F')
