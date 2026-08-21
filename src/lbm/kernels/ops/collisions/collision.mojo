@@ -10,12 +10,7 @@ from src.lbm.kernels.utils.checks import opposite_indices_are_adjacent,rest_dire
 
 
 @always_inline
-def SRT[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    weights:Vector[float_dtype,Q],
-    DDF_shift:Bool,
-    ](mut f_vec:Vector[float_dtype,Q],velocity:Vector[float_dtype,D],rho:Scalar[float_dtype],tau:Scalar[float_dtype]):
+def SRT[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](mut f_vec:Vector[float_dtype,Q],velocity:Vector[float_dtype,D],rho:Scalar[float_dtype],tau:Scalar[float_dtype], directions:InlineArray[Vector[int_dtype, D], Q], weights:Vector[float_dtype,Q], DDF_shift:Bool):
     """Applies the single-relaxation-time (BGK) collision operator.
 
     Updates the distribution vector in place using the
@@ -47,19 +42,7 @@ def SRT[
         f_vec[q] -= inv_tau*(f_vec[q]- f_eq(weight,rho,velocity,u_dot_u,direction, DDF_shift))
 
 @always_inline
-def TRT[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    weights:Vector[float_dtype,Q],
-    DDF_shift:Bool,
-    ]
-    (
-    mut f_vec:Vector[float_dtype,Q],
-    velocity:Vector[float_dtype,D],
-    rho:Scalar[float_dtype],
-    tau_symm:Scalar[float_dtype],
-    tau_asymm:Scalar[float_dtype],
-    ):
+def TRT[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](mut f_vec:Vector[float_dtype,Q],velocity:Vector[float_dtype,D],rho:Scalar[float_dtype],tau_symm:Scalar[float_dtype],tau_asymm:Scalar[float_dtype], directions:InlineArray[Vector[int_dtype, D], Q], weights:Vector[float_dtype,Q], DDF_shift:Bool):
     """Applies the two-relaxation-time collision operator.
 
     Splits the collision into symmetric and antisymmetric parts, each
@@ -166,21 +149,7 @@ def get_kbc_Qiab[
 
     return Q_i
 
-def RLBM[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int,//,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    weights:Vector[float_dtype,Q],
-    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],N],
-    DDF_shift:Bool,
-    ]
-    (
-    mut f_vec:Vector[float_dtype,Q],
-    f_neq:Vector[float_dtype,Q],
-    stress_neq:Vector[float_dtype,N],
-    rho:Scalar[float_dtype],
-    velocity:Vector[float_dtype,D],
-    tau:Scalar[float_dtype],
-    ):
+def RLBM[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int](mut f_vec:Vector[float_dtype,Q],f_neq:Vector[float_dtype,Q],stress_neq:Vector[float_dtype,N],rho:Scalar[float_dtype],velocity:Vector[float_dtype,D],tau:Scalar[float_dtype], directions:InlineArray[Vector[int_dtype, D], Q], weights:Vector[float_dtype,Q], stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],N], DDF_shift:Bool):
     """Applies the regularized LBM collision operator.
 
     Reconstructs the non-equilibrium distribution from the

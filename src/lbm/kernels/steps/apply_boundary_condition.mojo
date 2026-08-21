@@ -35,7 +35,7 @@ def apply_boundary_conditions[
     
     # Bounce Back AND PULL FLAGS
     comptime if config.include_moving_boundary and not exclude_moving_wall:
-        moving_wall_bc[directions,opposite_indices,weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
+        moving_wall_bc[lattice.directions,lattice.opposite_indices,lattice.weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
     # Equilibrium BC
     comptime if Flags.EQUILIBRIUM in config.INCLUDED_BCs:
-        equilibrium_bc[directions,weights,config.DDF_shift](f_vec,pull_flags,bc,index,grid_shape)
+        equilibrium_bc[lattice.directions,lattice.weights,config.DDF_shift](f_vec,pull_flags,bc,index,grid_shape)

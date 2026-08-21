@@ -32,6 +32,6 @@ def load_single_f[
     elif config.lbm_method == LBM_method.ESOTERIC_PULL:
         comptime assert is_even_time_step is not None, 'is_even_time_step cannot be none for esoteric pull config'
         comptime lattice = grid.lattice
-        return esoteric_pull_load_single_f[is_even_time_step.value(),grid.float_dtype,lattice.directions,config.use_float16c](f,index,q,materialize[grid.shape]())
+        return esoteric_pull_load_single_f(f,index,q,materialize[grid.shape](, lattice.directions))
     else:
         comptime assert False, 'Invalid lbm method used' 

@@ -76,7 +76,7 @@ def get_velocity_gradient[
     if adj_is_valid_left:
         var u1 = shared_u[adj_index[0],adj_index[1],adj_index[2],velocity_direction]
         var f1 = flags.load(dyn_coord[DType.int32]((adj_global_index[0],adj_global_index[1],adj_global_index[2])))[0]
-        left_grad,left_dx = get_adj_finite_difference[dx,'left'](adj_index,adj_global_index,f1,u1,u2,grid_shape)
+        left_grad,left_dx = get_adj_finite_difference[float_dtype, 'left'](adj_index,adj_global_index,f1,u1,u2,grid_shape, dx)
 
     adj_index[axis] += 2
     adj_global_index[axis] = (global_index[axis] + 1)
@@ -85,7 +85,7 @@ def get_velocity_gradient[
     if adj_is_valid_right:
         u3 = shared_u[adj_index[0],adj_index[1],adj_index[2],velocity_direction]
         f3 = flags.load(dyn_coord[DType.int32]((adj_global_index[0],adj_global_index[1],adj_global_index[2])))[0]
-        right_grad,right_dx = get_adj_finite_difference[dx,'right'](adj_index,adj_global_index,f3,u3,u2,grid_shape)
+        right_grad,right_dx = get_adj_finite_difference[float_dtype, 'right'](adj_index,adj_global_index,f3,u3,u2,grid_shape, dx)
 
     total_dx = left_dx + right_dx
 
@@ -97,8 +97,7 @@ def get_velocity_gradient[
 
 @always_inline
 def get_adj_finite_difference[
-    float_dtype:DType,//,
-    dx:Scalar[float_dtype],
+    float_dtype:DType,
     side:StaticString = 'right',
     ]
     (
@@ -107,7 +106,9 @@ def get_adj_finite_difference[
     adj_flag:UInt8,
     adj_u:Scalar[float_dtype],
     u:Scalar[float_dtype],
-    grid_shape:InlineArray[Int,3])
+    grid_shape:InlineArray[Int,3],
+    dx:Scalar[float_dtype],
+    )
     -> Tuple[Scalar[float_dtype],Scalar[float_dtype]]:
     """Returns a one-sided finite difference and its effective `dx`.
 

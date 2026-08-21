@@ -44,7 +44,7 @@ def collide[
     var directions = materialize[lattice.directions]()
     comptime opposite_indices = lattice.opposite_indices
     var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
-    comptime stress_indices = lattice.stress_indices
+    var stress_indices = materialize[lattice.stress_indices]()
 
     # Get Velocity and Density
     rho = get_density[config.DDF_shift](f_vec)
@@ -69,22 +69,22 @@ def collide[
         strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau_local)
         comptime if config.LES:
             comptime Cs = 0.1
-            tau_eddy = get_Smagorinsky_LES_tau[stress_indices](strain_rate,Cs)
+            tau_eddy = get_Smagorinsky_LES_tau(strain_rate,Cs, materialize[lattice.stress_indices]())
             tau_local += tau_eddy
 
         comptime if config.collision_op == Collisions.RLBM:
-            RLBM[directions,weights,stress_indices,config.DDF_shift](f_vec,f_neq,second_moment_neq,rho,velocity,tau_local)
+            RLBM(f_vec,f_neq,second_moment_neq,rho,velocity,tau_local, directions,weights,stress_indices,config.DDF_shift)
         elif config.collision_op == Collisions.KBC:
-            KBC[directions,weights,config.DDF_shift](f_vec,f_neq,second_moment_neq,rho,velocity,tau_local)
+            KBC(f_vec,f_neq,second_moment_neq,rho,velocity,tau_local, directions,weights,config.DDF_shift)
     
     # Collision Term
     # comptime assert config.collision_op_is_valid(), 'Collision operator must be either SRT or TRT'
     comptime if config.collision_op == Collisions.SRT:
-        SRT[directions,weights,config.DDF_shift](f_vec,velocity,rho,tau_local)
+        SRT(f_vec,velocity,rho,tau_local, directions,weights,config.DDF_shift)
     elif config.collision_op == Collisions.TRT:
         comptime TRT_magic_param = 3./16.
         tau_asymm = 0.5 + TRT_magic_param/(tau_local-0.5)
-        TRT[directions,weights,config.DDF_shift](f_vec,velocity,rho,tau_local,tau_asymm)
+        TRT(f_vec,velocity,rho,tau_local,tau_asymm, directions,weights,config.DDF_shift)
     else:
         comptime assert config.collision_op_is_valid() ,'Invalid Collision Operator specified'
 

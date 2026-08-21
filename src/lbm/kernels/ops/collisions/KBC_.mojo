@@ -178,10 +178,7 @@ def get_shear_D2Q9[
 
 @always_inline
 def KBC[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int,//,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    weights:Vector[float_dtype,Q],
-    DDF_shift:Bool,
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int,
     ](
     mut f_vec:Vector[float_dtype,Q],
     f_neq:Vector[float_dtype,Q],
@@ -189,6 +186,9 @@ def KBC[
     rho:Scalar[float_dtype],
     u:Vector[float_dtype,D],
     tau:Scalar[float_dtype],
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    weights:Vector[float_dtype,Q],
+    DDF_shift:Bool,
     *,
     # min_gamma:Scalar[float_dtype] = 1.,
     # max_gamma:Scalar[float_dtype] = 3.,

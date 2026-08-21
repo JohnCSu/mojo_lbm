@@ -22,6 +22,7 @@ from src.lbm.preprocess import initialize_fluid_at_rest
 from src.utils import Vector, ContextTileTensor
 from src.lbm.kernels import double_buffer_kernel
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
+from max.benchmark import bencher_iter_custom
 
 @always_inline
 def run_benchmark[
@@ -106,7 +107,7 @@ def run_benchmark[
     ctx.synchronize()
 
     @always_inline
-    def run_kernel(ctx: DeviceContext) capturing raises:
+    def run_kernel(ctx: DeviceContext) raises {imm}:
         ctx.enqueue_function[LBM_kernel_](
             f_out.gpu(),
             f.gpu().as_immut(),
@@ -127,7 +128,7 @@ def run_benchmark[
         )
         ctx.synchronize()
 
-    b.iter_custom[run_kernel](ctx)
+    bencher_iter_custom(b, run_kernel, ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())
     keep(f.gpu_buffer().unsafe_ptr())
     keep(flags.gpu_buffer().unsafe_ptr())
