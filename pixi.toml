@@ -25,6 +25,7 @@ mojo_lbm = { path = ".", editable = true }
 lbm = "python buildLBM.py"
 compiletest = "python compiletest.py"
 precompile_test = "mojo precompile src -o src.mojoc --disable-warnings"
+replace = "source ./replace.sh"
 
 [feature.dev.dependencies]
 nodejs = "*" # Node, npm, and npx live here
