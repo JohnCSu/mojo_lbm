@@ -114,7 +114,7 @@ def calculate_rho_and_velocity[
             apply_boundary_conditions[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
 
             rho = get_density[config.DDF_shift](f_vec)
-            u = get_velocity(f_vec,rho, lattice.directions)
+            u = get_velocity(f_vec,rho, directions)
         else:# Get the BC For that node
             comptime for ii in range(D):
                 u[ii] = bc.load(dyn_coord[DType.int32]((index[0],index[1],index[2],ii)))[0]

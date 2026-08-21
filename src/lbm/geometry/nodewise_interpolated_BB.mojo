@@ -107,7 +107,7 @@ def nodewise_bounceback_kernel[
     var weights = materialize[lattice.weights]()
     var directions = materialize[lattice.directions]()
     var float_directions = materialize[lattice.float_directions]()
-    comptime opposite_indices = lattice.opposite_indices
+
     comptime assert config.lbm_method == constants.DOUBLE_BUFFER
     # Should be a 1D based kernel loop
 
@@ -152,7 +152,7 @@ def nodewise_bounceback_kernel[
                     q_dist = link_distances[i]
                     q_dist = max(q_dist,q_clamp)
                     # Do bouceback here
-                    opp_q = Int(opposite_indices[q])
+                    opp_q = Int(opposite_index[q])
                     comptime if bounceback_method == Bounceback_method.BOUZIDI:
                         # We need the prestreamed values but we have the streamed values with midgrid Bounceback
                         f_into_wall = f_vec[opp_q] # This value has been bounced back
