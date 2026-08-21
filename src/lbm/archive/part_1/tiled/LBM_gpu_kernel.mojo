@@ -79,7 +79,7 @@ def LBM_kernel[
             f_opp = f_in_lt.load_scalar(opposite_index[q],x,y,z) # Need this as  Element Type is a Simd Vec of size 1
             direction = directions[q]
             
-            pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
+            pull_index = get_adjacent_idx[-1](index,grid_shape,direction) # Pulling Scheme
             pulled_f = f_in_lt.load_scalar(q,pull_index[0],pull_index[1],pull_index[2])            
             pulled_flag = flags_lt.load_scalar(pull_index[0],pull_index[1],pull_index[2])
 
@@ -104,11 +104,11 @@ def LBM_kernel[
 
 
 @always_inline
-def get_adjacent_idx[int_dtype:DType,D:Int,//,shift:Scalar[int_dtype] = 1](index:Vector[int_dtype,3],grid_shape:Vector[int_dtype,3],direction:Vector[int_dtype,D],) -> Vector[int_dtype,3]:
+def get_adjacent_idx[int_dtype:DType,D:Int,//,shift:Scalar[DType.int32] = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[int_dtype,D],) -> Vector[DType.int32,3]:
     comptime assert D <= 3 
-    var adj_index = Vector[int_dtype,3](uninitialized = True)
+    var adj_index = Vector[DType.int32,3](uninitialized = True)
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*(direction[d])) % grid_shape[d]
+        adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
     return adj_index
 
 
