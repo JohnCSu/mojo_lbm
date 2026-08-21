@@ -54,7 +54,7 @@ def get_sphere_boundary_indices[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
-    comptime latticeModel = grid.lattice
+    var latticeModel = materialize[grid.lattice]()
 
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))

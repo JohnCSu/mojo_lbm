@@ -48,7 +48,7 @@ def collide[
 
     # Get Velocity and Density
     rho = get_density[config.DDF_shift](f_vec)
-    velocity = get_velocity[directions](f_vec,rho)
+    velocity = get_velocity(f_vec,rho, directions)
     tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
 
     comptime if config.capture_density:
@@ -64,8 +64,8 @@ def collide[
     
     # Non eq ops
     comptime if config.implies_f_noneq():
-        f_neq = get_f_noneq_vec[False,directions,weights,config.DDF_shift](f_vec,rho,velocity,tau_local)
-        second_moment_neq = get_non_eq_second_order_moment[directions,stress_indices](f_neq)
+        f_neq = get_f_noneq_vec[False](f_vec,rho,velocity,tau_local, directions,weights,config.DDF_shift)
+        second_moment_neq = get_non_eq_second_order_moment(f_neq, directions,stress_indices)
         strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau_local)
         comptime if config.LES:
             comptime Cs = 0.1

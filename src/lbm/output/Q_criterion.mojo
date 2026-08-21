@@ -206,13 +206,13 @@ def calculate_Q_criterion[
         apply_boundary_conditions[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
 
         var rho = get_density[config.DDF_shift](f_vec)
-        var u = get_velocity[lattice.directions](f_vec,rho)
+        var u = get_velocity(f_vec,rho, lattice.directions)
 
-        var f_neq = get_f_noneq_vec[False,directions,weights,config.DDF_shift](f_vec,rho,u,tau)
-        var second_moment_neq = get_non_eq_second_order_moment[directions,stress_indices](f_neq)
+        var f_neq = get_f_noneq_vec[False](f_vec,rho,u,tau, directions,weights,config.DDF_shift)
+        var second_moment_neq = get_non_eq_second_order_moment(f_neq, directions,stress_indices)
         var strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau)
 
-        ss_norm_sq = get_strain_rate_tensor_norm_squared[stress_indices](strain_rate)
+        ss_norm_sq = get_strain_rate_tensor_norm_squared(strain_rate, stress_indices)
 
         Q_crit = 0.25*vort_norm_sq - 0.5*ss_norm_sq
         Q_tensor.store(coord_index,value= Q_crit)

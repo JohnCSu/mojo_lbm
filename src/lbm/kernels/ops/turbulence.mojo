@@ -33,6 +33,6 @@ def get_Smagorinsky_LES_tau[
         The eddy relaxation time `tau_eddy` in lattice units.
     """
     # Calculate Frobenius Norm
-    s_norm = get_strain_rate_tensor_norm_squared[stress_indices](strain_rate_tensor)
+    s_norm = get_strain_rate_tensor_norm_squared(strain_rate_tensor, stress_indices)
     v_eddy_lat = (Cs*Cs)*(sqrt(2*s_norm))
     return 3*v_eddy_lat # tau = v_eddt/cs^2 --> 1/cs^2 == 3

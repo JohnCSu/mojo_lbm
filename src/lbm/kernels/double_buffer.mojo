@@ -72,7 +72,7 @@ def double_buffer_kernel[
     var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     comptime non_temporal = True
     # comptime assert f_out.flat_rank == 8
-    comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
+    comptime assert not lattice.directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
     comptime assert config.lbm_method == LBM_method.DOUBLE_BUFFER
     x = block_idx.x*block_dim.x + thread_idx.x
     y = block_idx.y*block_dim.y + thread_idx.y

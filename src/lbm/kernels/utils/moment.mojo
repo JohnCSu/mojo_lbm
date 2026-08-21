@@ -43,12 +43,11 @@ def get_density[
 
 @always_inline
 def get_velocity[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    directions:InlineArray[Vector[int_dtype,D],Q],
-    ]
-    (
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,
+    ](
     f_vec:Vector[float_dtype,Q],
     density:Scalar[float_dtype],
+    directions:InlineArray[Vector[int_dtype,D],Q],
     ) -> Vector[float_dtype,D] 
     :
     
@@ -68,19 +67,17 @@ def get_velocity[
         The lattice velocity vector `u`.
     """
     comptime assert not int_dtype.is_floating_point()
-    velocity = Vector[float_dtype,D](fill =0)
+    var velocity = Vector[float_dtype,D](fill =0)
     comptime for q in range(Q):
-        comptime float_direction = directions[q].cast_to[float_dtype]()
+        var float_direction = directions[q].cast_to[float_dtype]()
         velocity += f_vec[q]*float_direction
     velocity /= density
-    return velocity
+    return velocity^
 
 
 
 @always_inline
-def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    directions:InlineArray[Vector[int_dtype, D], Q]]
-    (f_neq:Vector[float_dtype,Q],a:Int,b:Int)
+def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](f_neq:Vector[float_dtype,Q],a:Int,b:Int, directions:InlineArray[Vector[int_dtype, D], Q])
     -> Scalar[float_dtype]:
 
     """Returns the second-order moment $$\\sum_q f_q^{neq} e_{q,a} e_{q,b}$$.
@@ -100,9 +97,9 @@ def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     Returns:
         The second-order moment $$Q_{a,b}$$.
     """
-    Qiab:Scalar[float_dtype] = 0.
+    var Qiab:Scalar[float_dtype] = 0.
     comptime for q in range(0,Q):
-        comptime direction_q = directions[q].cast_to[float_dtype]()
+        var direction_q = directions[q].cast_to[float_dtype]()
         Qiab +=f_neq[q]*direction_q[a]*direction_q[b]
     return Qiab
 
@@ -114,12 +111,10 @@ def get_non_eq_second_order_moment[
     D:Int,
     Q:Int,
     n_stress:Int,
-    //,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
-    ]
-    (
+    ](
         f_neq:Vector[float_dtype,Q],
+        directions:InlineArray[Vector[int_dtype, D], Q],
+        stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
     ) -> Vector[float_dtype,n_stress]:
 
     """Returns the symmetric non-equilibrium second-order moment vector.
@@ -140,14 +135,14 @@ def get_non_eq_second_order_moment[
     Returns:
         A `Vector` of length `n_stress` holding the second-order moments.
     """
-    Q_neq = Vector[float_dtype,n_stress](uninitialized=True)
+    var Q_neq = Vector[float_dtype,n_stress](uninitialized=True)
     comptime assert n_stress == D*(D+1)//2
     comptime for n in range(n_stress):
         comptime alpha = Int(stress_indices[n][0])
         comptime beta  = Int(stress_indices[n][1])
-        Q_neq[n] = get_Qiab[directions](f_neq,alpha,beta)
+        Q_neq[n] = get_Qiab(f_neq,alpha,beta, directions)
 
-    return Q_neq
+    return Q_neq^
 
 
 @always_inline
@@ -180,10 +175,10 @@ def get_strain_rate_tensor[
 
 @always_inline
 def get_strain_rate_tensor_norm_squared[
-    float_dtype:DType,int_dtype:DType,n_stress:Int,//,
-    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
+    float_dtype:DType,int_dtype:DType,n_stress:Int,
     ](
-    strain_rate_tensor:Vector[float_dtype,n_stress]
+    strain_rate_tensor:Vector[float_dtype,n_stress],
+    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
     ) -> Scalar[float_dtype]:
 
     """Returns the squared Frobenius norm of the strain-rate tensor.
@@ -203,10 +198,10 @@ def get_strain_rate_tensor_norm_squared[
     Returns:
         The squared Frobenius norm $$\\|S\\|_F^2$$.
     """
-    ss = strain_rate_tensor*strain_rate_tensor
-    s_norm_squared = Scalar[float_dtype](0)
+    var ss = strain_rate_tensor*strain_rate_tensor
+    var s_norm_squared = Scalar[float_dtype](0)
     comptime for n in range(n_stress):
-        comptime if stress_indices[n][0] != stress_indices[n][1]: # Alpha != Beta -> off diagonals
+        if stress_indices[n][0] != stress_indices[n][1]: # Alpha != Beta -> off diagonals
             s_norm_squared += ss[n]*2 # 2 as is symmetric tensor so double count off-diagonals
         else:
             s_norm_squared += ss[n]

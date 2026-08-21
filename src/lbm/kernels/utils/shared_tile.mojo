@@ -36,8 +36,8 @@ def get_global_index_for_shared_memory[D:Int,tile_shape:Tuple[Int,Int,Int]]
         The global `(x, y, z)` lattice index.
     """
 
-    comptime shift:InlineArray[Int,3] = [1,1 if D >= 2 else 0, 1 if D == 3 else 0]
-
+    comptime shift_:InlineArray[Int,3] = [1,1 if D >= 2 else 0, 1 if D == 3 else 0]
+    shift = materialize[shift_]()
     adj_local_index = InlineArray[Int,3](fill =0)
     adj_block_index = InlineArray[Int,3](fill =0)
 
@@ -52,7 +52,7 @@ def get_global_index_for_shared_memory[D:Int,tile_shape:Tuple[Int,Int,Int]]
     comptime for d in range(D):
         global_index[d] = adj_local_index[d] + adj_block_index[d]*tile_shape[d]
 
-    return global_index
+    return global_index^
 
 
 @always_inline

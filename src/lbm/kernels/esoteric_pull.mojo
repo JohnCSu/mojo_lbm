@@ -75,19 +75,13 @@ def esoteric_pull_kernel[
     var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     
     # Comptime asserts
-    comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
+    comptime assert not lattice.directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
     comptime assert lattice.is_valid_for_esoteric_pull(),'Except the first direction, velocitys direction should be followed by their opposite direction'
     comptime assert config.lbm_method == LBM_method.ESOTERIC_PULL
 
-    comptime D = grid.D
-    comptime Q = grid.Q
-    comptime float_dtype = grid.float_dtype
-    comptime lattice = grid.lattice
-    var directions = materialize[lattice.directions]()
-    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     comptime non_temporal = True
     # comptime assert f_out.flat_rank == 8
-    comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
+    comptime assert not lattice.directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
 
     x = block_idx.x*block_dim.x + thread_idx.x
     y = block_idx.y*block_dim.y + thread_idx.y

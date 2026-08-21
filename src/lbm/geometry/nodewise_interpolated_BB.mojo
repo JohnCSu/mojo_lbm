@@ -138,7 +138,7 @@ def nodewise_bounceback_kernel[
             stream[grid,config](f_vec,pull_flags,f_in,flags,flag,index,grid_shape)
             
             rho = get_density[config.DDF_shift](f_vec)
-            u = get_velocity[directions](f_vec,rho)
+            u = get_velocity(f_vec,rho, directions)
 
             var ith_valid_link:type_of(row_start) = 0
             var force_vec = Vector[float_dtype,D](fill = 0)

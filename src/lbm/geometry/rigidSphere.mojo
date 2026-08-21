@@ -62,7 +62,7 @@ def get_rigid_sphere[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
-    comptime latticeModel = grid.lattice
+    var latticeModel = materialize[grid.lattice]()
 
     if Q > 32:
         raise Error('BitmaskCSR supports at most 32 columns, got Q='+String(Q))

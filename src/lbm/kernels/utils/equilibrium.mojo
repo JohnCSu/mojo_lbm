@@ -39,15 +39,13 @@ def f_eq[dtype:DType, D:Int](weight:Scalar[dtype], density:Scalar[dtype], veloci
 
 
 @always_inline
-def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
+def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](
+    f_vec:Vector[float_dtype,Q],
+    density:Scalar[float_dtype],
+    velocity:Vector[float_dtype,D],
     directions:InlineArray[Vector[int_dtype, D], Q],
     weights:Vector[float_dtype, Q],
     DDF_shift:Bool,
-    ]
-    (
-    f_vec:Vector[float_dtype,Q],
-    density:Scalar[float_dtype],
-    velocity:Vector[float_dtype,D]
     )
     -> Vector[float_dtype,Q]:
     """Returns the equilibrium distribution for all `Q` discrete velocities.
@@ -70,26 +68,25 @@ def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
         A `Vector` of length `Q` holding the equilibrium populations.
     """
     var f_eq_vec =Vector[float_dtype,Q](uninitialized = True)
-    u_dot_u = velocity.dot(velocity)
+    var u_dot_u = velocity.dot(velocity)
     comptime for q in range(Q):
-        comptime float_direction = directions[q].cast_to[float_dtype]()
+        var float_direction = directions[q].cast_to[float_dtype]()
         f_eq_vec[q] = f_eq(weights[q],density,velocity,u_dot_u,float_direction, DDF_shift)
-    return f_eq_vec
+    return f_eq_vec^
 
 
 @always_inline
 def get_f_noneq_vec[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,
     post_collision:Bool,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    weights:Vector[float_dtype, Q],
-    DDF_shift:Bool,
-    ]
-    (
+    ](
     f_vec:Vector[float_dtype,Q],
     density:Scalar[float_dtype],
     velocity:Vector[float_dtype,D],
-    tau:Scalar[float_dtype]
+    tau:Scalar[float_dtype],
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    weights:Vector[float_dtype, Q],
+    DDF_shift:Bool,
     )
     -> Vector[float_dtype,Q]:
     """Returns the non-equilibrium part of `f` for all `Q` directions.
@@ -114,7 +111,7 @@ def get_f_noneq_vec[
     Returns:
         A `Vector` of length `Q` holding the non-equilibrium populations.
     """
-    var f_neq = f_vec - get_f_eq_vec[directions,weights,DDF_shift](f_vec,density,velocity) 
-    comptime if post_collision:
+    var f_neq = f_vec - get_f_eq_vec(f_vec,density,velocity, directions,weights,DDF_shift) 
+    if post_collision:
         f_neq *= (tau/(tau-1)) # Post collision term
-    return f_neq
+    return f_neq^

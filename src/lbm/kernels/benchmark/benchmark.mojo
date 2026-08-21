@@ -17,14 +17,16 @@ from layout.tile_layout import (
 from std.gpu import block_dim, block_idx, thread_idx
 from std.collections import InlineArray
 from src.lbm import (
-from src.lbm.constants import LBM_method
-    SOLID_NODE,
-    FLUID_NODE,
     LBM_Grid,
     get_D2Q9,
     Lattice,
     set_exterior_walls,
     LBM_Config,
+)
+from src.lbm.constants import (
+    LBM_method,
+    SOLID_NODE,
+    FLUID_NODE,
 )
 from src.lbm.preprocess import initialize_fluid_at_rest
 from src.utils import Vector, ContextTileTensor

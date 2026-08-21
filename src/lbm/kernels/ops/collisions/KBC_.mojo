@@ -221,7 +221,7 @@ def KBC[
     comptime _eps = 1e-32
     var beta = 1/(2*tau)
     var inv_beta = 2*tau
-    var f_equil = get_f_eq_vec[directions,weights,False](f_vec,rho,u)
+    var f_equil = get_f_eq_vec(f_vec,rho,u, directions,weights,False)
 
     comptime if (D==2 and Q ==9):
         ds = rebind[Vector[float_dtype,Q]](get_shear_D2Q9(stress_neq))

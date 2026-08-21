@@ -59,7 +59,7 @@ def benchmark_func[
 
     ctx.synchronize()
     #Compile Functions
-    comptime LBM_kernel_ref_2172 = reorderThreads.LBM_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid]
+    comptime LBM_kernel_ref_2172 = LBM_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid]
     LBM_func = ctx.compile_function[LBM_kernel_ref_2172]()
     ctx.synchronize()
     
