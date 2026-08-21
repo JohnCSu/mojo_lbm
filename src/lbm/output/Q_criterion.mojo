@@ -69,20 +69,20 @@ def calculate_vorticity[
     comptime assert (N == 1 and D == 2) or (N == 3 and D == 3)
 
     comptime if D == 2: # Lattice Units so dx is = 1
-        dv_dx = get_velocity_gradient[1](shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 0)
-        du_dy = get_velocity_gradient[1](shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 1)
+        dv_dx = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 0)
+        du_dy = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 1)
 
         vorticity_vector = Vector[float_dtype,N](dv_dx- du_dy)
     else:
         # ex
-        dw_dy = get_velocity_gradient[1](shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 2,axis = 1)
-        dv_dz = get_velocity_gradient[1](shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 2)
+        dw_dy = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 2,axis = 1)
+        dv_dz = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 2)
         # ey
-        du_dz = get_velocity_gradient[1](shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 2)
-        dw_dx = get_velocity_gradient[1](shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 2,axis = 0)
+        du_dz = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 2)
+        dw_dx = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 2,axis = 0)
         # ez
-        dv_dx = get_velocity_gradient[1](shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 0)
-        du_dy = get_velocity_gradient[1](shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 1)
+        dv_dx = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 0)
+        du_dy = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 1)
 
         vorticity_vector = Vector[float_dtype,N](dw_dy-dv_dz,du_dz-dw_dx,dv_dx-du_dy)
 
@@ -182,7 +182,7 @@ def calculate_Q_criterion[
     var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
     var flag = flags.load(coord_index)
 
-    comptime stress_indices = lattice.stress_indices
+    var stress_indices = materialize[lattice.stress_indices]()
     var directions = materialize[lattice.directions]()
     var weights = materialize[lattice.weights]()
     comptime opposite_indices = lattice.opposite_indices
@@ -206,7 +206,7 @@ def calculate_Q_criterion[
         apply_boundary_conditions[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
 
         var rho = get_density[config.DDF_shift](f_vec)
-        var u = get_velocity(f_vec,rho, lattice.directions)
+        var u = get_velocity(f_vec,rho, directions)
 
         var f_neq = get_f_noneq_vec[False](f_vec,rho,u,tau, directions,weights,config.DDF_shift)
         var second_moment_neq = get_non_eq_second_order_moment(f_neq, directions,stress_indices)

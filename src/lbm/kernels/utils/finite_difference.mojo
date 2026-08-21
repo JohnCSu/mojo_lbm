@@ -16,8 +16,7 @@ from .index import is_index_valid
 
 @always_inline
 def get_velocity_gradient[
-    float_dtype:DType,sharedType:TensorLayout,flagType:TensorLayout,//,
-    dx:Scalar[float_dtype]
+    float_dtype:DType,sharedType:TensorLayout,flagType:TensorLayout,//
     ]
     (
     shared_u:TileTensor[float_dtype,sharedType,_,address_space = AddressSpace.SHARED],
@@ -27,6 +26,7 @@ def get_velocity_gradient[
     grid_shape:InlineArray[Int,3],
     velocity_direction:Int,
     axis:Int,
+    dx:Scalar[float_dtype] = 1.,
     ) -> Scalar[float_dtype]:
     """Returns the velocity gradient along one axis using shared memory.
 
