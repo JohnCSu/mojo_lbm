@@ -1,9 +1,10 @@
-from std.gpu import block_dim,block_idx,thread_idx,barrier,grid_dim
-from layout import TileTensor,LayoutTensor,coord
+from std.gpu import block_dim,block_idx,thread_idx,grid_dim
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,col_major,Coord,TensorLayout
 from max.gpu.memory import AddressSpace
-from std.gpu import barrier
 from src.lbm.lattice import Lattice
 from src.lbm import LBM_Grid
 from src.lbm.constants import SOLID_NODE,FLUID_NODE
@@ -50,10 +51,10 @@ def LBM_kernel[
     comptime assert FlayoutType.static_shape[6] == Q
     comptime assert tile_size % 2 == 0 or tile_size == 1,'Tile size must be even or 1'
 
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
-    comptime opposite_index = lattice.opposite_indices
-    comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
+    var opposite_index = materialize[lattice.opposite_indices]()
+    var grid_shape:InlineArray[Int,3] = [nx,ny,nz]
 
     # comptime assert tile_size >= 5 if D == 2 else tile_size >= 8
     block_x,block_dim_x = block_idx.x,block_dim.x
@@ -101,7 +102,7 @@ def LBM_kernel[
         comptime for q in range(Q):
             direction = directions[q]
             pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
-            pulled_f = f_in.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
+            pulled_f = f_in.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
             
             local_flag_x = local_x + shift_x - Int(direction[0])
             local_flag_y = local_y + shift_y - (Int(direction[1]) if D >= 2 else 0)
@@ -110,10 +111,10 @@ def LBM_kernel[
             f_new[q] = pulled_f #if pulled_flag == FLUID_NODE else f_new[q]
 
             if pulled_flag == SOLID_NODE:
-                f_opp = f_in.load(coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
+                f_opp = f_in.load(dyn_coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
                 comptime for ii in range(D):
-                    velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
-                rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
+                    velocity[ii] = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
+                rho = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
                 f_new[q] = f_opp + 2.*3.*weights[q]*rho*(directions[q].cast_to[float_dtype]().dot(velocity))
 
     # Get Velocity and Density
@@ -129,7 +130,7 @@ def LBM_kernel[
 
     comptime for q in range(Q):
         f_eq = SRT(weights[q],rho,velocity,u_dot_u,directions[q].cast_to[float_dtype]())            
-        f_out.store(coord = coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
+        f_out.store(coord = dyn_coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
 
 
 
@@ -178,7 +179,7 @@ def sync_set_shared_flags[dtype:DType,
         gy = s_local_index[1] + s_block_index[1]*tile_size
         gz = s_local_index[2] + s_block_index[2]*tile_size
         
-        shared_flags[sx,sy,sz] = flags.load(coord[DType.int32]((gx,gy,gz)))
+        shared_flags[sx,sy,sz] = flags.load(dyn_coord[DType.int32]((gx,gy,gz)))
     # barrier()
 
 
@@ -200,7 +201,7 @@ def get_global_xyz_from_block_and_local_idx_old[D:Int,FlagLayoutType:TensorLayou
         sign = -1 if local_index[d] < 0 else 1
         next_block =  local_index[d] < 0 or local_index[d] >= tile_size
         adj_block_index[d] = (block_index[d] + (sign if next_block else 0)) % FlagLayoutType.static_shape[1+2*d if is_nested else d]
-    return adj_local_index,adj_block_index
+    return adj_local_index^, adj_block_index^
 
 
 
@@ -222,7 +223,7 @@ def get_global_xyz_from_block_and_local_idx[D:Int,flag_layout:Layout[...],tile_s
         sign = -1 if local_index[d] < 0 else 1
         next_block =  local_index[d] < 0 or local_index[d] >= tile_size
         adj_block_index[d] = (block_index[d] + (sign if next_block else 0)) % flag_layout.static_shape[1+2*d if is_nested else d]
-    return adj_local_index,adj_block_index
+    return adj_local_index^, adj_block_index^
 
 
 
@@ -232,8 +233,8 @@ def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,
     comptime assert D <= 3 
     adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
-    return adj_index
+        adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
+    return adj_index^
 
 @always_inline
 def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:

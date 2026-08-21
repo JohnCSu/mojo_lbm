@@ -9,7 +9,7 @@ from layout import TileTensor,CoordLike
 from layout.tile_layout import TensorLayout,Layout
 from .primatives import add_box,add_sphere,get_sphere_boundary_indices
 from src.lbm import LBM_Grid,Lattice,LBM_Config,UnitSystem
-from layout import TileTensor,row_major,col_major,coord
+from layout import TileTensor,row_major,col_major
 from src.utils import ContextTileTensor
 from max.gpu.host import DeviceContext
 from src.utils import Vector

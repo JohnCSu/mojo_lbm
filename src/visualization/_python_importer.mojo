@@ -54,11 +54,11 @@ def grid_viewer[
 
     visualizer = pv_view.Pyvista_Visualizer(
         grid.D,
-        Python.tuple(grid.origin[0], grid.origin[1], grid.origin[2]),
+        Python.tuple(materialize[grid.origin]()[0], materialize[grid.origin]()[1], materialize[grid.origin]()[2]),
         Python.tuple(
             grid.domain_size[0], grid.domain_size[1], grid.domain_size[2]
         ),
-        Python.tuple(grid.shape[0], grid.shape[1], grid.shape[2]),
+        Python.tuple(materialize[grid.shape]()[0], materialize[grid.shape]()[1], materialize[grid.shape]()[2]),
         Python.tuple(subplot_shape[0], subplot_shape[1]),
     )
 

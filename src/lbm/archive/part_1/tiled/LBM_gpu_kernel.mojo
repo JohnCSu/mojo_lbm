@@ -37,10 +37,10 @@ def LBM_kernel[
     comptime nz = grid.nz
 
     # Convience Variable Names and constants
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
-    comptime opposite_index = lattice.opposite_indices
-    comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
+    var opposite_index = materialize[lattice.opposite_indices]()
+    var grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
 
     # Conversion to Layout Tensor as tiletensor.to_layout_tensor() does not support nested
     comptime f_as_lt = LayoutTensor[float_dtype,Flayout.to_layout(),MutAnyOrigin]
@@ -109,7 +109,7 @@ def get_adjacent_idx[int_dtype:DType,D:Int,//,shift:Scalar[DType.int32] = 1](ind
     var adj_index = Vector[DType.int32,3](uninitialized = True)
     comptime for d in range(D):
         adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
-    return adj_index
+    return adj_index^
 
 
 @always_inline

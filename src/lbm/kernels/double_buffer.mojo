@@ -5,11 +5,13 @@ post-collision populations to `f_out`, so the caller swaps the two buffers
 between time steps. A single kernel serves the D2Q9, D3Q19, and D3Q27
 lattice models through compile-time parameterization.
 """
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
-from std.gpu import block_dim,block_idx,thread_idx,barrier
+from std.gpu import block_dim,block_idx,thread_idx
+from max.gpu.sync import barrier
 
 from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams,LBM_method
 from src.lbm.constants import Flags,cs_squared,Collisions
@@ -66,8 +68,8 @@ def double_buffer_kernel[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime lattice = grid.lattice
-    comptime directions = lattice.directions
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    var directions = materialize[lattice.directions]()
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     comptime non_temporal = True
     # comptime assert f_out.flat_rank == 8
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
@@ -79,7 +81,7 @@ def double_buffer_kernel[
     var index:InlineArray[Int,3] = [x,y,z]
 
     # Main Compute
-    coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+    coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
     var flag = flags.load(coord_index)[0]
 
     if is_valid_thread(index,grid_shape,flag):
@@ -96,4 +98,3 @@ def double_buffer_kernel[
         store_f_vec_to_global[grid,config](f_out,f_vec,index)
         # comptime for q in range(Q):
         #     store_f[config.use_float16c,non_temporal](f_out,f_vec[q],index,q)
-

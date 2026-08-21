@@ -1,4 +1,4 @@
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.lbm import LBM_Grid,LBM_Config,Flags,GridLike,LBM_method
@@ -27,7 +27,7 @@ def store_f_vec_to_global[
     index:InlineArray[Int,3],
     ):
     comptime lattice = grid.lattice
-    comptime grid_shape = grid.shape
+    var grid_shape = materialize[grid.shape]()
     comptime Q = grid.Q
     
     comptime if config.lbm_method == LBM_method.DOUBLE_BUFFER:

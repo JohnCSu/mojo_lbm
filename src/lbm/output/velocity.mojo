@@ -5,13 +5,16 @@ Reads the distribution function, applies boundary conditions, and
 computes the macroscopic density and velocity moments for each lattice
 node.
 """
-from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
-from layout import TileTensor,LayoutTensor,coord
+from std.gpu import block_dim,block_idx,thread_idx,grid_dim
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from layout.tile_tensor import stack_allocation
 from max.gpu.memory import AddressSpace
 
 from src.lbm import LBM_Grid,LBM_Config,Lattice,GridLike,LBM_method
+from src.lbm.constants import SOLID_NODE
 from src.utils import Vector,ContextTileTensor
 
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
@@ -78,10 +81,10 @@ def calculate_rho_and_velocity[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime lattice = grid.lattice
-    comptime directions = lattice.directions
+    var directions = materialize[lattice.directions]()
     comptime opposite_indices = lattice.opposite_indices
-    comptime weights = lattice.weights
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    var weights = materialize[lattice.weights]()
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     comptime assert velocity.rank == velocity.flat_rank and density.rank == density.flat_rank, 'Velocity and Density Tensors should be non-nested and row-major or col-major'
 
     comptime D_is_last_dim = (VelocityLayoutType.static_shape[0] == grid.nx and
@@ -95,7 +98,7 @@ def calculate_rho_and_velocity[
     var z = block_dim.z * block_idx.z + thread_idx.z
     var index:InlineArray[Int,3] = [x,y,z]
     var f_vec = Vector[float_dtype,Q](fill = 0)
-    coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+    coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
 
     var flag = flags.load(coord_index)[0]
 
@@ -114,12 +117,12 @@ def calculate_rho_and_velocity[
             u = get_velocity[lattice.directions](f_vec,rho)
         else:# Get the BC For that node
             comptime for ii in range(D):
-                u[ii] = bc.load(coord[DType.int32]((index[0],index[1],index[2],ii)))[0]
-            rho = bc.load(coord[DType.int32]((index[0],index[1],index[2],D)))[0]
+                u[ii] = bc.load(dyn_coord[DType.int32]((index[0],index[1],index[2],ii)))[0]
+            rho = bc.load(dyn_coord[DType.int32]((index[0],index[1],index[2],D)))[0]
 
         density.store(coord_index,rho)
         comptime for d in range(D):
             comptime if D_is_last_dim:
-                velocity.store(coord[DType.int32]((index[0],index[1],index[2],d)), value = u[d])
+                velocity.store(dyn_coord[DType.int32]((index[0],index[1],index[2],d)), value = u[d])
             else:
-                velocity.store(coord[DType.int32]((d,index[0],index[1],index[2])), value = u[d])
+                velocity.store(dyn_coord[DType.int32]((d,index[0],index[1],index[2])), value = u[d])

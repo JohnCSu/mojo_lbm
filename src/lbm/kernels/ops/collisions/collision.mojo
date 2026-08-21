@@ -4,6 +4,7 @@ Provides BGK (SRT), two-relaxation-time (TRT), and regularized (RLBM)
 collision schemes for the lattice Boltzmann method.
 """
 from src.utils import Vector
+from src.lbm.constants import cs_squared
 from src.lbm.kernels.utils.equilibrium import f_eq
 from src.lbm.kernels.utils.checks import opposite_indices_are_adjacent,rest_direction_is_zero
 
@@ -43,7 +44,7 @@ def SRT[
     comptime for q in range(Q):
         comptime direction = directions[q].cast_to[float_dtype]()
         comptime weight = weights[q]
-        f_vec[q] -= inv_tau*(f_vec[q]- f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction))
+        f_vec[q] -= inv_tau*(f_vec[q]- f_eq(weight,rho,velocity,u_dot_u,direction, DDF_shift))
 
 @always_inline
 def TRT[
@@ -92,7 +93,7 @@ def TRT[
     comptime direction0 = directions[0].cast_to[float_dtype]()
 
     # Rest direction is just regular SRT
-    f_vec[0] -= inv_tau_symm*(f_vec[0]- f_eq[DDF_shift](weights[0],rho,velocity,u_dot_u,direction0))
+    f_vec[0] -= inv_tau_symm*(f_vec[0]- f_eq(weights[0],rho,velocity,u_dot_u,direction0, DDF_shift))
 
     comptime for q in range(1,Q,2):
         comptime direction = directions[q].cast_to[float_dtype]()
@@ -103,8 +104,8 @@ def TRT[
         f_symm = (f_vec[q] + f_vec[opp_q])*0.5 # We correct shift in feq
         f_asymm = (f_vec[q] - f_vec[opp_q])*0.5 # No shift 
                 
-        f_eq_q = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction)
-        f_eq_oppq = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,opp_direction)
+        f_eq_q = f_eq(weight,rho,velocity,u_dot_u,direction, DDF_shift)
+        f_eq_oppq = f_eq(weight,rho,velocity,u_dot_u,opp_direction, DDF_shift)
 
         f_eq_symm = (f_eq_q + f_eq_oppq)*0.5
         f_eq_asymm = (f_eq_q - f_eq_oppq)*0.5
@@ -219,7 +220,7 @@ def RLBM[
         comptime weight_div_2cs4 = weights[q]/(2*cs_squared*cs_squared)
         comptime Q_q = get_kbc_Qiab[stress_indices](float_direction) # Can pre compute this!
         f_neq_reg = weight_div_2cs4*Q_q.dot(stress_neq)
-        f_equil = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,float_direction)
+        f_equil = f_eq(weight,rho,velocity,u_dot_u,float_direction, DDF_shift)
         f_vec[q] = f_equil + (1-inv_tau)*f_neq_reg
 
 # def central_polynomial_order_2[

@@ -6,7 +6,7 @@ element-wise operations at compile time, so it is intended for short vectors
 """
 from std.memory import UnsafePointer
 from std.math import sqrt
-from layout import TileTensor,LayoutTensor,coord,CoordLike,Coord
+from std.utils.coord import Coord, CoordLike
 
 struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
     """Models a stack-allocated vector of fixed compile-time length.
@@ -34,6 +34,14 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
     comptime dataType =InlineArray[Scalar[Self.dtype],Self.size]
     var data:InlineArray[Scalar[Self.dtype],Self.size]
     """The underlying element storage as an inline array."""
+
+    def __init__(out self, *, copy: Self):
+        """Explicit copy constructor for Mojo 1.0 where Array is not ImplicitlyCopyable."""
+        self.data = copy.data.copy()
+
+    def __init__(out self, *, deinit move: Self):
+        """Move constructor transferring ownership of the backing InlineArray."""
+        self.data = move.data^
 
 
     @always_inline
@@ -246,7 +254,7 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
 
 
     @always_inline
-    def unsafe_ptr(self) -> UnsafePointer[Self.dataType.ElementType,origin_of(self.data)]:
+    def unsafe_ptr(self) -> UnsafePointer[Scalar[Self.dtype],origin_of(self.data)]:
         """Returns an unsafe pointer to the underlying element storage.
 
         Returns:

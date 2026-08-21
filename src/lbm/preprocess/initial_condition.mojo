@@ -5,7 +5,7 @@ fluid at rest, and `initialize_f_from_func` does the same from a caller
 supplied velocity function, optionally adding the non-equilibrium correction
 derived from the velocity gradient.
 """
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from std.collections import InlineArray
 from std.collections import Set,Dict
@@ -18,6 +18,7 @@ from src.lbm.kernels.ops.load_and_store import esoteric_pull_store_f_vec
 from src.lbm.constants import cs_squared
 from std.reflection import get_function_name
 from src.lbm import GridLike,LBM_method
+from src.lbm.config import LBM_Config
 
 
 def _do_nothing[
@@ -135,11 +136,11 @@ def initialize_f_from_func[
             and gradients to lattice units.
     """
     comptime lattice = gridType.lattice
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
     comptime D = gridType.D
     comptime Q = gridType.Q
-    comptime grid_shape = gridType.shape
+    var grid_shape = materialize[gridType.shape]()
     comptime float_dtype = gridType.float_dtype
     # TODO: Add Parallel Code For This for very large elements
     
@@ -159,7 +160,7 @@ def initialize_f_from_func[
                 f_vec = Vector[float_dtype,Q](uninitialized = True)
                 comptime for q in range(Q):
                     comptime float_direction = directions[q].cast_to[float_dtype]()
-                    f_i = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_direction)
+                    f_i = f_eq(weights[q],rho,velocity,u_dot_u,float_direction, config.DDF_shift)
                     comptime if deriv_u:
                         comptime u_func = deriv_u.value()
                         grad = u_func(grid_indices[0],grid_indices[1],grid_indices[2],velocity.copy())

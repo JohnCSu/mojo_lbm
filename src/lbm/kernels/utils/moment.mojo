@@ -179,12 +179,10 @@ def get_strain_rate_tensor[
 
 
 @always_inline
-def get_strain_rate_tensor_norm_squared
-    [
+def get_strain_rate_tensor_norm_squared[
     float_dtype:DType,int_dtype:DType,n_stress:Int,//,
     stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
-    ]
-    (
+    ](
     strain_rate_tensor:Vector[float_dtype,n_stress]
     ) -> Scalar[float_dtype]:
 

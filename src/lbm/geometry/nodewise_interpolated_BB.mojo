@@ -3,8 +3,10 @@
 Iterates over fluid boundary nodes adjacent to solid objects and
 accumulates the momentum-exchange force contributions.
 """
-from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
-from layout import TileTensor,LayoutTensor,coord
+from std.gpu import block_dim,block_idx,thread_idx,grid_dim
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
 from src.utils import Vector
@@ -40,7 +42,7 @@ def idx_to_ijk[
         comptime assert FlagLayoutType.rank == FlagLayoutType.flat_rank
         comptime for i in range(3):
             index[i] = Int(crd[i].value())
-    return index
+    return index^
 
 
 def nodewise_bounceback_kernel[
@@ -100,11 +102,11 @@ def nodewise_bounceback_kernel[
     comptime int_dtype = grid.int_dtype
     comptime lattice = grid.lattice
     comptime tile_shape = grid.tile_shape
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
-    comptime opposite_index = lattice.opposite_indices
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
-    comptime float_directions = lattice.float_directions
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
+    var opposite_index = materialize[lattice.opposite_indices]()
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
+    var float_directions = materialize[lattice.float_directions]()
     comptime opposite_indices = lattice.opposite_indices
     comptime assert config.lbm_method == constants.DOUBLE_BUFFER
     # Should be a 1D based kernel loop
@@ -126,7 +128,7 @@ def nodewise_bounceback_kernel[
             row_end = fluid_rowoffsets[tid+1]
             n_links = row_end - row_start
 
-            coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+            coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
             
             var flag = flags.load(coord_index)[0]
             var f_vec = Vector[float_dtype,Q](fill = 0)
@@ -183,4 +185,3 @@ def nodewise_bounceback_kernel[
         
             # Save here
             store_f_vec_to_global[grid,config,is_even_time_step = is_even_time_step](f_out,f_vec,index)
-

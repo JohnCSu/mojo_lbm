@@ -7,7 +7,7 @@ exposes convenience methods for initializing the distribution function and
 setting boundary conditions.
 """
 
-# from layout import TileTensor, coord,CoordLike,ComptimeInt
+# from layout import TileTensor,CoordLike,ComptimeInt
 from src.lbm.constants import LBM_method,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
 from src.lbm import kernels

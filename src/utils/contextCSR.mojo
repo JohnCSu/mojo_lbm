@@ -5,9 +5,9 @@ row matrix as `ContextTileTensor` buffers tied to a `DeviceContext`. The
 implementation is a work in progress.
 """
 from .contextTileTensor import ContextTileTensor
-from max.gpu.host import DeviceContext
-from std.gpu import HostBuffer, DeviceBuffer
-from layout import TileTensor, row_major, col_major, coord, Coord
+from max.gpu.host import DeviceContext, DeviceBuffer, HostBuffer
+from layout import TileTensor, row_major, col_major
+from std.utils.coord import Coord, dyn_coord
 from layout.tile_layout import Layout
 from std.builtin.variadics import TypeList
 
@@ -25,7 +25,7 @@ struct ContextCSR[int_dtype: DType = DType.int32]():
     """
     comptime dim = 3
     comptime RowMajor1D_Type = type_of(
-        row_major(coord[DType.int32]((3,)))
+        row_major(dyn_coord[DType.int32]((3,)))
     )  # the 3 is a dummy variable to capture the runtime type
     var deviceContext: DeviceContext
     var shape: Tuple[Int, Int]
@@ -61,10 +61,10 @@ struct ContextCSR[int_dtype: DType = DType.int32]():
         self.nnz = len(indices)
 
         self.row_offsets = ContextTileTensor[Self.int_dtype](
-            ctx, layout=row_major(coord[DType.int32]((n_rows + 1,)))
+            ctx, layout=row_major(dyn_coord[DType.int32]((n_rows + 1,)))
         )
         self.col_indices = ContextTileTensor[Self.int_dtype](
-            ctx, layout=row_major(coord[DType.int32]((self.nnz,)))
+            ctx, layout=row_major(dyn_coord[DType.int32]((self.nnz,)))
         )
 
         # Sort the rows

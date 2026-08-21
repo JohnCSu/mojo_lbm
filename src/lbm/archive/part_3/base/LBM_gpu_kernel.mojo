@@ -1,5 +1,7 @@
-from std.gpu import block_dim,block_idx,thread_idx,barrier
-from layout import TileTensor,LayoutTensor,coord
+from std.gpu import block_dim,block_idx,thread_idx
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from max.gpu.memory import AddressSpace
@@ -42,10 +44,10 @@ def LBM_kernel[
     # comptime assert FlaglayoutType.flat_rank == 3 or FlaglayoutType.flat_rank == 6
     comptime assert FlayoutType.rank == 4 and BClayoutType.rank == 4 and FlaglayoutType.rank == 3
     # comptime assert FlayoutType.static_shape[6] == Q
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
-    comptime opposite_index = lattice.opposite_indices
-    comptime grid_shape:InlineArray[Int,3] = [nx,ny,nz]
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
+    var opposite_index = materialize[lattice.opposite_indices]()
+    var grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     
     block_x,block_dim_x = block_idx.x,block_dim.x
     block_y,block_dim_y = block_idx.y,block_dim.y
@@ -71,16 +73,16 @@ def LBM_kernel[
         comptime for q in range(Q):
             direction = directions[q]
             pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
-            pulled_f = f_in.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
-            pulled_flag = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
+            pulled_f = f_in.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
+            pulled_flag = flags.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
             
             f_new[q] = pulled_f if pulled_flag == FLUID_NODE else f_new[q]
 
             if pulled_flag == SOLID_NODE:
-                f_opp = f_in.load(coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
+                f_opp = f_in.load(dyn_coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
                 comptime for ii in range(D):
-                    velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
-                rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
+                    velocity[ii] = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
+                rho = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
                 f_new[q] = f_opp + 2.*3.*weights[q]*rho*(directions[q].cast_to[float_dtype]().dot(velocity))
                 
         # Get Velocity and Density
@@ -96,15 +98,15 @@ def LBM_kernel[
 
         comptime for q in range(Q):
             f_eq = SRT(weights[q],rho,velocity,u_dot_u,directions[q].cast_to[float_dtype]())            
-            f_out.store(coord = coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
+            f_out.store(coord = dyn_coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
 
 @always_inline
 def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[int_dtype,D],) -> InlineArray[Int,3]:
     comptime assert D <= 3 
     adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
-    return adj_index
+        adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
+    return adj_index^
 
 @always_inline
 def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:

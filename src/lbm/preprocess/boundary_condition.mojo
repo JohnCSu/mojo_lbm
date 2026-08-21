@@ -7,7 +7,8 @@ the provided `TileTensor` views, optionally converting from physical to
 lattice units via a `UnitSystem`.
 """
 from max.gpu.host import DeviceContext
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from std.collections import InlineArray
 from std.collections import Set,Dict
@@ -15,6 +16,8 @@ from src.utils import Vector,ContextTileTensor
 from std.utils.numerics import nan,isnan
 from src.lbm import UnitSystem
 from src.lbm import LBM_Grid,Lattice,GridLike
+from src.lbm.config import LBM_Config
+from src.lbm.constants import Flags, SOLID_NODE
 
 
 def _error_check[
@@ -126,15 +129,15 @@ def set_exterior_walls[
     comptime assert grid.float_dtype.is_floating_point()
     comptime assert FlagLayoutType.rank == 3 and BCLayoutType.rank == 4
     comptime lattice = grid.lattice
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
     comptime D = grid.D
     comptime Q = grid.Q
-    comptime grid_shape = grid.shape
+    var grid_shape = materialize[grid.shape]()
     comptime float_dtype = grid.float_dtype
-    comptime nx = grid.shape[0]
-    comptime ny = grid.shape[1]
-    comptime nz = grid.shape[2]
+    var nx = materialize[grid.shape]()[0]
+    var ny = materialize[grid.shape]()[1]
+    var nz = materialize[grid.shape]()[2]
 
     _error_check[config](D,side,boundary_type,u,rho)
     
@@ -147,7 +150,7 @@ def set_exterior_walls[
     density:Scalar[float_dtype] = rho
 
     axis = axes[String(side[byte = 1])]
-    end_values = grid.shape
+    end_values = materialize[grid.shape]()
     
     if unitSystem: # if not None then implies bc give are not in
         density *=unitSystem.value().density.C_phys_to_lat()
@@ -161,26 +164,26 @@ def set_exterior_walls[
         x = fixed
         for y in range(ny):
             for z in range(nz):
-                flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
+                flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 comptime for i in range(D):
-                    bc.store(coord[DType.int32]((x,y,z,i)),velocity[i])
-                bc.store(coord[DType.int32]((x,y,z,D)),density)
+                    bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i])
+                bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
     elif axis == 1:
         y = fixed
         for x in range(nx):
             for z in range(nz):
-                flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
+                flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 comptime for i in range(D):
-                    bc.store(coord[DType.int32]((x,y,z,i)),velocity[i])
-                bc.store(coord[DType.int32]((x,y,z,D)),density)
+                    bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i])
+                bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
     else: # Loop Z-face
         z = fixed
         for x in range(nx):
             for y in range(ny):
-                flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
+                flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 comptime for i in range(D):
-                    bc.store(coord[DType.int32]((x,y,z,i)),velocity[i])
-                bc.store(coord[DType.int32]((x,y,z,D)),density)
+                    bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i])
+                bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
 
 
 def set_exterior_walls_with_func[
@@ -239,15 +242,15 @@ def set_exterior_walls_with_func[
     comptime assert grid.float_dtype.is_floating_point()
     comptime assert FlagLayoutType.rank == 3 and BCLayoutType.rank == 4
     comptime lattice = grid.lattice
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
     comptime D = grid.D
     comptime Q = grid.Q
-    comptime grid_shape = grid.shape
+    var grid_shape = materialize[grid.shape]()
     comptime float_dtype = grid.float_dtype
-    comptime nx = grid.shape[0]
-    comptime ny = grid.shape[1]
-    comptime nz = grid.shape[2]
+    var nx = materialize[grid.shape]()[0]
+    var ny = materialize[grid.shape]()[1]
+    var nz = materialize[grid.shape]()[2]
     # comptime assert u is not None
     comptime u_func = u
    
@@ -278,32 +281,32 @@ def set_exterior_walls_with_func[
         x = fixed
         for y in range(ny):
             for z in range(nz):
-                flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
+                flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 velocity = InlineArray[Scalar[float_dtype],D](fill =0)
                 grid_coords =  grid.get_grid_coordinates(x,y,z)
                 u_func(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
                 comptime for i in range(D):
-                    bc.store(coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
-                bc.store(coord[DType.int32]((x,y,z,D)),density)
+                    bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
+                bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
     elif axis == 1:
         y = fixed
         for x in range(nx):
             for z in range(nz):
-                flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
+                flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 velocity = InlineArray[Scalar[float_dtype],D](fill =0)
                 grid_coords =  grid.get_grid_coordinates(x,y,z)
                 u_func(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
                 comptime for i in range(D):
-                    bc.store(coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
-                bc.store(coord[DType.int32]((x,y,z,D)),density)
+                    bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
+                bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
     else: # Loop Z-face
         z = fixed
         for x in range(nx):
             for y in range(ny):
-                flags.store(coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
+                flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
                 velocity = InlineArray[Scalar[float_dtype],D](fill =0)
                 grid_coords =  grid.get_grid_coordinates(x,y,z)
                 u_func(grid_coords[0],grid_coords[1],grid_coords[2],velocity)
                 comptime for i in range(D):
-                    bc.store(coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
-                bc.store(coord[DType.int32]((x,y,z,D)),density)
+                    bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
+                bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)

@@ -1,5 +1,6 @@
-from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
-from layout import TileTensor,LayoutTensor,coord
+from std.gpu import block_dim,block_idx,thread_idx,grid_dim
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from layout.tile_tensor import stack_allocation
 

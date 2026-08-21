@@ -1,8 +1,10 @@
 
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
-from src.lbm import LBM_Grid,LBM_Config,Flags,LBM_method
+from src.lbm import LBM_Grid,LBM_Config,LBM_method
+from src.lbm.constants import Flags
+from src.lbm.grid import GridLike
 from src.utils import Vector
 
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
@@ -30,6 +32,6 @@ def load_single_f[
     elif config.lbm_method == LBM_method.ESOTERIC_PULL:
         comptime assert is_even_time_step is not None, 'is_even_time_step cannot be none for esoteric pull config'
         comptime lattice = grid.lattice
-        return esoteric_pull_load_single_f[is_even_time_step.value(),grid.float_dtype,lattice.directions,config.use_float16c](f,index,q,grid.shape)
+        return esoteric_pull_load_single_f[is_even_time_step.value(),grid.float_dtype,lattice.directions,config.use_float16c](f,index,q,materialize[grid.shape]())
     else:
         comptime assert False, 'Invalid lbm method used' 

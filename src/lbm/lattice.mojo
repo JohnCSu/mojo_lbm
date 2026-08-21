@@ -45,6 +45,20 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
     """The float-valued discrete velocity directions, derived from the
     integer directions at construction time."""
 
+    def __init__(out self, *, copy: Self):
+        self.directions = copy.directions.copy()
+        self.stress_indices = copy.stress_indices.copy()
+        self.weights = copy.weights.copy()
+        self.opposite_indices = copy.opposite_indices.copy()
+        self.float_directions = copy.float_directions.copy()
+
+    def __init__(out self, *, deinit move: Self):
+        self.directions = move.directions^
+        self.stress_indices = move.stress_indices^
+        self.weights = move.weights^
+        self.opposite_indices = move.opposite_indices^
+        self.float_directions = move.float_directions^
+
     def __init__(
         out self,
         directions: InlineArray[Self.int_vector, Self.Q],
@@ -60,8 +74,8 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
             directions: The integer-valued discrete velocity directions.
             weights: The quadrature weights for each direction.
         """
-        self.directions = directions
-        self.weights = weights
+        self.directions = directions.copy()
+        self.weights = weights.copy()
         self.opposite_indices = InlineArray[self.int_scalar, Self.Q](fill=0)
         # self.float_directions = float_directions
         self.stress_indices = get_stress_indices[Self.D, self.int_dtype]()
@@ -371,28 +385,27 @@ def get_stress_indices[
     comptime assert D == 1 or D == 2 or D == 3
     comptime int_scalar = Scalar[dtype]
     comptime if D == 1:
-        stress_indices: InlineArray[InlineArray[int_scalar, 2], n] = [[0, 0]]
-        return stress_indices
+        var stress_indices = InlineArray[InlineArray[int_scalar, 2], n](uninitialized=True)
+        stress_indices[0] = [0, 0]
+        return stress_indices^
     elif D == 2:
-        stress_indices: InlineArray[InlineArray[int_scalar, 2], n] = [
-            [0, 0],
-            [0, 1],
-            [1, 1],
-        ]
-        return stress_indices
+        var stress_indices = InlineArray[InlineArray[int_scalar, 2], n](uninitialized=True)
+        stress_indices[0] = [0, 0]
+        stress_indices[1] = [0, 1]
+        stress_indices[2] = [1, 1]
+        return stress_indices^
     elif D == 3:
-        stress_indices: InlineArray[InlineArray[int_scalar, 2], n] = [
-            [0, 0],  # xx
-            [0, 1],  # xy
-            [0, 2],  # xz
-            [1, 1],  # yy
-            [1, 2],  # yz
-            [2, 2],  # zz
-        ]
-        return stress_indices
+        var stress_indices = InlineArray[InlineArray[int_scalar, 2], n](uninitialized=True)
+        stress_indices[0] = [0, 0]  # xx
+        stress_indices[1] = [0, 1]  # xy
+        stress_indices[2] = [0, 2]  # xz
+        stress_indices[3] = [1, 1]  # yy
+        stress_indices[4] = [1, 2]  # yz
+        stress_indices[5] = [2, 2]  # zz
+        return stress_indices^
 
     else:  # This is needed to make mojo happy. Cant happen with comptime asserts but in case of fallback set everything to -1
-        stress_indices = InlineArray[InlineArray[int_scalar, 2], n](
+        var stress_indices = InlineArray[InlineArray[int_scalar, 2], n](
             fill=[-1, -1]
         )
-        return stress_indices
+        return stress_indices^

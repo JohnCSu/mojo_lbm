@@ -5,7 +5,7 @@ tiler layouts for a grid by composing column-major tiles with a column-major
 tiler via `blocked_product`.
 """
 # from std.utils.coord import Coordlike
-from layout import TileTensor, coord,CoordLike,ComptimeInt
+from layout import TileTensor,CoordLike,ComptimeInt
 from layout.tile_layout import (
     Layout,
     row_major,

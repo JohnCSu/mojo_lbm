@@ -1,4 +1,5 @@
-from std.gpu import block_dim,block_idx,thread_idx,barrier
+from std.gpu import block_dim,block_idx,thread_idx
+from max.gpu.sync import barrier
 from layout import TileTensor
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
@@ -40,10 +41,10 @@ def LBM_kernel[
     comptime assert flags.flat_rank == 3
 
     # Convience Variable Names and constants
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
-    comptime opposite_index = lattice.opposite_indices
-    comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
+    var opposite_index = materialize[lattice.opposite_indices]()
+    var grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
 
     comptime if D==1: # Indexing based on Dimension of Grid
         x = block_dim.x * block_idx.x + thread_idx.x
@@ -96,8 +97,8 @@ def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int32 = 1](index:Vector[DType.i
     comptime assert D <= 3 
     adj_index = Vector[DType.int32,3](uninitialized = True)
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
-    return adj_index
+        adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
+    return adj_index^
 
 
 def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],direction:Vector[dtype,D]) -> Scalar[dtype]:

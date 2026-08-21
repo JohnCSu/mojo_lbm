@@ -4,7 +4,7 @@
 kernels, allocates output buffers with row-major layouts for convenient
 NumPy viewing, and provides methods to extract a frame from the GPU buffers.
 """
-# from layout import TileTensor, coord,CoordLike,ComptimeInt
+# from layout import TileTensor,CoordLike,ComptimeInt
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from src.lbm.constants import LBM_method,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
@@ -243,7 +243,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         """
 
         # Weshould use reflection to consoldate this
-        var shape = Python.tuple(Self.grid.shape[0],Self.grid.shape[1],Self.grid.shape[2],Self.grid.D)
+        var shape = Python.tuple(Self.materialize[grid.shape]()[0],Self.materialize[grid.shape]()[1],Self.materialize[grid.shape]()[2],Self.grid.D)
         velocity_buffer = ((self.velocity.value()).buffer_to_numpy()).reshape(shape,order = 'F')
 
         if convert_from_lattice_units:
@@ -272,7 +272,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
             The Q-criterion field as a NumPy array.
         """
         
-        var shape = Python.tuple(Self.grid.shape[0],Self.grid.shape[1],Self.grid.shape[2])
+        var shape = Python.tuple(Self.materialize[grid.shape]()[0],Self.materialize[grid.shape]()[1],Self.materialize[grid.shape]()[2])
         # shape.append(Self.grid.D)
 
         Q_criterion_np = ((self.Q_criterion.value()).buffer_to_numpy()).reshape(shape,order = 'F')

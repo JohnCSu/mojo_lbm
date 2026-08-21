@@ -1,4 +1,5 @@
-from std.gpu import block_dim,block_idx,thread_idx,barrier
+from std.gpu import block_dim,block_idx,thread_idx
+from max.gpu.sync import barrier
 from layout import TileTensor,LayoutTensor
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
@@ -39,10 +40,10 @@ def LBM_kernel[
     comptime tile_size = Flaglayout.static_shape[0] # For now lets assime tile size is the same
 
     # Convience Variable Names and constants
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
-    comptime opposite_index = lattice.opposite_indices
-    comptime grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
+    var opposite_index = materialize[lattice.opposite_indices]()
+    var grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
 
     
     # We are Row Major for tiler
@@ -100,7 +101,7 @@ def get_adjacent_idx[int_dtype:DType,D:Int,flag_layout:Layout[...],tile_size:Int
     adj_block_index = InlineArray[Int,3](fill =0)
     
     comptime for d in range(D):
-        direction_d = shift*Int(direction[d])
+        direction_d = shift*Int32(direction[d])
         current_pull_index = local_index[d] + direction_d
         adj_local_index[d] = current_pull_index % tile_size # Modulo as we flip back
         next_block = current_pull_index < 0 or current_pull_index >= tile_size
@@ -110,7 +111,7 @@ def get_adjacent_idx[int_dtype:DType,D:Int,flag_layout:Layout[...],tile_size:Int
         # else:
         #     adj_block_index[d] = block_index[d]
     
-    return adj_local_index,adj_block_index
+    return adj_local_index^, adj_block_index^
 
 
 
@@ -118,12 +119,11 @@ def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int32 = 1](index:Vector[DType.i
     comptime assert D <= 3 
     adj_index = Vector[DType.int32,3](uninitialized = True)
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
-    return adj_index
+        adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
+    return adj_index^
 
 @always_inline
 def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],direction:Vector[dtype,D]) -> Scalar[dtype]:
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
     ei_dot_u = velocity.dot(direction)
     return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*velocity.dot(velocity))
-

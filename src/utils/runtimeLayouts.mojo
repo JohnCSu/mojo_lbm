@@ -2,13 +2,14 @@
 
 Exposes ready-to-use `TensorLayout` types for 1D, 2D, and 3D row-major
 layouts parameterized by `Int32` coordinates, so callers can avoid
-re-spelling the `row_major(coord[...])` boilerplate.
+re-spelling the `row_major(dyn_coord[...])` boilerplate.
 """
 # RowMajor Runtime types
 
-from layout import row_major,coord,col_major
+from layout import row_major, col_major
+from std.utils.coord import dyn_coord
 
-def rowMajor1D[int_dtype:DType]() -> type_of( row_major(coord[int_dtype]((1,))) ):
+def rowMajor1D[int_dtype:DType]() -> type_of( row_major(dyn_coord[int_dtype]((1,))) ):
     """Returns a 1D row-major `Int`-dtype layout instance.
 
     Parameters:
@@ -17,9 +18,9 @@ def rowMajor1D[int_dtype:DType]() -> type_of( row_major(coord[int_dtype]((1,))) 
     Returns:
         A 1D row-major layout instance.
     """
-    return row_major(coord[int_dtype]((1,)))
+    return row_major(dyn_coord[int_dtype]((1,)))
 
-def rowMajor2D[int_dtype:DType]() -> type_of(row_major(coord[int_dtype]((1,2))) ):
+def rowMajor2D[int_dtype:DType]() -> type_of(row_major(dyn_coord[int_dtype]((1,2))) ):
     """Returns a 2D row-major `Int`-dtype layout instance.
 
     Parameters:
@@ -28,10 +29,10 @@ def rowMajor2D[int_dtype:DType]() -> type_of(row_major(coord[int_dtype]((1,2))) 
     Returns:
         A 2D row-major layout instance.
     """
-    return row_major(coord[int_dtype]((1,2)))
+    return row_major(dyn_coord[int_dtype]((1,2)))
 
 
-def col_major1D[int_dtype:DType = DType.int32](n:Int) -> type_of( col_major(coord[int_dtype]((1,))) ):
+def col_major1D[int_dtype:DType = DType.int32](n:Int) -> type_of( col_major(dyn_coord[int_dtype]((1,))) ):
     """Returns a 1D row-major `Int`-dtype layout instance.
 
     Parameters:
@@ -40,9 +41,9 @@ def col_major1D[int_dtype:DType = DType.int32](n:Int) -> type_of( col_major(coor
     Returns:
         A 1D row-major layout instance.
     """
-    return col_major(coord[int_dtype]((n,)))
+    return col_major(dyn_coord[int_dtype]((n,)))
 
-def col_major2D[int_dtype:DType = DType.int32](rows:Int,cols:Int) -> type_of(col_major(coord[int_dtype]((1,2))) ):
+def col_major2D[int_dtype:DType = DType.int32](rows:Int,cols:Int) -> type_of(col_major(dyn_coord[int_dtype]((1,2))) ):
     """Returns a 2D row-major `Int`-dtype layout instance.
 
     Parameters:
@@ -51,7 +52,7 @@ def col_major2D[int_dtype:DType = DType.int32](rows:Int,cols:Int) -> type_of(col
     Returns:
         A 2D row-major layout instance.
     """
-    return col_major(coord[int_dtype]((rows,cols)))
+    return col_major(dyn_coord[int_dtype]((rows,cols)))
 
 
 

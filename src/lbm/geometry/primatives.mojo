@@ -8,7 +8,8 @@ adjacent to a sphere for use by force computations.
 from src.lbm import LBM_Grid,Lattice
 from src.lbm.constants import Flags
 from max.gpu.host import DeviceContext
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.utils import Vector
 from std.collections import Set
@@ -62,7 +63,7 @@ def get_sphere_boundary_indices[
     for i in range(3):
         if i < D:
             a_min,a_max = center[i] - radius, center[i] + radius
-            n_min,n_max = max(0,Int((a_min-grid.origin[i])//grid.dx)), min(grid.shape[i],Int((a_max-grid.origin[i])//grid.dx + 1))
+            n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
             bounding_box.append([n_min,n_max+1])
         else:
             bounding_box.append([0,1])
@@ -78,9 +79,9 @@ def get_sphere_boundary_indices[
     for nx in range(bounding_box[0][0],bounding_box[0][1]):
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
-                coord_vec = index_to_coord((nx,ny,nz),grid.dx,grid.origin)
+                coord_vec = index_to_coord((nx,ny,nz),grid.dx,materialize[grid.origin]())
                 if inside_boundary(coord_vec,center_vec,radius):
-                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
+                    flags.store(dyn_coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
                 else:
                     candidate_indices.add((nx,ny,nz))
 
@@ -89,12 +90,12 @@ def get_sphere_boundary_indices[
     num_boundary_indices = 0
     for idx in candidate_indices:
         x,y,z = idx
-        crd = coord[int_dtype]((x,y,z))
+        crd = dyn_coord[int_dtype]((x,y,z))
         for q in range(Q):
             test_direction:InlineArray[Int,3] = [x,y,z]
             comptime for i in range(D):
                 test_direction[i] += Int(latticeModel.directions[q][i])
-            coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,grid.origin)
+            coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,materialize[grid.origin]())
             if inside_boundary(coord_test,center_vec,radius):
                 indices[num_boundary_indices] = flags.layout[linear_idx_type = int_dtype](crd)
                 num_boundary_indices += 1
@@ -140,7 +141,7 @@ def add_sphere[
     for i in range(3):
         if i < D:
             a_min,a_max = center[i] - radius, center[i] + radius
-            n_min,n_max = max(0,Int((a_min-grid.origin[i])//grid.dx)), min(grid.shape[i],Int((a_max-grid.origin[i])//grid.dx + 1))
+            n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
             bounding_box.append([n_min,n_max])
         else:
             bounding_box.append([0,1])
@@ -154,11 +155,11 @@ def add_sphere[
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
                 dx,dy,dz = (float(nx)*grid.dx,float(ny)*grid.dx,float(nz)*grid.dx)
-                coord_vec[0] = dx + grid.origin[0]
-                coord_vec[1] = dy + grid.origin[1]
-                coord_vec[2] = dz + grid.origin[2]
+                coord_vec[0] = dx + materialize[grid.origin]()[0]
+                coord_vec[1] = dy + materialize[grid.origin]()[1]
+                coord_vec[2] = dz + materialize[grid.origin]()[2]
                 if ((coord_vec - center_vec)**2).sum() <= radius**2:
-                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
+                    flags.store(dyn_coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
 
 def add_circle[
     flag_origin:Origin[mut=True],
@@ -221,7 +222,7 @@ def add_box[
     for i in range(3):
         if i < D:
             a_min,a_max = center[i] - box_radius[i], center[i] + box_radius[i]
-            n_min,n_max = max(0,Int((a_min-grid.origin[i])//grid.dx)), min(grid.shape[i],Int((a_max-grid.origin[i])//grid.dx + 1))
+            n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
             bounding_box.append([n_min,n_max])
         else:
             bounding_box.append([0,1])
@@ -236,11 +237,11 @@ def add_box[
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
                 dx,dy,dz = (float(nx)*grid.dx,float(ny)*grid.dx,float(nz)*grid.dx)
-                coord_vec[0] = dx + grid.origin[0]
-                coord_vec[1] = dy + grid.origin[1]
-                coord_vec[2] = dz + grid.origin[2]
+                coord_vec[0] = dx + materialize[grid.origin]()[0]
+                coord_vec[1] = dy + materialize[grid.origin]()[1]
+                coord_vec[2] = dz + materialize[grid.origin]()[2]
                 if check_box_axis(coord_vec,center_vec,box_radius_vec):
-                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
+                    flags.store(dyn_coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
 
 
 def check_box_axis[float_dtype:DType,//](point:Vector[float_dtype,3],center:Vector[float_dtype,3],box_radius:Vector[float_dtype,3]) -> Bool:

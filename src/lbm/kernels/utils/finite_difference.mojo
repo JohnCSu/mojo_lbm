@@ -4,8 +4,11 @@
 axis using shared-memory loads, doubling the effective `dx` when the
 neighboring node is solid so the difference spans the gap.
 """
-from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
-from layout import TileTensor,LayoutTensor,coord
+from src.lbm.constants import SOLID_NODE
+from std.gpu import block_dim,block_idx,thread_idx,grid_dim
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from layout.tile_tensor import stack_allocation
 from max.gpu.memory import AddressSpace
@@ -72,7 +75,7 @@ def get_velocity_gradient[
     var adj_is_valid_left = is_index_valid(adj_global_index,grid_shape)
     if adj_is_valid_left:
         var u1 = shared_u[adj_index[0],adj_index[1],adj_index[2],velocity_direction]
-        var f1 = flags.load(coord[DType.int32]((adj_global_index[0],adj_global_index[1],adj_global_index[2])))[0]
+        var f1 = flags.load(dyn_coord[DType.int32]((adj_global_index[0],adj_global_index[1],adj_global_index[2])))[0]
         left_grad,left_dx = get_adj_finite_difference[dx,'left'](adj_index,adj_global_index,f1,u1,u2,grid_shape)
 
     adj_index[axis] += 2
@@ -81,7 +84,7 @@ def get_velocity_gradient[
     var adj_is_valid_right = is_index_valid(adj_global_index,grid_shape)
     if adj_is_valid_right:
         u3 = shared_u[adj_index[0],adj_index[1],adj_index[2],velocity_direction]
-        f3 = flags.load(coord[DType.int32]((adj_global_index[0],adj_global_index[1],adj_global_index[2])))[0]
+        f3 = flags.load(dyn_coord[DType.int32]((adj_global_index[0],adj_global_index[1],adj_global_index[2])))[0]
         right_grad,right_dx = get_adj_finite_difference[dx,'right'](adj_index,adj_global_index,f3,u3,u2,grid_shape)
 
     total_dx = left_dx + right_dx

@@ -3,8 +3,9 @@
 Iterates over fluid boundary nodes adjacent to solid objects and
 accumulates the momentum-exchange force contributions.
 """
-from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
-from layout import TileTensor,LayoutTensor,coord
+from std.gpu import block_dim,block_idx,thread_idx,grid_dim
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
 from src.utils import Vector
@@ -40,7 +41,7 @@ def idx_to_ijk[
         comptime assert FlagLayoutType.rank == FlagLayoutType.flat_rank
         comptime for i in range(3):
             index[i] = Int(crd[i].value())
-    return index
+    return index^
 
 
 def linkwise_bounceback_kernel[
@@ -90,11 +91,11 @@ def linkwise_bounceback_kernel[
     comptime int_dtype = grid.int_dtype
     comptime lattice = grid.lattice
     comptime tile_shape = grid.tile_shape
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
-    comptime opposite_index = lattice.opposite_indices
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
-    comptime float_directions = lattice.float_directions
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
+    var opposite_index = materialize[lattice.opposite_indices]()
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
+    var float_directions = materialize[lattice.float_directions]()
 
     comptime assert config.lbm_method == constants.DOUBLE_BUFFER
     # Should be a 1D based kernel loop
@@ -138,4 +139,3 @@ def linkwise_bounceback_kernel[
                 link_force = float_directions[i]*(f_into_wall + f_bb)
                 comptime for d in range(D):
                     force_tensor[tid,d] = link_force[d]
-

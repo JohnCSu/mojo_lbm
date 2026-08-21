@@ -47,7 +47,7 @@ trait ConfigLike:
 
 
 
-struct LBM_Config[lbm_method:LBM_method](ConfigLike):
+struct LBM_Config[lbm_method:LBM_method = LBM_method.DOUBLE_BUFFER](ConfigLike):
     """Holds the runtime toggles that parameterize an LBM run.
 
     Records whether DDF shifting, Smagorinsky LES, KBC, and Float16C are

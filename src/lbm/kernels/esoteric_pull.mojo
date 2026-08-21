@@ -5,11 +5,13 @@ halve memory traffic compared with the double-buffer variant. The
 implementation here is a work in progress and only contains the start of the
 streaming step.
 """
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
-from std.gpu import block_dim,block_idx,thread_idx,barrier
+from std.gpu import block_dim,block_idx,thread_idx
+from max.gpu.sync import barrier
 from max.gpu.memory import AddressSpace
 from std.utils.numerics import nan,isnan
 from std.math import sqrt
@@ -66,11 +68,11 @@ def esoteric_pull_kernel[
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
     comptime lattice = grid.lattice
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
     comptime opposite_indices = lattice.opposite_indices
     comptime stress_indices = lattice.stress_indices
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     
     # Comptime asserts
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
@@ -81,8 +83,8 @@ def esoteric_pull_kernel[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime lattice = grid.lattice
-    comptime directions = lattice.directions
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    var directions = materialize[lattice.directions]()
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     comptime non_temporal = True
     # comptime assert f_out.flat_rank == 8
     comptime assert not directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
@@ -94,7 +96,7 @@ def esoteric_pull_kernel[
     var index:InlineArray[Int,3] = [x,y,z]
 
     # Main Compute
-    coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+    coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
     var flag = flags.load(coord_index)[0]
 
     if is_valid_thread(index,grid_shape,flag):

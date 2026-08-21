@@ -17,6 +17,7 @@ from layout.tile_layout import (
 from std.gpu import block_dim, block_idx, thread_idx
 from std.collections import InlineArray
 from src.lbm import (
+from src.lbm.constants import LBM_method
     SOLID_NODE,
     FLUID_NODE,
     LBM_Grid,
@@ -142,6 +143,5 @@ def benchmark_func_3D_non_tiled[
         esoteric.run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config](b)
     comptime if lbm_method == LBM_method.DOUBLE_BUFFER:
         double_buffer.run_benchmark[grid,U,tau,simd_width,f_layout,flag_layout,bc_layout,velocity_layout,density_layout,config](b)
-
 
 

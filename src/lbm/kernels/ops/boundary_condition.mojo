@@ -5,7 +5,7 @@ including half-way bounce-back and equilibrium (Dirichlet) boundary
 conditions.
 """
 from src.utils import Vector
-from layout import TileTensor,coord
+from layout import TileTensor
 from std.utils.coord import dyn_coord
 from src.lbm.constants import Flags
 from src.lbm.kernels.utils.index import get_adjacent_idx
@@ -126,8 +126,8 @@ def equilibrium_bc[
     if Flags.is[Flags.EQUILIBRIUM](current_flag):
         var velocity = Vector[float_dtype,D](uninitialized = True)
         comptime for ii in range(D):
-            velocity[ii] = bc.load(coord[DType.uint32]((index[0],index[1],index[2],ii)))[0]
-        rho = bc.load(coord[DType.uint32]((index[0],index[1],index[2],D)))[0]
+            velocity[ii] = bc.load(dyn_coord[DType.uint32]((index[0],index[1],index[2],ii)))[0]
+        rho = bc.load(dyn_coord[DType.uint32]((index[0],index[1],index[2],D)))[0]
         
         rho_local,u_l = get_density_and_velocity_for_eq_BC[directions,DDF_shift](f_vec,weights,index,grid_shape)
         

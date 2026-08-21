@@ -4,7 +4,8 @@ The `load_f` and `store_f` functions wrap `TileTensor` access with optional
 Float16C conversion and non-temporal hints, centralizing the `(x, y, z, q)`
 indexing convention used throughout the solver.
 """
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.lbm import LBM_Grid,LBM_Config,Flags
@@ -55,11 +56,11 @@ def store_f[
             comptime assert f_dtype == DType.uint16
             f_next = Float32(val)
             f_as_uint = Scalar[f_dtype](Float16C.to_fp16c(f_next))
-            f.store[non_temporal = non_temporal](coord = coord[DType.uint32]((index[0],index[1],index[2],q)),value = f_as_uint)
+            f.store[non_temporal = non_temporal](coord = dyn_coord[DType.uint32]((index[0],index[1],index[2],q)),value = f_as_uint)
             # You can add your own logic here by adding an elif statement to the comptime conditional
         else:
             comptime assert f_dtype == float_dtype
-            f.store[non_temporal = non_temporal](coord = coord[DType.uint32]((index[0],index[1],index[2],q)),value = Scalar[f_dtype](val))
+            f.store[non_temporal = non_temporal](coord = dyn_coord[DType.uint32]((index[0],index[1],index[2],q)),value = Scalar[f_dtype](val))
 
 
 @always_inline
@@ -101,10 +102,10 @@ def load_f[
         comptime assert f.rank == 4, 'For all LBM grids we use i,j,k,q indexing'
         comptime if use_float16c:
                 comptime assert f_dtype == DType.uint16, 'Float16C requires the f tiletensors to be uint16 dtype'
-                pulled_f = to_compute_float(Float16C.to_fp32( f.load[non_temporal = non_temporal](coord[DType.uint32]((index[0],index[1],index[2],q)))[0] ))
+                pulled_f = to_compute_float(Float16C.to_fp32( f.load[non_temporal = non_temporal](dyn_coord[DType.uint32]((index[0],index[1],index[2],q)))[0] ))
 
             else:
                 comptime assert f_dtype == float_dtype
-                pulled_f = Scalar[float_dtype](f.load[non_temporal = non_temporal](coord[DType.uint32]((index[0],index[1],index[2],q)))[0])
+                pulled_f = Scalar[float_dtype](f.load[non_temporal = non_temporal](dyn_coord[DType.uint32]((index[0],index[1],index[2],q)))[0])
 
         return pulled_f

@@ -5,7 +5,8 @@ and a combined gather of neighbor indices and flags used by the streaming
 step.
 """
 from src.utils import Vector
-from layout import TileTensor,coord,Coord
+from layout import TileTensor
+from std.utils.coord import Coord, dyn_coord
 from layout.tile_layout import TensorLayout
 
 
@@ -58,10 +59,10 @@ def get_adjacent_idx[int_dtype:DType,D:Int,//,shift:Int](index:InlineArray[Int,3
         The wrapped `(x, y, z)` index of the neighbor.
     """
     comptime assert D <= 3
-    adj_index = InlineArray[Int,3](fill = 0 )
+    var adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
         adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
-    return adj_index
+    return adj_index^
 
 @always_inline
 def get_adjacent_idx[int_dtype:DType,//,D:Int,shift:Scalar[int_dtype] = 1](index:InlineArray[Scalar[int_dtype],3],grid_shape:InlineArray[Int,3],direction:Vector[int_dtype,D],) -> InlineArray[Int,3]:
@@ -85,14 +86,13 @@ def get_adjacent_idx[int_dtype:DType,//,D:Int,shift:Scalar[int_dtype] = 1](index
     """
     comptime assert not int_dtype.is_floating_point()
     comptime assert D <= 3
-    adj_index = InlineArray[Int,3](fill = 0 )
+    var adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
         adj_index[d] = Int(index[d] + shift*direction[d]) % grid_shape[d]
-    return adj_index
+    return adj_index^
 
 
-def index_to_coord[float_dtype:DType]
-    (
+def index_to_coord[float_dtype:DType](
         grid_index:Tuple[Int,Int,Int],
         grid_spacing:Scalar[float_dtype],
         origin:InlineArray[Scalar[float_dtype],3]
@@ -118,4 +118,4 @@ def index_to_coord[float_dtype:DType]
 
 @always_inline
 def get_rank4_coord(index:InlineArray[Int,3],last_dim:Int) -> Coord[Int32,Int32,Int32,Int32]:
-    return coord[DType.int32]((index[0],index[1],index[3],last_dim))
+    return dyn_coord[DType.int32]((index[0],index[1],index[2],last_dim))

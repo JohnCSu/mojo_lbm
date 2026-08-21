@@ -1,4 +1,4 @@
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.lbm import LBM_Config,Lattice,GridLike,LBM_Grid,RuntimeParams
 from src.lbm.constants import SOLID_NODE,FLUID_NODE,Flags,cs_squared,Collisions
@@ -28,10 +28,10 @@ def apply_boundary_conditions[
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
     comptime lattice = grid.lattice
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
     comptime opposite_indices = lattice.opposite_indices
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     
     # Bounce Back AND PULL FLAGS
     comptime if config.include_moving_boundary and not exclude_moving_wall:

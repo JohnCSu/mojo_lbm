@@ -4,13 +4,16 @@ Reconstructs the velocity gradient tensor from finite differences and
 the non-equilibrium stress tensor to compute the Q-criterion and
 vorticity fields used for coherent structure identification.
 """
-from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
-from layout import TileTensor,LayoutTensor,coord
+from std.gpu import block_dim,block_idx,thread_idx,grid_dim
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from layout.tile_tensor import stack_allocation
 from max.gpu.memory import AddressSpace
 
 from src.lbm import LBM_Grid,LBM_Config,Lattice
+from src.lbm.constants import SOLID_NODE
 
 from src.lbm.constants import ESOTERIC_PULL,DOUBLE_BUFFER
 from src.utils import Vector,ContextTileTensor
@@ -148,7 +151,7 @@ def calculate_Q_criterion[
     comptime SHARED_x = tile_shape[0] + 2
     comptime SHARED_y = tile_shape[1] + 2 if D >= 2 else 1
     comptime SHARED_z = tile_shape[2] + 2 if D == 3 else 1
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     comptime D_is_last_dim = (VelocityLayoutType.static_shape[0] == grid.nx and
                                 VelocityLayoutType.static_shape[1] == grid.ny and
                                 VelocityLayoutType.static_shape[2] == grid.nz and
@@ -176,12 +179,12 @@ def calculate_Q_criterion[
 
     var shared_local_index = InlineArray[Int,3](uninitialized = True)
     var index:InlineArray[Int,3] = [x,y,z]
-    var coord_index = coord[DType.int32]((index[0],index[1],index[2]))
+    var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
     var flag = flags.load(coord_index)
 
     comptime stress_indices = lattice.stress_indices
-    comptime directions = lattice.directions
-    comptime weights = lattice.weights
+    var directions = materialize[lattice.directions]()
+    var weights = materialize[lattice.weights]()
     comptime opposite_indices = lattice.opposite_indices
 
     # comptime assert not config.LES, 'Q criterion currently assumes post-collision so doesnt work for LES'
@@ -213,4 +216,3 @@ def calculate_Q_criterion[
 
         Q_crit = 0.25*vort_norm_sq - 0.5*ss_norm_sq
         Q_tensor.store(coord_index,value= Q_crit)
-

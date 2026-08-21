@@ -3,10 +3,13 @@
 Iterates over fluid boundary nodes adjacent to solid objects and
 accumulates the momentum-exchange force contributions.
 """
-from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
-from layout import TileTensor,LayoutTensor,coord
+from std.gpu import block_dim,block_idx,thread_idx,grid_dim
+from max.gpu.sync import barrier
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from src.lbm.kernels.utils.index import get_adjacent_idx,is_index_valid
+from src.lbm.constants import SOLID_NODE
 from src.utils import Vector
 from src.lbm.kernels.utils.load_and_store import load_f,store_f
 from src.lbm import LBM_Grid,LBM_Config,Lattice
@@ -73,8 +76,8 @@ def calculate_drag_around_object[
             comptime for i in range(3):
                 grid_index[i] = Int(crd[i].value())
 
-        comptime grid_shape:InlineArray[Int,3] = grid.shape
-        comptime opposite_index = lattice.opposite_indices
+        var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
+        var opposite_index = materialize[lattice.opposite_indices]()
 
         if grid_index[0] < grid_shape[0] and grid_index[1] < grid_shape[1] and grid_index[2] < grid_shape[2]:
             var push_flags = InlineArray[UInt8,Q](uninitialized = True)
@@ -84,7 +87,7 @@ def calculate_drag_around_object[
             comptime for q in range(Q):
                 comptime direction = lattice.directions[q]
                 push_indices[q] = get_adjacent_idx[1](grid_index,grid_shape,direction) # push Scheme as
-                push_flags[q] = flags.load(coord[DType.uint32]((push_indices[q][0],push_indices[q][1],push_indices[q][2])))[0]
+                push_flags[q] = flags.load(dyn_coord[DType.uint32]((push_indices[q][0],push_indices[q][1],push_indices[q][2])))[0]
 
             # Compute Forces
             var force_vec = Vector[float_dtype,D](fill = 0.)

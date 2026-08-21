@@ -1,4 +1,4 @@
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
@@ -40,10 +40,10 @@ def collide[
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
     comptime lattice = grid.lattice
-    comptime weights = lattice.weights
-    comptime directions = lattice.directions
+    var weights = materialize[lattice.weights]()
+    var directions = materialize[lattice.directions]()
     comptime opposite_indices = lattice.opposite_indices
-    comptime grid_shape:InlineArray[Int,3] = grid.shape
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     comptime stress_indices = lattice.stress_indices
 
     # Get Velocity and Density

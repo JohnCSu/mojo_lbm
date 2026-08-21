@@ -1,7 +1,8 @@
 from src.lbm import LBM_Grid,Lattice,GridLike,LBM_Config
 from src.lbm.constants import Flags,LBM_method
 from max.gpu.host import DeviceContext
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.utils import Vector
 from std.collections import Set
@@ -74,7 +75,7 @@ def get_rigid_sphere[
     for i in range(3):
         if i < D:
             a_min,a_max = center[i] - radius, center[i] + radius
-            n_min,n_max = max(0,Int((a_min-grid.origin[i])//grid.dx)-1), min(grid.shape[i],Int((a_max-grid.origin[i])//grid.dx + 1)+1)
+            n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)-1), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1)+1)
             bounding_box.append([n_min,n_max+1])
         else:
             bounding_box.append([0,1])
@@ -91,9 +92,9 @@ def get_rigid_sphere[
     for nx in range(bounding_box[0][0],bounding_box[0][1]):
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
-                coord_vec = index_to_coord((nx,ny,nz),grid.dx,grid.origin)
+                coord_vec = index_to_coord((nx,ny,nz),grid.dx,materialize[grid.origin]())
                 if inside_boundary(coord_vec,center_vec,radius):
-                    flags.store(coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
+                    flags.store(dyn_coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
                 else:
                     fluid_boundary_candidate.add((nx,ny,nz))
 
@@ -103,7 +104,7 @@ def get_rigid_sphere[
     q_dists:List[Scalar[grid.float_dtype]] = []
 
     for (nx,ny,nz) in fluid_boundary_candidate:
-        crd = coord[int_dtype]((nx,ny,nz))
+        crd = dyn_coord[int_dtype]((nx,ny,nz))
         fluid_id = flags.layout[linear_idx_type = int_dtype](crd)
         xf = vec3(grid.get_grid_coordinates(nx,ny,nz))
         id_has_been_checked = False
@@ -112,7 +113,7 @@ def get_rigid_sphere[
             test_direction:InlineArray[Int,3] = [nx,ny,nz]
             comptime for i in range(D):
                 test_direction[i] += Int(latticeModel.directions[q][i])
-            coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,grid.origin)
+            coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,materialize[grid.origin]())
              
             if inside_boundary(coord_test,center_vec,radius):
                 if not id_has_been_checked :

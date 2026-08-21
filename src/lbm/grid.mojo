@@ -7,7 +7,7 @@ in this module validate the grid shape against its lattice model and compute
 the GPU block and grid dimensions from the tile size.
 """
 from max.gpu.host import DeviceContext
-from layout import TileTensor, LayoutTensor, coord
+from layout import TileTensor, LayoutTensor
 from layout.tile_layout import Layout, row_major, Coord, TensorLayout
 from std.collections import InlineArray
 from std.collections import Set, Dict
@@ -121,6 +121,20 @@ struct LBM_Grid[
     var origin: InlineArray[Self.Float_Scalar, 3]
     """The physical coordinate of the `(0, 0, 0)` node."""
 
+    def __init__(out self, *, copy: Self):
+        self.dx = copy.dx
+        self.domain_size = copy.domain_size
+        self.area = copy.area
+        self.volume = copy.volume
+        self.origin = copy.origin.copy()
+
+    def __init__(out self, *, deinit move: Self):
+        self.dx = move.dx
+        self.domain_size = move.domain_size
+        self.area = move.area
+        self.volume = move.volume
+        self.origin = move.origin^
+
     def __init__(
         out self,
         dx: Self.Float_Scalar,
@@ -143,7 +157,7 @@ struct LBM_Grid[
             Self.Float_Scalar(Self.ny - 1) * dx,
             Self.Float_Scalar(Self.nz - 1) * dx,
         )
-        self.origin = origin
+        self.origin = origin.copy()
 
     def get_grid_coordinates(
         self, i: Int, j: Int, k: Int
@@ -158,14 +172,14 @@ struct LBM_Grid[
         Returns:
             The physical `(x, y, z)` coordinates of the node.
         """
-        out: InlineArray[Scalar[Self.float_dtype], 3] = [0, 0, 0]
-        grid_index = (i, j, k)
+        var out: InlineArray[Scalar[Self.float_dtype], 3] = [0, 0, 0]
+        var grid_index = (i, j, k)
         comptime for i in range(3):
             out[i] = (
                 Scalar[Self.float_dtype](grid_index[i]) * self.dx
                 + self.origin[i]
             )
-        return out
+        return out^
 
     def get_UnitSystem_with_Re(
         self,

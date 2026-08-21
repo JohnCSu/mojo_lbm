@@ -6,6 +6,7 @@ rest-direction conventions required by the TRT and esoteric-pull
 kernels.
 """
 from src.utils import Vector
+from src.lbm.constants import Flags
 
 def opposite_indices_are_adjacent[int_dtype:DType,D:Int,Q:Int,//](directions:InlineArray[Vector[int_dtype, D], Q]) -> Bool:
     """Verifies that opposite velocity directions are stored at adjacent

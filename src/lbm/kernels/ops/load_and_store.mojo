@@ -1,4 +1,5 @@
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.lbm import LBM_Grid,LBM_Config,Flags,LBM_method
@@ -250,14 +251,14 @@ def esoteric_pull_load_single_f[
     is_pos_q = ((q % 2) == 1) # Odd indices are positive, Even Indices are negative
     comptime if is_even_time_step:
         neg_q = q+1 if is_pos_q else q
-        direction = directions[neg_q]
+        direction = materialize[directions]()[neg_q]
         pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Case if q is neg
         index_to_load = index if is_pos_q else pull_index
         q_to_load = q
 
     else:
         pos_q = q if is_pos_q else q-1
-        direction = directions[pos_q]
+        direction = materialize[directions]()[pos_q]
         push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction)
         index_to_load = index if is_pos_q else push_index
         q_to_load = q+1 if is_pos_q else q-1
@@ -288,5 +289,5 @@ def set_adjacent_flags[
     comptime for q in range(start_idx,end_idx):
         comptime direction = directions[q]
         pull_index = get_adjacent_idx[shift](index,grid_shape,direction) # Pulling Scheme
-        pull_flags[q] = flags.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
+        pull_flags[q] = flags.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
     

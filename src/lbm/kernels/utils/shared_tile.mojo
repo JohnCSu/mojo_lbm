@@ -5,7 +5,8 @@ to a global lattice index assuming a halo of one, and
 `sync_load_rank4_tensor_to_shared_with_halo` cooperatively loads a rank-4
 tensor into shared memory with that halo.
 """
-from layout import TileTensor,LayoutTensor,coord
+from layout import TileTensor,LayoutTensor
+from std.utils.coord import dyn_coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
@@ -114,5 +115,5 @@ def sync_load_rank4_tensor_to_shared_with_halo[
         shared_local_index[2] = i // (SHARED_x * SHARED_y)
         shared_global_index = get_global_index_for_shared_memory[D,tile_shape](shared_local_index,block_index,tiler_shape)
         comptime for n in range(N):
-            val = src_tensor.load(coord[DType.int32]((shared_global_index[0],shared_global_index[1],shared_global_index[2],n)))[0]
+            val = src_tensor.load(dyn_coord[DType.int32]((shared_global_index[0],shared_global_index[1],shared_global_index[2],n)))[0]
             shared_tile[shared_local_index[0],shared_local_index[1],shared_local_index[2],n] = val
