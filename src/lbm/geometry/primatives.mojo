@@ -54,7 +54,7 @@ def get_sphere_boundary_indices[
     comptime Q = grid.Q
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
-    var latticeModel = materialize[grid.lattice]()
+    var directions = materialize[grid.lattice.directions]()
 
     if len(center) != 3:
         raise Error('centre must be a list of 3 floats got a len of {} instead'.format(len(center)))
@@ -94,7 +94,7 @@ def get_sphere_boundary_indices[
         for q in range(Q):
             test_direction:InlineArray[Int,3] = [x,y,z]
             comptime for i in range(D):
-                test_direction[i] += Int(latticeModel.directions[q][i])
+                test_direction[i] += Int(directions[q][i])
             coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,materialize[grid.origin]())
             if inside_boundary(coord_test,center_vec,radius):
                 indices[num_boundary_indices] = flags.layout[linear_idx_type = int_dtype](crd)
