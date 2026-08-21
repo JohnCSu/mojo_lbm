@@ -14,7 +14,7 @@ from src.lbm.output import calculate_rho_and_velocity,calculate_Q_criterion
 from src.lbm import kernels
 from layout import TileTensor
 # from layout import Idx
-from std.gpu.host import DeviceContext,DeviceFunction
+from max.gpu.host import DeviceContext,DeviceFunction
 from src.lbm import GridLike,ConfigLike,Assembly
 from src.utils import ContextTileTensor,Vector
 from std.python import Python, PythonObject

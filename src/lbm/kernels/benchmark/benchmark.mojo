@@ -5,7 +5,7 @@ flag, `f`, and `bc` fields and delegates to `run_benchmark` with row-major
 density and velocity outputs. `benchmark_func_3D_non_tiled` does the same
 with plain column-major layouts.
 """
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from layout import TileTensor
 from layout.tile_layout import (
     row_major,

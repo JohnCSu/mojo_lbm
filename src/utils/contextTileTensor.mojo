@@ -4,7 +4,7 @@ The container keeps a host buffer and a device buffer in sync and exposes
 them as `TileTensor` views through the `.cpu()` and `.gpu()` accessors, only
 copying between buffers when the accessor switches the active device.
 """
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from std.gpu import HostBuffer, DeviceBuffer
 from layout import TileTensor, row_major, col_major, coord, Coord
 from std.utils import IndexList

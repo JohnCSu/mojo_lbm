@@ -6,7 +6,7 @@ write the flag value and the boundary-condition velocities and density into
 the provided `TileTensor` views, optionally converting from physical to
 lattice units via a `UnitSystem`.
 """
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from std.collections import InlineArray

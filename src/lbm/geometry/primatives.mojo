@@ -7,7 +7,7 @@ adjacent to a sphere for use by force computations.
 """
 from src.lbm import LBM_Grid,Lattice
 from src.lbm.constants import Flags
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 from src.utils import Vector

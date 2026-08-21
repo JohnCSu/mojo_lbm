@@ -6,7 +6,7 @@ grid dimensions for GPU launch, and per-node field sizes. Helper functions
 in this module validate the grid shape against its lattice model and compute
 the GPU block and grid dimensions from the tile size.
 """
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from layout import TileTensor, LayoutTensor, coord
 from layout.tile_layout import Layout, row_major, Coord, TensorLayout
 from std.collections import InlineArray

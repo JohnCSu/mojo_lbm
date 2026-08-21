@@ -11,7 +11,7 @@ from src.lbm.constants import LBM_method,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
 from src.lbm import kernels
 from layout import TileTensor
-from std.gpu.host import DeviceContext,DeviceFunction
+from max.gpu.host import DeviceContext,DeviceFunction
 from src.lbm import GridLike,ConfigLike,Assembly
 from std.utils import Variant
 

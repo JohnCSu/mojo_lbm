@@ -9,7 +9,7 @@ non-zero columns as a bitset. Both own their buffers as 1D column-major
 `row_vector_tensor` API.
 """
 from src.utils import ContextTileTensor
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from layout import col_major, coord, Coord
 from layout.tile_layout import Layout, TensorLayout
 

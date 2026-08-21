@@ -11,7 +11,7 @@ from .primatives import add_box,add_sphere,get_sphere_boundary_indices
 from src.lbm import LBM_Grid,Lattice,LBM_Config,UnitSystem
 from layout import TileTensor,row_major,col_major,coord
 from src.utils import ContextTileTensor
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from src.utils import Vector
 from src.utils.runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType,col_major1D,col_major2D
 from .interpolated_BB import linkwise_bounceback_kernel

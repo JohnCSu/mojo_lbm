@@ -15,7 +15,7 @@ the per-link `q_dist` values (uploaded via `csr.values_tensor(Span(q_dists),
 sort=True)` so they line up with the CSR sorted set-bit traversal), and the
 per-row `boundary_global_ids` array uploaded via `csr.row_vector_tensor`.
 """
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from layout import coord
 from std.collections import InlineArray, Set
 from src.lbm import LBM_Grid, get_D2Q9, Flags

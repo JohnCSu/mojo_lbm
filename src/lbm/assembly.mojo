@@ -13,7 +13,7 @@ from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
 from src.lbm import kernels
 from layout import TileTensor
 # from layout import Idx
-from std.gpu.host import DeviceContext,DeviceFunction
+from max.gpu.host import DeviceContext,DeviceFunction
 from src.lbm import GridLike,ConfigLike
 from src.utils import ContextTileTensor,Vector
 from src.lbm import UnitSystem

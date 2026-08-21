@@ -5,7 +5,7 @@ row matrix as `ContextTileTensor` buffers tied to a `DeviceContext`. The
 implementation is a work in progress.
 """
 from .contextTileTensor import ContextTileTensor
-from std.gpu.host import DeviceContext
+from max.gpu.host import DeviceContext
 from std.gpu import HostBuffer, DeviceBuffer
 from layout import TileTensor, row_major, col_major, coord, Coord
 from layout.tile_layout import Layout
