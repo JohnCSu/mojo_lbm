@@ -77,7 +77,7 @@ def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](
 
 @always_inline
 def get_f_noneq_vec[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     post_collision:Bool,
     ](
     f_vec:Vector[float_dtype,Q],
