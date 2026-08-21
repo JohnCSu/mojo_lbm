@@ -6,6 +6,8 @@ conditions.
 """
 from src.utils import Vector
 from layout import TileTensor,coord
+from std.utils.coord import dyn_coord
+from src.lbm.constants import Flags
 from src.lbm.kernels.utils.index import get_adjacent_idx
 from src.lbm.kernels.utils.load_and_store import load_f
 from src.lbm.kernels.utils.equilibrium import get_f_eq_vec
@@ -76,8 +78,8 @@ def moving_wall_bc[
             comptime float_direction = directions[q].cast_to[float_dtype]()
             comptime weight = weights[q]
             comptime for ii in range(D):
-                velocity[ii] = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
-            rho = bc.load(coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
+                velocity[ii] = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
+            rho = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
             f_vec[q] += 2.*3.*weight*rho*(float_direction.dot(velocity))
 
 
