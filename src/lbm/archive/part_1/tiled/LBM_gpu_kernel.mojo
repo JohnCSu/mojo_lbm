@@ -1,8 +1,8 @@
-from std.gpu import block_dim,block_idx,thread_idx,barrier
+from std.gpu import block_dim,block_idx,thread_idx
 from layout import TileTensor,LayoutTensor
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
-from std.gpu.memory import AddressSpace
+from max.gpu.memory import AddressSpace
 from src.lbm import Lattice
 from src.lbm import LBM_Grid
 from src.lbm import SOLID_NODE,FLUID_NODE
@@ -104,11 +104,11 @@ def LBM_kernel[
 
 
 @always_inline
-def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[int_dtype,D],) -> Vector[DType.int32,3]:
+def get_adjacent_idx[int_dtype:DType,D:Int,//,shift:Scalar[int_dtype] = 1](index:Vector[int_dtype,3],grid_shape:Vector[int_dtype,3],direction:Vector[int_dtype,D],) -> Vector[int_dtype,3]:
     comptime assert D <= 3 
-    adj_index = Vector[DType.int32,3](uninitialized = True)
+    var adj_index = Vector[int_dtype,3](uninitialized = True)
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
+        adj_index[d] = (index[d] + shift*(direction[d])) % grid_shape[d]
     return adj_index
 
 

@@ -10,7 +10,7 @@ from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout
 
 from std.gpu import block_dim,block_idx,thread_idx,barrier
-from std.gpu.memory import AddressSpace
+from max.gpu.memory import AddressSpace
 from std.utils.numerics import nan,isnan
 from std.math import sqrt
 

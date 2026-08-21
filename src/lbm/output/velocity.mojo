@@ -9,7 +9,7 @@ from std.gpu import block_dim,block_idx,thread_idx,grid_dim,barrier
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from layout.tile_tensor import stack_allocation
-from std.gpu.memory import AddressSpace
+from max.gpu.memory import AddressSpace
 
 from src.lbm import LBM_Grid,LBM_Config,Lattice,GridLike,LBM_method
 from src.utils import Vector,ContextTileTensor

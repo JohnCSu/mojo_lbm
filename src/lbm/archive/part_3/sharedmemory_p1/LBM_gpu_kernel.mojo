@@ -2,9 +2,9 @@ from std.gpu import block_dim,block_idx,thread_idx,barrier
 from layout import TileTensor,LayoutTensor,coord
 from layout.tile_tensor import stack_allocation
 from layout.tile_layout import Layout,col_major,Coord,TensorLayout
-from std.gpu.memory import AddressSpace
+from max.gpu.memory import AddressSpace
 from std.gpu import barrier
-from std.gpu.memory import async_copy, async_copy_wait_all
+from max.gpu.memory import async_copy, async_copy_wait_all
 
 from src.lbm.lattice import Lattice
 from src.lbm import LBM_Grid
