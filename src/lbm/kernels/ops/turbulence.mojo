@@ -10,10 +10,8 @@ from src.lbm.kernels.utils.moment import get_strain_rate_tensor_norm_squared
 
 @always_inline
 def get_Smagorinsky_LES_tau[
-    float_dtype:DType,int_dtype:DType,n_stress:Int,//,
-    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
-    ]
-    (strain_rate_tensor:Vector[float_dtype,n_stress],Cs:Scalar[float_dtype]) -> Scalar[float_dtype]:
+    float_dtype:DType,int_dtype:DType,n_stress:Int,
+    ](strain_rate_tensor:Vector[float_dtype,n_stress], Cs:Scalar[float_dtype], stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]) -> Scalar[float_dtype]:
     """Returns the LES eddy relaxation time added by the Smagorinsky model.
 
     Computes $$\\tau_{eddy} = 3 C_s^2 \\sqrt{2 \\|S\\|_F^2}$$, where the
