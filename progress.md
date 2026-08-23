@@ -1,8 +1,8 @@
 # Mojo 1.0.0 Transition Progress
 
-> Branch: `mojo-1.0-transition` (HEAD `3597f3a` + 5 user commits `129164d`..`88e5ab1` on top of `main:cac411f`)
+> Branch: `mojo-1.0-transition` (HEAD `997e72d` + 5 user commits `129164d`..`88e5ab1` on top of `main:cac411f`)
 > Tool: `pixi run precompile_test` → `mojo precompile src -o src.mojoc --disable-warnings` (warnings ignored per `transition.md:5`)
-> Current: **56 total / 22 core (`!/archive/`) / 34 archive** – down from **331 total / ~74 core** at `ac1d64f` (phase 1-3) and **331 total** initial.
+> Current: **51 total / 17 core (`!/archive/`) / 34 archive** – down from **331 total / ~74 core** at `ac1d64f` (phase 1-3) and **331 total** initial.
 
 ## Goals (transition.md)
 
@@ -53,8 +53,8 @@ Tier 5 archive (56 files, defer): src/lbm/archive/***
 | D | `std.gpu` `HostBuffer`/`DeviceBuffer`/`barrier` moved | 27 | 0 | `max.gpu.host: DeviceContext, DeviceBuffer, HostBuffer`, `max.gpu.sync: barrier` |
 | F | `Int`→`Int32` `get_adjacent_idx` | 12 | 0 | `Int(direction[d])` → `Int32` (archive) |
 | G | `InlineArray` literal `[[0,0]]` | 5 | 0 | `uninitialized=True` + `stress_indices[0]=[0,0]` |
-| B | `cannot materialize comptime Array` (`not ImplicitlyCopyable`) | ~76 | ~6 | `materialize[array]()` + move array params `[]`→`()` |
-| C | `Array cannot be implicitly copied` (`return`/`assign`) | ~30 | ~6 | `return arr^` / `arr.copy()` per `transition.md:40-41` |
+| B | `cannot materialize comptime Array` (`not ImplicitlyCopyable`) | ~76 | ~4 | `materialize[array]()` + move array params `[]`→`()` |
+| C | `Array cannot be implicitly copied` (`return`/`assign`) | ~30 | ~4 | `return arr^` / `arr.copy()` per `transition.md:40-41` |
 | E | `iter_custom` → `bencher_iter_custom` | 21 | 4 | `max.benchmark: bencher_iter_custom` + unified `{imm}` |
 | H | unknown `LBM_Config`/`GridLike`/`SOLID_NODE` | 12 | 0 | `LBM_Config` default `lbm_method=DOUBLE_BUFFER`, add `Flags`/`SOLID_NODE` imports |
 | L | TileTensor origin `DType` mismatch | 6 | 0 | (deferred) |
@@ -90,9 +90,9 @@ Tier 5 archive (56 files, defer): src/lbm/archive/***
 - `finite_difference` `get_adj_finite_difference` `dx` `[]`→`()` (`src/lbm/kernels/utils/finite_difference.mojo:99` `def get_adj_finite_difference[float_dtype:DType, side:StaticString](..., dx:Scalar[float_dtype])`) + calls `src/lbm/kernels/utils/finite_difference.mojo:79` `get_adj_finite_difference[float_dtype,'left'](..., dx)`.
 - `initial_condition.mojo:162,175,183` – `comptime float_direction` → `var float_direction`, `fi_neq[directions]` `[]`→`()` (`def fi_neq[...,](..., directions:InlineArray)`), call `fi_neq(..., directions)`, `esoteric_pull_store_f_vec` `directions` `[]`→`()`.
 
-## What Needs To Be Done (22 core + 34 archive = 56 total)
+## What Needs To Be Done (17 core + 34 archive = 51 total)
 
-**Core 22** (`pixi run mojo precompile src -o /tmp/src.mojoc --disable-warnings` `grep -v /archive/`):
+**Core 17** (`pixi run mojo precompile src -o /tmp/src.mojoc --disable-warnings` `grep -v /archive/`):
 
 - `initial_condition.mojo:162,175,223` – `fi_neq`/`esoteric_pull_store_f_vec` `directions` still `materialize` mismatch (`Array[Vector[int_dtype,D],Q]`), `esoteric_pull_store_f_vec` call `lattice.directions` comptime vs `var` runtime.
 - `rigidstationary.mojo:169` – `Array[Scalar[...],D]` `return` without `^` (`src/lbm/geometry/rigidstationary.mojo:169`).
@@ -116,4 +116,4 @@ Tier 5 archive (56 files, defer): src/lbm/archive/***
 5. **Fix `initial_condition`/`Q_criterion` `get_f_noneq_vec` inference** – make `post_collision` keyword-only per `88f6e5d` (`def get_f_noneq_vec[..., post_collision:Bool,]` with `//`) and call `get_f_noneq_vec[post_collision=False](..., directions,weights,config.DDF_shift)` with explicit `float_dtype` if needed, or pass `directions` as `materialize[lattice.directions]()` for `fi_neq`.
 6. **Verify**: `pixi run precompile_test 2>&1 | grep -c error:` →0, `pixi run precompile_test 2>&1 | grep "core" -v archive` →0. Then `git add -A && git commit -m "phase 5: fix remaining core"` and PR `mojo-1.0-transition` → `main` per `transition.md:5`.
 
-*Last verified: `pixi run mojo precompile src -o /tmp/src.mojoc --disable-warnings` 56 total / 22 core on `3597f3a`.*
+*Last verified: `pixi run mojo precompile src -o /tmp/src.mojoc --disable-warnings` 51 total / 17 core on `997e72d`.*
