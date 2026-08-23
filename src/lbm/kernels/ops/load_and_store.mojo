@@ -96,7 +96,6 @@ def esoteric_pull_store_f_vec[
     float_dtype:DType,
     f_origin:Origin[mut=True],
     //,
-    directions:InlineArray[Vector[int_dtype, D], Q],
     is_even_time_step:Bool,
     use_float16c:Bool,
     non_temporal:Bool = False
@@ -106,6 +105,7 @@ def esoteric_pull_store_f_vec[
     f_vec:Vector[float_dtype,Q],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
+    directions:InlineArray[Vector[int_dtype, D], Q],
     ):
     """Stores the distribution vector using the esoteric pull scheme.
 

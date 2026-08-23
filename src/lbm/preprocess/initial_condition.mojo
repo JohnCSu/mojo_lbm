@@ -138,6 +138,7 @@ def initialize_f_from_func[
     comptime lattice = gridType.lattice
     var weights = materialize[lattice.weights]()
     var directions = materialize[lattice.directions]()
+    var float_directions = materialize[lattice.float_directions]()
     comptime D = gridType.D
     comptime Q = gridType.Q
     var grid_shape = materialize[gridType.shape]()
@@ -159,7 +160,7 @@ def initialize_f_from_func[
                 # comptime assert D == 2,'adding neq only works for 2D for now'
                 f_vec = Vector[float_dtype,Q](uninitialized = True)
                 comptime for q in range(Q):
-                    comptime float_direction = directions[q].cast_to[float_dtype]()
+                    float_direction = float_directions[q].cast_to[float_dtype]()
                     f_i = f_eq(weights[q],rho,velocity,u_dot_u,float_direction, config.DDF_shift)
                     comptime if deriv_u:
                         comptime u_func = deriv_u.value()
@@ -167,7 +168,7 @@ def initialize_f_from_func[
                         if unitSystem:
                             comptime for d in range(D): # Scale Gradient to lattice units
                                 grad[d] *= unitSystem.value().U.C_phys_to_lat()/unitSystem.value().L.C_phys_to_lat()
-                        f_i += fi_neq[directions](q,weights[q],rho,tau,grad)
+                        f_i += fi_neq(q,weights[q],rho,tau,grad,float_directions)
                     f_vec[q] = f_i
                 
                 comptime if config.lbm_method == LBM_method.ESOTERIC_PULL:
@@ -181,15 +182,14 @@ def initialize_f_from_func[
                 
 
 def fi_neq[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    directions: InlineArray[Vector[int_dtype, D],Q]
+    float_dtype:DType,D:Int,Q:Int,//,
     ](
     i:Int,
     weight:Scalar[float_dtype],
     rho:Scalar[float_dtype],
     tau:Scalar[float_dtype],
     grad:List[Vector[float_dtype,D]],
-    
+    directions: InlineArray[Vector[float_dtype, D],Q]
     ) -> Scalar[float_dtype]:
 
     """Returns the non-equilibrium correction to `f_i` for a velocity gradient.
@@ -204,7 +204,6 @@ def fi_neq[
 
     Parameters:
         float_dtype: The `DType` of the computation.
-        int_dtype: The `DType` of the integer directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
         directions: The compile-time discrete velocity directions.
@@ -220,7 +219,7 @@ def fi_neq[
         The non-equilibrium correction `f_i^{neq}`.
     """
     fi_neq: Scalar[float_dtype] = 0.
-    direction = directions[i].cast_to[float_dtype]()
+    direction = directions[i]
 
     comptime for alpha in range(D):
         comptime for beta in range(D):

@@ -58,7 +58,8 @@ def get_velocity_gradient[
 
     comptime assert shared_u.flat_rank == 4
     comptime assert flags.rank == 3
-    comptime inv_dx = 1/dx
+    
+    var inv_dx = 1/dx
 
     var adj_index = local_index.copy()
     var adj_global_index = global_index.copy()
