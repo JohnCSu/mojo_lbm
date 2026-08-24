@@ -107,7 +107,7 @@ def run_benchmark[
     ctx.synchronize()
 
     @always_inline
-    def run_kernel(ctx: DeviceContext) raises {imm}:
+    def run_kernel(ctx: DeviceContext) capturing raises:
         ctx.enqueue_function[LBM_kernel_](
             f_out.gpu(),
             f.gpu().as_immut(),
@@ -128,7 +128,7 @@ def run_benchmark[
         )
         ctx.synchronize()
 
-    bencher_iter_custom(b, run_kernel, ctx)
+    bencher_iter_custom[run_kernel](b, ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())
     keep(f.gpu_buffer().unsafe_ptr())
     keep(flags.gpu_buffer().unsafe_ptr())
