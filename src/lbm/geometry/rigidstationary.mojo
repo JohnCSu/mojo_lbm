@@ -166,7 +166,7 @@ struct RigidStationaryObject[
             else:
                 summed_force[d] = float(py=self.units.value().force.C_lat_to_phys()*F_i)
 
-        return summed_force
+        return summed_force^
 
 
 
