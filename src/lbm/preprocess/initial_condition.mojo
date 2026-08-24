@@ -161,7 +161,7 @@ def initialize_f_from_func[
                 f_vec = Vector[float_dtype,Q](uninitialized = True)
                 comptime for q in range(Q):
                     float_direction = float_directions[q].cast_to[float_dtype]()
-                    f_i = f_eq(weights[q],rho,velocity,u_dot_u,float_direction, config.DDF_shift)
+                    f_i = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_direction)
                     comptime if deriv_u:
                         comptime u_func = deriv_u.value()
                         grad = u_func(grid_indices[0],grid_indices[1],grid_indices[2],velocity.copy())

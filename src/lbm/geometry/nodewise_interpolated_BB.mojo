@@ -135,7 +135,7 @@ def nodewise_bounceback_kernel[
             var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
             
             # We load 
-            stream[grid,config](f_vec,pull_flags,f_in,flags,flag,index,grid_shape)
+            stream[grid,config](f_vec,pull_flags,f_in,flags,flag,index)
             
             rho = get_density[config.DDF_shift](f_vec)
             u = get_velocity(f_vec,rho, directions)

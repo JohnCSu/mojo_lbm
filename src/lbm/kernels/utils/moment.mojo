@@ -176,10 +176,10 @@ def get_strain_rate_tensor[
 
 @always_inline
 def get_strain_rate_tensor_norm_squared[
-    float_dtype:DType,int_dtype:DType,n_stress:Int,
+    float_dtype:DType,int_dtype:DType,n_stress:Int,//,
+    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
     ](
     strain_rate_tensor:Vector[float_dtype,n_stress],
-    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
     ) -> Scalar[float_dtype]:
 
     """Returns the squared Frobenius norm of the strain-rate tensor.
@@ -202,7 +202,7 @@ def get_strain_rate_tensor_norm_squared[
     var ss = strain_rate_tensor*strain_rate_tensor
     var s_norm_squared = Scalar[float_dtype](0)
     comptime for n in range(n_stress):
-        if stress_indices[n][0] != stress_indices[n][1]: # Alpha != Beta -> off diagonals
+        comptime if stress_indices[n][0] != stress_indices[n][1]: # Alpha != Beta -> off diagonals
             s_norm_squared += ss[n]*2 # 2 as is symmetric tensor so double count off-diagonals
         else:
             s_norm_squared += ss[n]

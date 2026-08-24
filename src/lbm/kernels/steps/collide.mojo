@@ -69,7 +69,7 @@ def collide[
         strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau_local)
         comptime if config.LES:
             comptime Cs = 0.1
-            tau_eddy = get_Smagorinsky_LES_tau(strain_rate,Cs, materialize[lattice.stress_indices]())
+            tau_eddy = get_Smagorinsky_LES_tau[lattice.stress_indices](strain_rate,Cs)
             tau_local += tau_eddy
 
         comptime if config.collision_op == Collisions.RLBM:

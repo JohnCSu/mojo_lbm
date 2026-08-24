@@ -108,7 +108,7 @@ def calculate_rho_and_velocity[
         if flag != SOLID_NODE:
             var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
             comptime is_even_time_step = after_odd_step # after_odd_step implies is_even_time_step
-            stream[grid,config,is_even_time_step = is_even_time_step](f_vec,pull_flags,f,flags,flag,index,grid_shape)
+            stream[grid,config,is_even_time_step = is_even_time_step](f_vec,pull_flags,f,flags,flag,index)
             # comptime include_bounceback = False if config.lbm_method == ESOTERIC_PULL else True
             comptime tau = 0.
             apply_boundary_conditions[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
