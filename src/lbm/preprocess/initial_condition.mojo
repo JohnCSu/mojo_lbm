@@ -173,7 +173,7 @@ def initialize_f_from_func[
                 
                 comptime if config.lbm_method == LBM_method.ESOTERIC_PULL:
                     comptime is_even_time_step = False
-                    esoteric_pull_store_f_vec[directions,is_even_time_step,config.use_float16c](f,f_vec,index,grid_shape)
+                    esoteric_pull_store_f_vec[is_even_time_step,config.use_float16c](f,f_vec,index,grid_shape,directions)
 
                 elif config.lbm_method == LBM_method.DOUBLE_BUFFER:
                     comptime for q in range(Q):

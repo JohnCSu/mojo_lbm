@@ -7,7 +7,7 @@ extracts the non-equilibrium part with an optional post-collision scaling.
 from src.utils import Vector
 
 @always_inline
-def f_eq[dtype:DType, D:Int](weight:Scalar[dtype], density:Scalar[dtype], velocity:Vector[dtype,D], u_dot_u:Scalar[dtype], direction:Vector[dtype,D], DDF_shift: Bool = False) -> Scalar[dtype]:
+def f_eq[dtype:DType, D:Int,//,DDF_shift: Bool = False](weight:Scalar[dtype], density:Scalar[dtype], velocity:Vector[dtype,D], u_dot_u:Scalar[dtype], direction:Vector[dtype,D]) -> Scalar[dtype]:
     """Returns the equilibrium distribution for a single discrete velocity.
 
     When `DDF_shift` is `True`, applies the shifted-distribution form that
@@ -31,21 +31,20 @@ def f_eq[dtype:DType, D:Int](weight:Scalar[dtype], density:Scalar[dtype], veloci
         The equilibrium population `f_i^{eq}`.
     """
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
-    ei_dot_u = velocity.dot(direction)
-    if DDF_shift:
+    var ei_dot_u = velocity.dot(direction)
+    comptime if DDF_shift:
         return weight*density*(3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u) +weight*(density - 1)
     else:
         return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u)
 
 
 @always_inline
-def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](
+def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,DDF_shift:Bool,](
     f_vec:Vector[float_dtype,Q],
     density:Scalar[float_dtype],
     velocity:Vector[float_dtype,D],
     directions:InlineArray[Vector[int_dtype, D], Q],
     weights:Vector[float_dtype, Q],
-    DDF_shift:Bool,
     )
     -> Vector[float_dtype,Q]:
     """Returns the equilibrium distribution for all `Q` discrete velocities.
@@ -71,13 +70,15 @@ def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](
     var u_dot_u = velocity.dot(velocity)
     comptime for q in range(Q):
         var float_direction = directions[q].cast_to[float_dtype]()
-        f_eq_vec[q] = f_eq(weights[q],density,velocity,u_dot_u,float_direction, DDF_shift)
+        f_eq_vec[q] = f_eq[DDF_shift](weights[q],density,velocity,u_dot_u,float_direction)
     return f_eq_vec^
 
 
 @always_inline
 def get_f_noneq_vec[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
+    DDF_shift:Bool,
+    *,
     post_collision:Bool,
     ](
     f_vec:Vector[float_dtype,Q],
@@ -86,7 +87,6 @@ def get_f_noneq_vec[
     tau:Scalar[float_dtype],
     directions:InlineArray[Vector[int_dtype, D], Q],
     weights:Vector[float_dtype, Q],
-    DDF_shift:Bool,
     )
     -> Vector[float_dtype,Q]:
     """Returns the non-equilibrium part of `f` for all `Q` directions.
@@ -111,7 +111,7 @@ def get_f_noneq_vec[
     Returns:
         A `Vector` of length `Q` holding the non-equilibrium populations.
     """
-    var f_neq = f_vec - get_f_eq_vec(f_vec,density,velocity, directions,weights,DDF_shift) 
-    if post_collision:
+    var f_neq = f_vec - get_f_eq_vec[DDF_shift](f_vec,density,velocity, directions,weights) 
+    comptime if post_collision:
         f_neq *= (tau/(tau-1)) # Post collision term
     return f_neq^

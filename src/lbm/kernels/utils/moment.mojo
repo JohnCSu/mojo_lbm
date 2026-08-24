@@ -77,7 +77,7 @@ def get_velocity[
 
 
 @always_inline
-def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](f_neq:Vector[float_dtype,Q],a:Int,b:Int, directions:InlineArray[Vector[int_dtype, D], Q])
+def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,](f_neq:Vector[float_dtype,Q],a:Int,b:Int, directions:InlineArray[Vector[int_dtype, D], Q])
     -> Scalar[float_dtype]:
 
     """Returns the second-order moment $$\\sum_q f_q^{neq} e_{q,a} e_{q,b}$$.
@@ -111,6 +111,7 @@ def get_non_eq_second_order_moment[
     D:Int,
     Q:Int,
     n_stress:Int,
+    //,
     ](
         f_neq:Vector[float_dtype,Q],
         directions:InlineArray[Vector[int_dtype, D], Q],

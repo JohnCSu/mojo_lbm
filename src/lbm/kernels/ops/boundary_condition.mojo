@@ -16,9 +16,6 @@ from std.math import sqrt
 
 def moving_wall_bc[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    opposite_indices:InlineArray[Scalar[int_dtype], Q],
-    weights:Vector[float_dtype,Q],
     use_float16c:Bool,
     *,
     start_idx:Int = 1,
@@ -30,6 +27,9 @@ def moving_wall_bc[
     bc:TileTensor[float_dtype,...],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    opposite_indices:InlineArray[Scalar[int_dtype], Q],
+    weights:Vector[float_dtype,Q],
     ): 
     """Applies the bounce-back wall boundary condition.
 
@@ -72,11 +72,11 @@ def moving_wall_bc[
     var rho:Scalar[float_dtype]
 
     comptime for q in range(start_idx,Q):
-        comptime direction = directions[q]
+        direction = directions[q]
         pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
         if Flags.is[Flags.SOLID](pull_flags[q]):
-            comptime float_direction = directions[q].cast_to[float_dtype]()
-            comptime weight = weights[q]
+            float_direction = directions[q].cast_to[float_dtype]()
+            weight = weights[q]
             comptime for ii in range(D):
                 velocity[ii] = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
             rho = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
@@ -86,7 +86,6 @@ def moving_wall_bc[
 @always_inline
 def equilibrium_bc[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    directions:InlineArray[Vector[int_dtype, D], Q],
     weights:Vector[float_dtype,Q],
     DDF_shift:Bool,
     ]
@@ -96,6 +95,8 @@ def equilibrium_bc[
     bc:TileTensor[float_dtype,...],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    float_directions:InlineArray[Vector[float_dtype, D], Q]
     ):
     """Applies the equilibrium boundary condition.
 
@@ -129,7 +130,7 @@ def equilibrium_bc[
             velocity[ii] = bc.load(dyn_coord[DType.uint32]((index[0],index[1],index[2],ii)))[0]
         rho = bc.load(dyn_coord[DType.uint32]((index[0],index[1],index[2],D)))[0]
         
-        rho_local,u_l = get_density_and_velocity_for_eq_BC[directions,DDF_shift](f_vec,weights,index,grid_shape)
+        rho_local,u_l = get_density_and_velocity_for_eq_BC[DDF_shift](f_vec,weights,index,grid_shape,directions,float_directions)
         
         u_local = u_l if isnan(velocity[0]) else velocity # nan means the vel is free
         rho_local = rho_local if isnan(rho) else rho # Nan means density is free
@@ -142,13 +143,14 @@ def equilibrium_bc[
 @always_inline
 def get_density_and_velocity_for_eq_BC[
     float_dtype:DType,D:Int,Q:Int,int_dtype:DType,//,
-    directions:InlineArray[Vector[int_dtype,D],Q],
     DDF_shift:Bool = False]
     (
         f_vec:Vector[float_dtype,Q],
         weights:Vector[float_dtype,Q],
         index:InlineArray[Int,3],
         grid_shape:InlineArray[Int,3],
+        directions:InlineArray[Vector[int_dtype,D],Q],
+        float_directions:InlineArray[Vector[float_dtype,D],Q],
     )
     -> Tuple[Scalar[float_dtype],Vector[float_dtype,D]]:
 
@@ -186,18 +188,17 @@ def get_density_and_velocity_for_eq_BC[
             rest_f = weights[q]
 
         is_oob = False
-        comptime pull_direction = -directions[q]
+        pull_direction = -directions[q]
         comptime for i in range(3):
             comptime if i < D:
-                comptime pull_i = Int(pull_direction[i])
+                pull_i = Int(pull_direction[i])
                 pull_idx = index[i] + pull_i
                 is_oob = (( (pull_idx < 0) or (pull_idx >= grid_shape[i]))  or is_oob)
 
         # We set unknown fs (i.e from out of bounds/wrapped around fs) to rest value
         fq = rest_f if is_oob else f_vec[q]
         rho += fq
-        comptime float_direction = directions[q].cast_to[float_dtype]()
-        velocity += fq*float_direction
+        velocity += fq*float_directions[q]
 
     comptime if DDF_shift:
         rho += 1

@@ -8,9 +8,17 @@ from src.lbm.constants import cs_squared
 from src.lbm.kernels.utils.equilibrium import f_eq
 from src.lbm.kernels.utils.checks import opposite_indices_are_adjacent,rest_direction_is_zero
 
-
 @always_inline
-def SRT[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](mut f_vec:Vector[float_dtype,Q],velocity:Vector[float_dtype,D],rho:Scalar[float_dtype],tau:Scalar[float_dtype], directions:InlineArray[Vector[int_dtype, D], Q], weights:Vector[float_dtype,Q], DDF_shift:Bool):
+def SRT[
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,DDF_shift:Bool
+    ]
+    (
+        mut f_vec:Vector[float_dtype,Q],
+        velocity:Vector[float_dtype,D],
+        rho:Scalar[float_dtype],
+        tau:Scalar[float_dtype],
+        directions:InlineArray[Vector[int_dtype, D], Q],
+        weights:Vector[float_dtype,Q]):
     """Applies the single-relaxation-time (BGK) collision operator.
 
     Updates the distribution vector in place using the
@@ -37,12 +45,22 @@ def SRT[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](mut f_vec:Vector[float_dt
     u_dot_u = velocity.dot(velocity)
     inv_tau = 1./tau # This is faster by 0.4 ms on the 256^3 benchmark
     comptime for q in range(Q):
-        comptime direction = directions[q].cast_to[float_dtype]()
-        comptime weight = weights[q]
-        f_vec[q] -= inv_tau*(f_vec[q]- f_eq(weight,rho,velocity,u_dot_u,direction, DDF_shift))
+        direction = directions[q].cast_to[float_dtype]()
+        weight = weights[q]
+        f_vec[q] -= inv_tau*(f_vec[q]- f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction))
 
 @always_inline
-def TRT[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](mut f_vec:Vector[float_dtype,Q],velocity:Vector[float_dtype,D],rho:Scalar[float_dtype],tau_symm:Scalar[float_dtype],tau_asymm:Scalar[float_dtype], directions:InlineArray[Vector[int_dtype, D], Q], weights:Vector[float_dtype,Q], DDF_shift:Bool):
+def TRT[
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
+    DDF_shift:Bool
+    ](
+    mut f_vec:Vector[float_dtype,Q],
+    velocity:Vector[float_dtype,D],
+    rho:Scalar[float_dtype],
+    tau_symm:Scalar[float_dtype],
+    tau_asymm:Scalar[float_dtype],
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    weights:Vector[float_dtype,Q]):
     """Applies the two-relaxation-time collision operator.
 
     Splits the collision into symmetric and antisymmetric parts, each
@@ -71,24 +89,25 @@ def TRT[float_dtype:DType,int_dtype:DType,D:Int,Q:Int](mut f_vec:Vector[float_dt
     inv_tau_asymm = 1/tau_asymm
     u_dot_u = velocity.dot(velocity)
 
-    comptime assert opposite_indices_are_adjacent(directions), 'Opposite velocity directions should be adjacent to each other e.g. q+1 = opp_q'
-    comptime assert rest_direction_is_zero(directions), 'Rest direction e.g [0,0,0] should be the first element'
-    comptime direction0 = directions[0].cast_to[float_dtype]()
+    # comptime assert opposite_indices_are_adjacent(directions), 'Opposite velocity directions should be adjacent to each other e.g. q+1 = opp_q'
+    # comptime assert rest_direction_is_zero(directions), 'Rest direction e.g [0,0,0] should be the first element'
+    
+    var direction0 = directions[0].cast_to[float_dtype]()
 
     # Rest direction is just regular SRT
-    f_vec[0] -= inv_tau_symm*(f_vec[0]- f_eq(weights[0],rho,velocity,u_dot_u,direction0, DDF_shift))
+    f_vec[0] -= inv_tau_symm*(f_vec[0]- f_eq[DDF_shift](weights[0],rho,velocity,u_dot_u,direction0))
 
     comptime for q in range(1,Q,2):
-        comptime direction = directions[q].cast_to[float_dtype]()
-        comptime weight = weights[q]
         comptime opp_q = q+1
-        comptime opp_direction = directions[opp_q].cast_to[float_dtype]()
+        direction = directions[q].cast_to[float_dtype]()
+        weight = weights[q]
+        opp_direction = directions[opp_q].cast_to[float_dtype]()
         
         f_symm = (f_vec[q] + f_vec[opp_q])*0.5 # We correct shift in feq
         f_asymm = (f_vec[q] - f_vec[opp_q])*0.5 # No shift 
                 
-        f_eq_q = f_eq(weight,rho,velocity,u_dot_u,direction, DDF_shift)
-        f_eq_oppq = f_eq(weight,rho,velocity,u_dot_u,opp_direction, DDF_shift)
+        f_eq_q = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction, )
+        f_eq_oppq = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,opp_direction, )
 
         f_eq_symm = (f_eq_q + f_eq_oppq)*0.5
         f_eq_asymm = (f_eq_q - f_eq_oppq)*0.5
@@ -149,7 +168,20 @@ def get_kbc_Qiab[
 
     return Q_i
 
-def RLBM[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int](mut f_vec:Vector[float_dtype,Q],f_neq:Vector[float_dtype,Q],stress_neq:Vector[float_dtype,N],rho:Scalar[float_dtype],velocity:Vector[float_dtype,D],tau:Scalar[float_dtype], directions:InlineArray[Vector[int_dtype, D], Q], weights:Vector[float_dtype,Q], stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],N], DDF_shift:Bool):
+def RLBM[
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int,//,
+    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],N],
+    DDF_shift:Bool
+    ](
+        mut f_vec:Vector[float_dtype,Q],
+        f_neq:Vector[float_dtype,Q],
+        stress_neq:Vector[float_dtype,N],
+        rho:Scalar[float_dtype],
+        velocity:Vector[float_dtype,D],
+        tau:Scalar[float_dtype],
+        directions:InlineArray[Vector[int_dtype, D], Q],
+        weights:Vector[float_dtype,Q],
+        ):
     """Applies the regularized LBM collision operator.
 
     Reconstructs the non-equilibrium distribution from the
@@ -184,12 +216,12 @@ def RLBM[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int](mut f_vec:Vector[f
     var u_dot_u = velocity.dot(velocity)
 
     comptime for q in range(Q):
-        comptime weight = weights[q]
-        comptime float_direction = directions[q].cast_to[float_dtype]()
-        comptime weight_div_2cs4 = weights[q]/(2*cs_squared*cs_squared)
-        comptime Q_q = get_kbc_Qiab[stress_indices](float_direction) # Can pre compute this!
+        weight = weights[q]
+        float_direction = directions[q].cast_to[float_dtype]()
+        weight_div_2cs4 = weights[q]/(2*cs_squared*cs_squared)
+        Q_q = get_kbc_Qiab[stress_indices](float_direction) # Can pre compute this!
         f_neq_reg = weight_div_2cs4*Q_q.dot(stress_neq)
-        f_equil = f_eq(weight,rho,velocity,u_dot_u,float_direction, DDF_shift)
+        f_equil = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,float_direction)
         f_vec[q] = f_equil + (1-inv_tau)*f_neq_reg
 
 # def central_polynomial_order_2[

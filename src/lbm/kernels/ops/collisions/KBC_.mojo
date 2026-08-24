@@ -178,7 +178,8 @@ def get_shear_D2Q9[
 
 @always_inline
 def KBC[
-    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int,
+    float_dtype:DType,int_dtype:DType,D:Int,Q:Int,N:Int,//,
+    DDF_shift:Bool,
     ](
     mut f_vec:Vector[float_dtype,Q],
     f_neq:Vector[float_dtype,Q],
@@ -188,7 +189,7 @@ def KBC[
     tau:Scalar[float_dtype],
     directions:InlineArray[Vector[int_dtype, D], Q],
     weights:Vector[float_dtype,Q],
-    DDF_shift:Bool,
+    
     *,
     # min_gamma:Scalar[float_dtype] = 1.,
     # max_gamma:Scalar[float_dtype] = 3.,
@@ -217,11 +218,11 @@ def KBC[
         u: The fluid velocity at the node.
         tau: The relaxation time.
     """
-    comptime assert (D==2 and Q == 9)
+    comptime assert (D==2 and Q == 9),'KBC only for D2Q9 atm'
     comptime _eps = 1e-32
     var beta = 1/(2*tau)
     var inv_beta = 2*tau
-    var f_equil = get_f_eq_vec(f_vec,rho,u, directions,weights,False)
+    var f_equil = get_f_eq_vec[False](f_vec,rho,u, directions,weights)
 
     comptime if (D==2 and Q ==9):
         ds = rebind[Vector[float_dtype,Q]](get_shear_D2Q9(stress_neq))
@@ -233,7 +234,6 @@ def KBC[
         gamma = inv_beta - (2 -inv_beta) * sp1/(sp2 + _eps)
         # gamma = min(max(gamma, min_gamma), max_gamma)
         f_vec -= beta * (2*ds + gamma*dh)
+    
 
-    else:
-        comptime assert False, 'KBC only for D2Q9 atm'
     

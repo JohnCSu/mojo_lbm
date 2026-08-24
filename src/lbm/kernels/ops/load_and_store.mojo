@@ -17,7 +17,6 @@ def esoteric_pull_load_f_vec[
     f_layout:TensorLayout,
     //,
     float_dtype:DType,
-    directions:InlineArray[Vector[int_dtype, D], Q],
     is_even_time_step:Bool,
     use_float16c:Bool,
     non_temporal:Bool = False
@@ -26,6 +25,7 @@ def esoteric_pull_load_f_vec[
     f:TileTensor[f_dtype,f_layout,_],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
+    directions:InlineArray[Vector[int_dtype, D], Q],
     ) -> Vector[float_dtype,Q]:
     """Loads the distribution vector using the esoteric pull scheme.
 
@@ -58,7 +58,7 @@ def esoteric_pull_load_f_vec[
         The loaded distribution vector of length `Q`.
     """
     # We always pull the 0th idx
-    comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
+    # comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
     # comptime load_f_from_xyzq = load_f[f_dtype,non_temporal = non_temporal] # We load raw values regardles of dtype
     # f_vec = Vector[f_dtype,Q](uninitialized = True)
@@ -69,7 +69,7 @@ def esoteric_pull_load_f_vec[
     #     # Pull Positive from current node and pull negatives using standard pull scheme
         comptime for pos_q in range(1,Q-1,2):
             comptime neg_q = pos_q + 1
-            comptime direction = directions[neg_q]
+            direction = directions[neg_q]
             pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
             f_vec[pos_q] = load_f_from_xyzq(f,index,pos_q)
             f_vec[neg_q] =  load_f_from_xyzq(f,pull_index,neg_q)
@@ -78,7 +78,7 @@ def esoteric_pull_load_f_vec[
         comptime for pos_q in range(1,Q-1,2):
             comptime neg_q = pos_q + 1
             # Using Push Scheme along positive directions and store in negative dir. For pos_q we get the value at current index in neg_q
-            comptime direction = directions[pos_q]
+            direction = directions[pos_q]
             push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction) # Pulling Scheme
 
             f_vec[pos_q] = load_f_from_xyzq(f,index,neg_q)
@@ -137,13 +137,13 @@ def esoteric_pull_store_f_vec[
         grid_shape: The `[nx, ny, nz]` shape of the grid.
     """
     store_f[use_float16c,non_temporal](f,f_vec[0],index,0)
-    comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
+    # comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
     comptime if is_even_time_step:
         # Store f back to Global
         #  WE stroe the negative directions in to the positve current index
         comptime for neg_q in range(2,Q,2):
             comptime pos_q = neg_q -1
-            comptime direction = directions[neg_q]
+            direction = directions[neg_q]
             pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Get the original index
             store_f[use_float16c,non_temporal](f,f_vec[pos_q],pull_index,neg_q) # We store it in the pull direction place
             store_f[use_float16c,non_temporal](f,f_vec[neg_q],index,pos_q)
@@ -153,7 +153,7 @@ def esoteric_pull_store_f_vec[
         comptime for neg_q in range(2,Q,2):
             comptime pos_q = neg_q -1
             # We store Positives in their push directions
-            comptime direction = directions[pos_q]
+            direction = directions[pos_q]
             push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction) # Get the original index
             
             store_f[use_float16c,non_temporal](f,f_vec[pos_q],push_index,pos_q) # We store it in the pull direction place
@@ -169,8 +169,6 @@ def double_buffer_pull_load_f_vec[
     Q:Int,
     //,
     float_dtype:DType,
-    directions:InlineArray[Vector[int_dtype, D], Q],
-    opposite_indices:InlineArray[Scalar[int_dtype], Q],
     use_float16c:Bool,
     *,
     non_temporal:Bool = False,
@@ -180,6 +178,8 @@ def double_buffer_pull_load_f_vec[
     pull_flags:InlineArray[UInt8,Q],
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    opposite_indices:InlineArray[Scalar[int_dtype], Q],
     ) -> Vector[float_dtype,Q]:
     """Loads the full distribution vector using the double-buffer pull
     scheme.
@@ -209,8 +209,8 @@ def double_buffer_pull_load_f_vec[
     var f_vec = Vector[float_dtype,Q](uninitialized = True)
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
     comptime for q in range(Q):
-        comptime direction = directions[q]
-        comptime opp_q = Int(opposite_indices[q])
+        direction = directions[q]
+        opp_q = Int(opposite_indices[q])
         pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
         f_vec[q] =  load_f_from_xyzq(f,pull_index,q)
 
@@ -231,7 +231,6 @@ def esoteric_pull_load_single_f[
     //,
     is_even_time_step:Bool,
     float_dtype:DType,
-    directions:InlineArray[Vector[int_dtype, D], Q],
     use_float16c:Bool,
     *,
     non_temporal:Bool = False,
@@ -240,27 +239,29 @@ def esoteric_pull_load_single_f[
     index:InlineArray[Int,3],
     q:Int,
     grid_shape:InlineArray[Int,3],
+    directions:InlineArray[Vector[int_dtype, D], Q],
     ) -> Scalar[float_dtype]:
 
-    comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
+    # comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
     comptime load_f_val = load_f[float_dtype,use_float16c,non_temporal]
-
+    
     if q == 0:
         return load_f_val(f,index,0)
 
     is_pos_q = ((q % 2) == 1) # Odd indices are positive, Even Indices are negative
+    var index_to_load:InlineArray[Int,3]
     comptime if is_even_time_step:
         neg_q = q+1 if is_pos_q else q
-        direction = materialize[directions]()[neg_q]
+        direction = directions[neg_q]
         pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Case if q is neg
-        index_to_load = index if is_pos_q else pull_index
+        ref index_to_load = index if is_pos_q else pull_index
         q_to_load = q
 
     else:
         pos_q = q if is_pos_q else q-1
-        direction = materialize[directions]()[pos_q]
+        direction = directions[pos_q]
         push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction)
-        index_to_load = index if is_pos_q else push_index
+        ref index_to_load = index if is_pos_q else push_index
         q_to_load = q+1 if is_pos_q else q-1
 
     return load_f_val(f,index_to_load,q_to_load)
