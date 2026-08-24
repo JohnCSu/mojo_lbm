@@ -26,12 +26,16 @@ def load_single_f[
     ) -> Scalar[grid.float_dtype]:
     comptime load_f_val = load_f[grid.float_dtype,config.use_float16c,non_temporal]
     comptime assert f.rank == 4
+
+    var directions = materialize[grid.lattice.directions]()
+    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
+
     comptime if config.lbm_method == LBM_method.DOUBLE_BUFFER:
         return load_f_val(f,index,q)
 
     elif config.lbm_method == LBM_method.ESOTERIC_PULL:
         comptime assert is_even_time_step is not None, 'is_even_time_step cannot be none for esoteric pull config'
         comptime lattice = grid.lattice
-        return esoteric_pull_load_single_f(f,index,q,materialize[grid.shape](, lattice.directions))
+        return esoteric_pull_load_single_f[is_even_time_step.value(),grid.float_dtype,config.use_float16c,non_temporal= non_temporal](f,index,q,grid_shape,directions)
     else:
         comptime assert False, 'Invalid lbm method used' 

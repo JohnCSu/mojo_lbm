@@ -27,15 +27,18 @@ def store_f_vec_to_global[
     index:InlineArray[Int,3],
     ):
     comptime lattice = grid.lattice
-    var grid_shape = materialize[grid.shape]()
     comptime Q = grid.Q
+    
+    var grid_shape = materialize[grid.shape]()
+    var directions = materialize[lattice.directions]()
+    
     
     comptime if config.lbm_method == LBM_method.DOUBLE_BUFFER:
         comptime for q in range(Q):
             store_f[config.use_float16c,non_temporal](f,f_vec[q],index,q)
     elif config.lbm_method == LBM_method.ESOTERIC_PULL:
         comptime assert is_even_time_step is not None
-        esoteric_pull_store_f_vec[lattice.directions,is_even_time_step.value(),config.use_float16c,non_temporal = non_temporal](f,f_vec,index,grid_shape)
+        esoteric_pull_store_f_vec[is_even_time_step.value(),config.use_float16c,non_temporal = non_temporal](f,f_vec,index,grid_shape,directions)
     else:
         comptime assert False, 'Invalid lbm method used'
 

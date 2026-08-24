@@ -112,10 +112,10 @@ def get_non_eq_second_order_moment[
     Q:Int,
     n_stress:Int,
     //,
+    stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
     ](
         f_neq:Vector[float_dtype,Q],
         directions:InlineArray[Vector[int_dtype, D], Q],
-        stress_indices:InlineArray[InlineArray[Scalar[int_dtype],2],n_stress]
     ) -> Vector[float_dtype,n_stress]:
 
     """Returns the symmetric non-equilibrium second-order moment vector.
@@ -139,8 +139,8 @@ def get_non_eq_second_order_moment[
     var Q_neq = Vector[float_dtype,n_stress](uninitialized=True)
     comptime assert n_stress == D*(D+1)//2
     comptime for n in range(n_stress):
-        var alpha = Int(stress_indices[n][0])
-        var beta  = Int(stress_indices[n][1])
+        comptime alpha = Int(stress_indices[n][0])
+        comptime beta  = Int(stress_indices[n][1])
         Q_neq[n] = get_Qiab(f_neq,alpha,beta, directions)
 
     return Q_neq^

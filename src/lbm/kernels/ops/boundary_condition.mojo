@@ -86,7 +86,6 @@ def moving_wall_bc[
 @always_inline
 def equilibrium_bc[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
-    weights:Vector[float_dtype,Q],
     DDF_shift:Bool,
     ]
     (
@@ -96,7 +95,8 @@ def equilibrium_bc[
     index:InlineArray[Int,3],
     grid_shape:InlineArray[Int,3],
     directions:InlineArray[Vector[int_dtype, D], Q],
-    float_directions:InlineArray[Vector[float_dtype, D], Q]
+    float_directions:InlineArray[Vector[float_dtype, D], Q],
+    weights:Vector[float_dtype,Q],
     ):
     """Applies the equilibrium boundary condition.
 
@@ -135,7 +135,7 @@ def equilibrium_bc[
         u_local = u_l if isnan(velocity[0]) else velocity # nan means the vel is free
         rho_local = rho_local if isnan(rho) else rho # Nan means density is free
 
-        f_vec = get_f_eq_vec(f_vec,rho_local,u_local, directions,weights,DDF_shift)
+        f_vec = get_f_eq_vec[DDF_shift](f_vec,rho_local,u_local, directions,weights)
 
 
 

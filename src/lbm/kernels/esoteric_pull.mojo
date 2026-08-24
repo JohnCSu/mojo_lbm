@@ -90,14 +90,14 @@ def esoteric_pull_kernel[
     var index:InlineArray[Int,3] = [x,y,z]
 
     # Main Compute
-    coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
+    var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
     var flag = flags.load(coord_index)[0]
 
     if is_valid_thread(index,grid_shape,flag):
         # Streaming And Load Step
         var f_vec = Vector[float_dtype,Q](fill = 0)
         var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
-        stream[grid,config,is_even_time_step = is_even_time_step](f_vec,pull_flags,f,flags,flag,index,grid_shape)
+        stream[grid,config,is_even_time_step = is_even_time_step](f_vec,pull_flags,f,flags,flag,index)
         #BC
         apply_boundary_conditions[grid,config](f_vec,f,bc,flags,pull_flags,index,tau)
         # Collision Step + Any Turbulence modelling etc.

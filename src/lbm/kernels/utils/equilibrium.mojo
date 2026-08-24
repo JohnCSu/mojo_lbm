@@ -79,7 +79,7 @@ def get_f_noneq_vec[
     float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,
     DDF_shift:Bool,
     *,
-    post_collision:Bool,
+    post_collision:Bool = False,
     ](
     f_vec:Vector[float_dtype,Q],
     density:Scalar[float_dtype],

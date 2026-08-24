@@ -30,12 +30,13 @@ def apply_boundary_conditions[
     comptime lattice = grid.lattice
     var weights = materialize[lattice.weights]()
     var directions = materialize[lattice.directions]()
-    comptime opposite_indices = lattice.opposite_indices
+    var float_directions = materialize[lattice.float_directions]()
+    var opposite_indices = materialize[lattice.opposite_indices]()
     var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
     
     # Bounce Back AND PULL FLAGS
     comptime if config.include_moving_boundary and not exclude_moving_wall:
-        moving_wall_bc[lattice.directions,lattice.opposite_indices,lattice.weights,config.use_float16c](f_vec,pull_flags,bc,index,grid_shape)
+        moving_wall_bc[config.use_float16c](f_vec,pull_flags,bc,index,grid_shape,directions,opposite_indices,weights)
     # Equilibrium BC
     comptime if Flags.EQUILIBRIUM in config.INCLUDED_BCs:
-        equilibrium_bc[lattice.directions,lattice.weights,config.DDF_shift](f_vec,pull_flags,bc,index,grid_shape)
+        equilibrium_bc[config.DDF_shift](f_vec,pull_flags,bc,index,grid_shape,directions,float_directions,weights)

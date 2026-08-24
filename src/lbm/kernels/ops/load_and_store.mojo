@@ -275,7 +275,6 @@ def set_adjacent_flags[
     D:Int,
     FlaglayoutType:TensorLayout,
     //,
-    directions:InlineArray[Vector[int_dtype, D], Q],
     start_idx:Int = 1,
     *,
     end_idx:Int = Q,
@@ -284,11 +283,11 @@ def set_adjacent_flags[
     mut pull_flags:InlineArray[UInt8,Q],
     flags:TileTensor[DType.uint8,FlaglayoutType,_],
     index:InlineArray[Int,3],
-    grid_shape:InlineArray[Int,3]
+    grid_shape:InlineArray[Int,3],
+    directions:InlineArray[Vector[int_dtype, D], Q],
     ):
-
     comptime for q in range(start_idx,end_idx):
-        comptime direction = directions[q]
+        direction = directions[q]
         pull_index = get_adjacent_idx[shift](index,grid_shape,direction) # Pulling Scheme
         pull_flags[q] = flags.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
     

@@ -40,12 +40,12 @@ def collide[
     comptime float_dtype = grid.float_dtype
     comptime int_dtype = grid.int_dtype
     comptime lattice = grid.lattice
+    comptime stress_indices = lattice.stress_indices
+
     var weights = materialize[lattice.weights]()
     var directions = materialize[lattice.directions]()
-    comptime opposite_indices = lattice.opposite_indices
     var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
-    var stress_indices = materialize[lattice.stress_indices]()
-
+    
     # Get Velocity and Density
     rho = get_density[config.DDF_shift](f_vec)
     velocity = get_velocity(f_vec,rho, directions)
@@ -64,8 +64,8 @@ def collide[
     
     # Non eq ops
     comptime if config.implies_f_noneq():
-        f_neq = get_f_noneq_vec[False](f_vec,rho,velocity,tau_local, directions,weights,config.DDF_shift)
-        second_moment_neq = get_non_eq_second_order_moment(f_neq, directions,stress_indices)
+        f_neq = get_f_noneq_vec[config.DDF_shift](f_vec,rho,velocity,tau_local, directions,weights)
+        second_moment_neq = get_non_eq_second_order_moment[stress_indices](f_neq, directions)
         strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau_local)
         comptime if config.LES:
             comptime Cs = 0.1
@@ -73,18 +73,18 @@ def collide[
             tau_local += tau_eddy
 
         comptime if config.collision_op == Collisions.RLBM:
-            RLBM(f_vec,f_neq,second_moment_neq,rho,velocity,tau_local, directions,weights,stress_indices,config.DDF_shift)
+            RLBM[stress_indices,config.DDF_shift](f_vec,f_neq,second_moment_neq,rho,velocity,tau_local, directions,weights)
         elif config.collision_op == Collisions.KBC:
-            KBC(f_vec,f_neq,second_moment_neq,rho,velocity,tau_local, directions,weights,config.DDF_shift)
+            KBC[config.DDF_shift](f_vec,f_neq,second_moment_neq,rho,velocity,tau_local, directions,weights)
     
     # Collision Term
     # comptime assert config.collision_op_is_valid(), 'Collision operator must be either SRT or TRT'
     comptime if config.collision_op == Collisions.SRT:
-        SRT(f_vec,velocity,rho,tau_local, directions,weights,config.DDF_shift)
+        SRT[config.DDF_shift](f_vec,velocity,rho,tau_local, directions,weights)
     elif config.collision_op == Collisions.TRT:
         comptime TRT_magic_param = 3./16.
         tau_asymm = 0.5 + TRT_magic_param/(tau_local-0.5)
-        TRT(f_vec,velocity,rho,tau_local,tau_asymm, directions,weights,config.DDF_shift)
+        TRT[config.DDF_shift](f_vec,velocity,rho,tau_local,tau_asymm, directions,weights)
     else:
         comptime assert config.collision_op_is_valid() ,'Invalid Collision Operator specified'
 
