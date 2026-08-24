@@ -249,14 +249,15 @@ def esoteric_pull_load_single_f[
         return load_f_val(f,index,0)
 
     is_pos_q = ((q % 2) == 1) # Odd indices are positive, Even Indices are negative
-    var index_to_load:InlineArray[Int,3]
+    # ref index_to_load:InlineArray[Int,3]
+    # ref q_to_load:Int
     comptime if is_even_time_step:
         neg_q = q+1 if is_pos_q else q
         direction = directions[neg_q]
         pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Case if q is neg
         ref index_to_load = index if is_pos_q else pull_index
         q_to_load = q
-
+        return load_f_val(f,index_to_load,q_to_load)
     else:
         pos_q = q if is_pos_q else q-1
         direction = directions[pos_q]
@@ -264,7 +265,7 @@ def esoteric_pull_load_single_f[
         ref index_to_load = index if is_pos_q else push_index
         q_to_load = q+1 if is_pos_q else q-1
 
-    return load_f_val(f,index_to_load,q_to_load)
+        return load_f_val(f,index_to_load,q_to_load)
 
 
 
