@@ -9,6 +9,7 @@ from src.lbm import SOLID_NODE,FLUID_NODE,LBM_Grid,get_D2Q9,Lattice,set_exterior
 from .LBM_gpu_kernel import LBM_kernel
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
+from max.benchmark import bencher_iter_custom
 from std.utils import Variant
 
 
@@ -85,7 +86,7 @@ def benchmark_func_row_tile[
     def run_kernel(ctx:DeviceContext) capturing raises:
         ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu(),bc.gpu(),flags.gpu(),Float32(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
-    b.iter_custom[run_kernel](ctx)
+    bencher_iter_custom[run_kernel](b, ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())
     keep(f.gpu_buffer().unsafe_ptr())
     keep(flags.gpu_buffer().unsafe_ptr())
@@ -165,7 +166,7 @@ def benchmark_func_col_tile[
     def run_kernel(ctx:DeviceContext) capturing raises:
         ctx.enqueue_function(LBM_func,f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),Float32(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
-    b.iter_custom[run_kernel](ctx)
+    bencher_iter_custom[run_kernel](b, ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())
     keep(f.gpu_buffer().unsafe_ptr())
     keep(flags.gpu_buffer().unsafe_ptr())
