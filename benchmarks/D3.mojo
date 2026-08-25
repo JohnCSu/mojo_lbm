@@ -7,7 +7,7 @@ from std.math import ceildiv
 from std.collections import InlineArray
 from src.lbm import DoubleBufferConfig,EsotericPullConfig
 from src.lbm import SOLID_NODE,FLUID_NODE,set_exterior_walls,LBM_Grid,get_D3Q19,get_D3Q27,LBM_Config
-from src.lbm.archive.part_3 import base
+# from src.lbm.archive.part_3 import base
 from src.lbm.kernels.benchmark import benchmark_func_tiled_3D,benchmark_func_3D_non_tiled
 
 from src.utils import Vector,ContextTileTensor
@@ -45,14 +45,14 @@ comptime L_lat:float_scalar = N
 comptime v_lat = U*L_lat/Re
 comptime tau = v_lat/(1/3.) +0.5
 
-comptime benchmark_1 = base.benchmark_func_row_major_AoS[non_tiled_grid,U,tau]
-comptime benchmark_2 = base.benchmark_func_col_major_SoA[non_tiled_grid,U,tau]
+# comptime benchmark_1 = base.benchmark_func_row_major_AoS[non_tiled_grid,U,tau]
+# comptime benchmark_2 = base.benchmark_func_col_major_SoA[non_tiled_grid,U,tau]
 
-comptime benchmark_3 = base.benchmark_func_col_tile_row_tiler[tiled_grid,U,tau]
-comptime benchmark_4 = base.benchmark_func_row_tile_col_tiler[tiled_grid,U,tau]
+# comptime benchmark_3 = base.benchmark_func_col_tile_row_tiler[tiled_grid,U,tau]
+# comptime benchmark_4 = base.benchmark_func_row_tile_col_tiler[tiled_grid,U,tau]
 
-comptime benchmark_5 = base.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
-comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
+# comptime benchmark_5 = base.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
+# comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
 
 
 comptime benchmark_9 = benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig()]
@@ -82,12 +82,12 @@ def main() raises:
 
     var bench_config = BenchConfig(max_iters=10, num_warmup_iters=1)
     var bench = Bench(bench_config.copy())
-    bench.bench_function[benchmark_1](BenchId('1. Base Row Major AoS'))
-    bench.bench_function[benchmark_2](BenchId('2. Base Col Major SoA'))
-    bench.bench_function[benchmark_3](BenchId('3. Tile Col, Tiler Row'))
-    bench.bench_function[benchmark_4](BenchId('4. Tile Row, Tile Col'))
-    bench.bench_function[benchmark_5](BenchId('5. Tile Col, Tiler Col'))
-    bench.bench_function[benchmark_6](BenchId('6. Tile Row, Tiler Row'))
+    # bench.bench_function[benchmark_1](BenchId('1. Base Row Major AoS'))
+    # bench.bench_function[benchmark_2](BenchId('2. Base Col Major SoA'))
+    # bench.bench_function[benchmark_3](BenchId('3. Tile Col, Tiler Row'))
+    # bench.bench_function[benchmark_4](BenchId('4. Tile Row, Tile Col'))
+    # bench.bench_function[benchmark_5](BenchId('5. Tile Col, Tiler Col'))
+    # bench.bench_function[benchmark_6](BenchId('6. Tile Row, Tiler Row'))
     # bench.bench_function[benchmark_7](BenchId('7. Shared Memory For Flags tile, Global Pull For boundary'))
     # bench.bench_function[benchmark_8](BenchId('8. Map Flags + Halo region to Shared'))
 
