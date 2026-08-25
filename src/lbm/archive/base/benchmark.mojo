@@ -9,6 +9,7 @@ from src.lbm import SOLID_NODE,FLUID_NODE,set_exterior_walls,LBM_Grid,get_D2Q9,L
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
 from .LBM_gpu_kernel import LBM_kernel
+from max.benchmark import bencher_iter_custom
 
 comptime config = LBM_Config[DOUBLE_BUFFER]()
 
@@ -67,7 +68,7 @@ def benchmark_func[
     def run_kernel(ctx:DeviceContext) capturing raises:
         ctx.enqueue_function[LBM_kernel_ref_2172](f_out.gpu(),f.gpu(),bc.gpu(),flags.gpu(),Float32(1/tau),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
-    b.iter_custom[run_kernel](ctx)
+    bencher_iter_custom[run_kernel](b, ctx)
     keep(f_out.gpu_buffer().unsafe_ptr())
     keep(f.gpu_buffer().unsafe_ptr())
     keep(flags.gpu_buffer().unsafe_ptr())
