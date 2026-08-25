@@ -137,7 +137,7 @@ def main() raises:
     cyl.add_sphere(flags.cpu(),center = [cen*grid.dx,cen*grid.dx,0.],radius = radius )
     cyl_ids = cyl.to_ContextTileTensor(ctx)
     
-    force_layout = row_major(coord[int_dtype]((cyl_ids.size(),D)))
+    force_layout = row_major(dyn_coord[int_dtype]((cyl_ids.size(),D)))
     force_tensor = ContextTileTensor[float_dtype](ctx,force_layout)
 
     def inlet[float_dtype:DType,D:Int](x:Scalar[float_dtype],y:Scalar[float_dtype],z:Scalar[float_dtype],mut vel:InlineArray[Scalar[float_dtype],D]) capturing:

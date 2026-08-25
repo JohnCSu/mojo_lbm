@@ -7,8 +7,8 @@ from std.math import ceildiv
 from std.collections import InlineArray
 from src.lbm import DoubleBufferConfig,EsotericPullConfig
 from src.lbm import SOLID_NODE,FLUID_NODE,set_exterior_walls,LBM_Grid,get_D3Q19,get_D3Q27,LBM_Config
-
-from src.lbm.kernels.benchmark import benchmark_func_tiled_3D,benchmark_func_3D_non_tiled
+from src.lbm.archive.part_3 import base
+# from src.lbm.kernels.benchmark import benchmark_func_tiled_3D,benchmark_func_3D_non_tiled
 
 from src.utils import Vector,ContextTileTensor
 from std.benchmark import Bench, BenchConfig, Bencher, BenchId, keep,run
@@ -45,15 +45,14 @@ comptime L_lat:float_scalar = N
 comptime v_lat = U*L_lat/Re
 comptime tau = v_lat/(1/3.) +0.5
 
-comptime benchmark_1 = benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig()]
-comptime benchmark_2 =benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig(use_float16c = True,DDF_shift = True)]
-comptime benchmark_3 =benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig(LES = True,DDF_shift = True)]
+comptime benchmark_1 = base.benchmark_func_row_major_AoS[non_tiled_grid,U,tau]
+comptime benchmark_2 = base.benchmark_func_col_major_SoA[non_tiled_grid,U,tau]
 
-comptime benchmark_4 = benchmark_func_tiled_3D[U,tau,tiled_grid,EsotericPullConfig()]
-comptime benchmark_5 = benchmark_func_tiled_3D[U,tau,tiled_grid,EsotericPullConfig(use_float16c = True,DDF_shift = True,include_moving_boundary = False)]
+comptime benchmark_3 = base.benchmark_func_col_tile_row_tiler[tiled_grid,U,tau]
+comptime benchmark_4 = base.benchmark_func_row_tile_col_tiler[tiled_grid,U,tau]
 
-comptime benchmark_6 = benchmark_func_3D_non_tiled[U,tau,non_tiled_grid,EsotericPullConfig(LES = True,DDF_shift = True)]
-comptime benchmark_7 = benchmark_func_3D_non_tiled[U,tau,non_tiled_grid,EsotericPullConfig(use_float16c = True,LES = True,DDF_shift = True,include_moving_boundary = False)]
+comptime benchmark_5 = base.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
+comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
 
 def main() raises:
     ctx = DeviceContext()
@@ -72,13 +71,10 @@ def main() raises:
 
     var bench_config = BenchConfig(max_iters=10, num_warmup_iters=1)
     var bench = Bench(bench_config.copy())
-
-    bench.bench_function[benchmark_1](BenchId('1. Double Buffer LBM with Default LBM_Config'))
-    bench.bench_function[benchmark_2](BenchId('2. Double Buffer  LBM float16c + DDF_shift'))
-    bench.bench_function[benchmark_3](BenchId('3. Double Buffer  LES + DDF_Shift'))
-
-    bench.bench_function[benchmark_4](BenchId('4. Esoteric Pull + LBM with Default LBM_Config'))
-    bench.bench_function[benchmark_5](BenchId('5. Esoteric Pull + LBM float16c + DDF_shift'))
-    bench.bench_function[benchmark_6](BenchId('6. Esoteric Pull + DDF_Shift + Non Tiled Col Major'))
-    bench.bench_function[benchmark_7](BenchId('7. Esoteric Pull + Float16c + DDF_Shift + Non Tiled Col Major'))
+    bench.bench_function[benchmark_1](BenchId('1. Base Row Major AoS'))
+    bench.bench_function[benchmark_2](BenchId('2. Base Col Major SoA'))
+    bench.bench_function[benchmark_3](BenchId('3. Tile Col, Tiler Row'))
+    bench.bench_function[benchmark_4](BenchId('4. Tile Row, Tile Col'))
+    bench.bench_function[benchmark_5](BenchId('5. Tile Col, Tiler Col'))
+    bench.bench_function[benchmark_6](BenchId('6. Tile Row, Tiler Row'))
     print(bench)
