@@ -70,7 +70,7 @@ def LBM_kernel[
         comptime for q in range(Q):
             f_opp = f_in[0,opposite_index[q],   local_x,block_x,    local_y,block_y,    local_z,block_z] # Need (local_idx,block_idx)
             direction = directions[q]
-            pull_local,pull_block = get_adjacent_idx[_,D,Flaglayout,tile_size,-1](local_index,block_index,direction) # Pulling Scheme
+            ref pull_local,pull_block = get_adjacent_idx[_,D,Flaglayout,tile_size,-1](local_index,block_index,direction) # Pulling Scheme
 
             pulled_f = f_in[0,q,pull_local[0],pull_block[0],     pull_local[1],pull_block[1],   pull_local[2],pull_block[2]]
             pulled_flag = flags[pull_local[0],pull_block[0],     pull_local[1],pull_block[1],   pull_local[2],pull_block[2]]
@@ -108,7 +108,7 @@ def get_adjacent_idx[int_dtype:DType,D:Int,flag_layout:Layout[...],tile_size:Int
     adj_block_index = InlineArray[Int,3](fill =0)
     
     comptime for d in range(D):
-        direction_d = shift*Int32(direction[d])
+        direction_d = shift*Int(direction[d])
         current_pull_index = local_index[d] + direction_d
         adj_local_index[d] = current_pull_index % tile_size # Modulo as we flip back
         next_block = current_pull_index < 0 or current_pull_index >= tile_size

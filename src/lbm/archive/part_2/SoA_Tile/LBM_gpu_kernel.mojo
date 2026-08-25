@@ -138,7 +138,7 @@ def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,
     comptime assert D <= 3 
     adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
+        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
     return adj_index^
 
 @always_inline

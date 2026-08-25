@@ -185,7 +185,7 @@ def sync_set_shared_flags[dtype:DType,
             shared_local_index[2] = sz - shift_z
         
             # s_local_index,s_block_index = get_global_xyz_from_block_and_local_idx[D,tile_size](shared_local_index,block_index,shared_adjacent_block_idx)
-            s_local_index,s_block_index = get_global_xyz_from_block_and_local_idx_old[D,flagLayoutType,tile_size](shared_local_index,block_index)
+            ref s_local_index, s_block_index = get_global_xyz_from_block_and_local_idx_old[D,flagLayoutType,tile_size](shared_local_index,block_index)
             gx = s_local_index[0] + s_block_index[0]*tile_size
             gy = s_local_index[1] + s_block_index[1]*tile_size
             gz = s_local_index[2] + s_block_index[2]*tile_size
@@ -254,7 +254,7 @@ def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,
     comptime assert D <= 3 
     adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
-        adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
+        adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
     return adj_index^
 
 @always_inline
