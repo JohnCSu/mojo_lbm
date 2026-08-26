@@ -54,15 +54,15 @@ comptime benchmark_5 = base.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
 comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
 
 
-comptime benchmark_9 = benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,DoubleBufferConfig()]
-comptime benchmark_10 =benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,DoubleBufferConfig(use_float16c = True,DDF_shift = True)]
-comptime benchmark_11 =benchmark_func_tiled_3D['double buffer',U,tau,tiled_grid,DoubleBufferConfig(LES = True,DDF_shift = True)]
+comptime benchmark_9 = benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig()]
+comptime benchmark_10 =benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig(use_float16c = True,DDF_shift = True)]
+comptime benchmark_11 =benchmark_func_tiled_3D[U,tau,tiled_grid,DoubleBufferConfig(LES = True,DDF_shift = True)]
 
 
-comptime benchmark_12 = benchmark_func_tiled_3D['esoteric pull',U,tau,tiled_grid,EsotericPullConfig()]
-comptime benchmark_13 = benchmark_func_tiled_3D['esoteric pull',U,tau,tiled_grid,EsotericPullConfig(use_float16c = True,DDF_shift = True)]
-comptime benchmark_14 = benchmark_func_3D_non_tiled['esoteric pull',U,tau,non_tiled_grid,EsotericPullConfig(LES = True,DDF_shift = True)]
-comptime benchmark_15 = benchmark_func_3D_non_tiled['esoteric pull',U,tau,non_tiled_grid,EsotericPullConfig(use_float16c = True,LES = True,DDF_shift = True)]
+comptime benchmark_12 = benchmark_func_tiled_3D[U,tau,tiled_grid,EsotericPullConfig()]
+comptime benchmark_13 = benchmark_func_tiled_3D[U,tau,tiled_grid,EsotericPullConfig(use_float16c = True,DDF_shift = True)]
+comptime benchmark_14 = benchmark_func_3D_non_tiled[U,tau,non_tiled_grid,EsotericPullConfig(LES = True,DDF_shift = True)]
+comptime benchmark_15 = benchmark_func_3D_non_tiled[U,tau,non_tiled_grid,EsotericPullConfig(use_float16c = True,LES = True,DDF_shift = True)]
 
 def main() raises:
     ctx = DeviceContext()

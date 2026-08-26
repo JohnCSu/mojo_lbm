@@ -117,17 +117,17 @@ def linkwise_bounceback_kernel[
             q_dist = link_distances[tid]
             q_dist = max(q_dist,q_clamp)
             
-            f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,i) # About to be bounced back value
+            f_into_wall = load_f[float_dtype,config.use_float16c](f_in,index,i) # About to be bounced back value
 
             comptime if bounceback_method == Bounceback_method.BOUZIDI:
                 if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
-                    f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
+                    f_out_of_wall =  load_f[float_dtype,config.use_float16c](f_in,index,opp_i)
                     f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
                 else:
                     # we go double pull
                     # f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
                     xff_index = get_adjacent_idx[-1](index,grid_shape,direction) # xff is in opp direction to i direction
-                    f_at_xff = load_f[float_dtype,config.DDF_shift](f_in,xff_index,opp_i)
+                    f_at_xff = load_f[float_dtype,config.use_float16c](f_in,xff_index,opp_i)
                     f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
 
                 store_f[config.use_float16c](f_in,f_bb,index,i)

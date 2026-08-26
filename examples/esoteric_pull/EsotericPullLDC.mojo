@@ -10,7 +10,7 @@ from src.lbm import (
                     UnitSystem,DoubleBufferConfig,EsotericPullConfig
                     )
 from src.lbm.preprocess.initial_condition import initialize_fluid_at_rest
-from src.lbm.kernels import esoteric_pull_kernel
+from src.lbm.kernels import esoteric_pull_kernel,double_buffer_kernel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.geometry.primatives import add_sphere,add_box
 from src.visualization import pyvista_viewer_import,grid_viewer

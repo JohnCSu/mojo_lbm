@@ -13,8 +13,8 @@ from src.lbm import (
 from src.lbm.kernels.double_buffer import double_buffer_kernel
 from src.utils import Vector,ContextTileTensor
 from src.lbm.geometry.primatives import add_sphere,add_box
-from src.lbm.geometry import RigidImmersedObject
-from src.lbm.output import calculate_drag_around_object
+from src.lbm.geometry.rigidSphere import get_rigid_sphere
+from src.lbm.constants import LBM_method,Bounceback_method
 
 comptime float_dtype = DType.float32
 comptime int_dtype = DType.int32
@@ -84,15 +84,9 @@ def main() raises:
 
     # Boundary Conditions----------------------------
 
-    cyl = RigidImmersedObject[grid]()
-
     cen = 0.2//grid.dx # Ensure the center is adjustto be at a node
     print('Centre: ',[cen*grid.dx,cen*grid.dx,0.])
-    cyl.add_sphere(flags.cpu(),center = [cen*grid.dx,cen*grid.dx,0.],radius = radius )
-    cyl_ids = cyl.to_ContextTileTensor(ctx)
-    
-    force_layout = row_major(coord[int_dtype]((cyl_ids.size(),D)))
-    force_tensor = ContextTileTensor[float_dtype](ctx,force_layout)
+    cyl = get_rigid_sphere[grid,LBM_method.DOUBLE_BUFFER,config](ctx,flags.cpu(),center = [cen*grid.dx,cen*grid.dx,0.],radius = radius)
 
     def inlet[float_dtype:DType,D:Int](x:Scalar[float_dtype],y:Scalar[float_dtype],z:Scalar[float_dtype],mut vel:InlineArray[Scalar[float_dtype],D]) capturing:
         comptime Um = 1.5*U_phs
@@ -119,9 +113,6 @@ def main() raises:
     comptime LBM_ = double_buffer_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
     LBM_func = ctx.compile_function[LBM_]()
 
-    comptime calculate_drag_ = calculate_drag_around_object[type_of(f_layout),type_of(flag_layout),grid,config]
-    calculate_drag = ctx.compile_function[calculate_drag_]()
-
     comptime get_u_and_rho = calculate_rho_and_velocity[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),type_of(density_layout),type_of(velocity_layout),grid,config]
     calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho]()
 
@@ -136,17 +127,17 @@ def main() raises:
         ctx.enqueue_function[LBM_](f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         ctx.enqueue_function[LBM_](f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         ctx.synchronize()
-        ctx.enqueue_function[calculate_drag_](f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
+        cyl.bounceback[Bounceback_method.BOUZIDI](f.gpu(),flags.gpu().as_immut())
         ctx.synchronize()
         ctx.enqueue_function[get_u_and_rho](rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         ctx.synchronize()
         u_np = (u.buffer_to_numpy()*u_lat_to_phys).reshape(D,nx,ny,nz)
         print('step = {}, time = {} max ={} avg = {}'.format(2*t,2.*Scalar[float_dtype](t)*dt,u_np.max(),u_np.mean()))
-        force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
-        Fx,Fy = force_np.sum(axis=0)[0],force_np.sum(axis=0)[1]
-        Fx,Fy = units.force.C_lat_to_phys()*Fx,units.force.C_lat_to_phys()*Fy
-        Cx = float_scalar(py=2*Fx/(U_phs**2*(2*radius)))
-        Cy = float_scalar(py=2*Fy/(U_phs**2*(2*radius)))
+        forces = cyl.sum_force()
+        Fx = units.force.C_lat_to_phys()*Scalar[float_dtype](forces[0])
+        Fy = units.force.C_lat_to_phys()*Scalar[float_dtype](forces[1])
+        Cx = 2*Fx/(U_phs**2*(2*radius))
+        Cy = 2*Fy/(U_phs**2*(2*radius))
         
         print('Drag Force: {}, Target: {} Abs Error: {} Rel Error {}%'.format(Cx,Cd,abs(Cx-Cd),abs(Cd-Cx)/Cd*100) )
         print('Lift Force: {}, Target: {} Abs Error: {} Rel Error: {}%'.format(Cy,Cl,abs(Cy-Cl),abs(Cl-Cy)/Cl*100))
@@ -156,13 +147,14 @@ def main() raises:
     # Get Final U and rho and drag
     ctx.enqueue_function[get_u_and_rho](rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
     ctx.synchronize()
-    ctx.enqueue_function[calculate_drag_](f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
-    force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
-    Fx,Fy = force_np.sum(axis=0)[0],force_np.sum(axis=0)[1]
-    Fx,Fy = units.force.C_lat_to_phys()*Fx,units.force.C_lat_to_phys()*Fy
+    cyl.bounceback[Bounceback_method.BOUZIDI](f.gpu(),flags.gpu().as_immut())
+    ctx.synchronize()
+    forces = cyl.sum_force()
+    Fx = units.force.C_lat_to_phys()*Scalar[float_dtype](forces[0])
+    Fy = units.force.C_lat_to_phys()*Scalar[float_dtype](forces[1])
 
-    Cx = float_scalar(py=2*Fx/(U_phs**2*(2*radius)))
-    Cy = float_scalar(py=2*Fy/(U_phs**2*(2*radius)))
+    Cx = 2*Fx/(U_phs**2*(2*radius))
+    Cy = 2*Fy/(U_phs**2*(2*radius))
         
     t = MAX_ITERS
     u_np = (u.buffer_to_numpy()*u_lat_to_phys).reshape(D,nx,ny,nz)
