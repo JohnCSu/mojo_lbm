@@ -120,7 +120,7 @@ struct UnitSystem[float_dtype: DType, D: Int](ImplicitlyCopyable & Writable):
         self.density = Self.Unit_(density, 1.0)
 
         self.Re = (self.U.physical * self.L.physical) / kinematic_viscosity
-        v_lat = self.U.lattice * self.L.lattice / self.Re
+        var v_lat = self.U.lattice * self.L.lattice / self.Re
 
         self.dt = self.t.physical
         self.tau = v_lat / (1 / 3.0) + 0.5
@@ -166,7 +166,7 @@ struct UnitSystem[float_dtype: DType, D: Int](ImplicitlyCopyable & Writable):
             density: The density of the actual fluid.
             dynamic_viscosity: The dynamic viscosity of the fluid.
         """
-        kinematic_viscosity = dynamic_viscosity / density
+        var kinematic_viscosity = dynamic_viscosity / density
         self = Self(
             u_physical,
             u_lattice,
@@ -199,7 +199,7 @@ struct UnitSystem[float_dtype: DType, D: Int](ImplicitlyCopyable & Writable):
             density: The density of the actual fluid.
             Re: The target Reynolds number.
         """
-        kinematic_viscosity = u_physical * L_physical / Re
+        var kinematic_viscosity = u_physical * L_physical / Re
         self = Self(
             u_physical,
             u_lattice,

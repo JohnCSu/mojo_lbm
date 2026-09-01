@@ -58,11 +58,11 @@ def benchmark_func[
     
 
     comptime simd_width = 4
-    ctx = DeviceContext()
-    flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx,bc_layout)
-    f = ContextTileTensor[float_dtype](ctx,f_layout)
-    f_out = ContextTileTensor[float_dtype](ctx,f_layout)
+    var ctx = DeviceContext()
+    var flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx,bc_layout)
+    var f = ContextTileTensor[float_dtype](ctx,f_layout)
+    var f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
     # Set up
     f.fill(1./Scalar[float_dtype](Q))
@@ -83,7 +83,7 @@ def benchmark_func[
     ctx.synchronize()
     #Compile Functions
     comptime LBM_kernel_ = LBM_kernel[f_layout,bc_layout,flag_layout,grid,simd_width,reorder_threads = reorder_threads]
-    LBM_func = ctx.compile_function[LBM_kernel_]()
+    var LBM_func = ctx.compile_function[LBM_kernel_]()
     ctx.synchronize()
     
     @always_inline

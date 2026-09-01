@@ -96,7 +96,7 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
         for i in range(
             Self.Q
         ):  # Cant be bothered making an effecient algorithim to search opposite
-            opp_direction = self.directions[i].copy()
+            var opp_direction = self.directions[i].copy()
             for j in range(Self.D):
                 opp_direction[j] = opp_direction[j] * (-1)
             for k in range(Self.Q):
@@ -117,8 +117,8 @@ struct Lattice[D: Int, Q: Int, float_dtype: DType, int_dtype: DType](
         """
 
         for q in range(1,Self.Q-1,2):
-            dir_q = self.directions[q]
-            opp_dir_q = self.directions[q+1]
+            var dir_q = self.directions[q]
+            var opp_dir_q = self.directions[q+1]
             # print(q,q+1,dir_q,opp_dir_q)
             if (dir_q + opp_dir_q).sum() != 0: # If not equal to zero then the adjacent direction is not the opposite direction
                 return False
@@ -152,7 +152,7 @@ def get_D3Q27[
     comptime int_vector = Vector[int_dtype, D]
     comptime float_vector = Vector[float_dtype, D]
 
-    directions_list: List[List[Scalar[int_dtype]]] = [
+    var directions_list: List[List[Scalar[int_dtype]]] = [
         # Center (1)
         [0, 0, 0],
         # Faces (6)
@@ -189,11 +189,11 @@ def get_D3Q27[
     # for i in range(Q):
     #     float_directions[i].fill_and_cast_from_list(directions_list[i])
 
-    directions = InlineArray[int_vector, Q](uninitialized=True)
+    var directions = InlineArray[int_vector, Q](uninitialized=True)
     for i in range(Q):
         directions[i].fill_and_cast_from_list(directions_list[i])
 
-    weights = Vector[float_dtype, Q](
+    var weights = Vector[float_dtype, Q](
         # Center
         8 / 27.0,
         # Faces
@@ -251,7 +251,7 @@ def get_D3Q19[
     comptime int_vector = Vector[int_dtype, D]
     comptime float_vector = Vector[float_dtype, D]
 
-    directions_list: List[List[Scalar[int_dtype]]] = [
+    var directions_list: List[List[Scalar[int_dtype]]] = [
         # Center (1)
         [0, 0, 0],
         # Faces (6)
@@ -279,11 +279,11 @@ def get_D3Q19[
     # for i in range(Q):
     #     float_directions[i].fill_and_cast_from_list(directions_list[i])
 
-    directions = InlineArray[int_vector, Q](uninitialized=True)
+    var directions = InlineArray[int_vector, Q](uninitialized=True)
     for i in range(Q):
         directions[i].fill_and_cast_from_list(directions_list[i])
 
-    weights = Vector[float_dtype, Q](
+    var weights = Vector[float_dtype, Q](
         # Center
         1.0 / 3,
         # Faces
@@ -332,7 +332,7 @@ def get_D2Q9[
     comptime int_vector = Vector[int_dtype, D]
     comptime float_vector = Vector[float_dtype, D]
 
-    directions_list: List[List[Scalar[int_dtype]]] = [
+    var directions_list: List[List[Scalar[int_dtype]]] = [
         [0, 0],  # 0: Center (rest)
         [1, 0],  # 1: East
         [-1, 0],  # 3: West
@@ -344,11 +344,11 @@ def get_D2Q9[
         [1, -1],  # 8: South-East
     ]
 
-    directions = InlineArray[int_vector, Q](uninitialized=True)
+    var directions = InlineArray[int_vector, Q](uninitialized=True)
     for i in range(Q):
         directions[i].fill(directions_list[i])
 
-    weights = Vector[float_dtype, Q](
+    var weights = Vector[float_dtype, Q](
         4.0 / 9.0,  # 0: Center
         1.0 / 9.0,
         1.0 / 9.0,

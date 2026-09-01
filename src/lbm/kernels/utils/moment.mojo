@@ -55,13 +55,14 @@ def get_velocity[
 
     Parameters:
         float_dtype: The `DType` of the computation.
+        int_dtype: The `DType` of the integer directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        directions: The compile-time int-valued directions.
 
     Args:
         f_vec: The distribution vector.
         density: The lattice density `rho`.
+        directions: The discrete velocity directions.
 
     Returns:
         The lattice velocity vector `u`.
@@ -87,12 +88,12 @@ def get_Qiab[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,](f_neq:Vector[flo
         int_dtype: The `DType` of the integer directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        directions: The compile-time discrete velocity directions.
 
     Args:
         f_neq: The non-equilibrium distribution vector.
         a: The first velocity-component index.
         b: The second velocity-component index.
+        directions: The discrete velocity directions.
 
     Returns:
         The second-order moment $$Q_{a,b}$$.
@@ -127,11 +128,11 @@ def get_non_eq_second_order_moment[
         Q: The number of discrete velocities.
         n_stress: The number of symmetric stress components; must equal
             `D * (D + 1) / 2`.
-        directions: The compile-time discrete velocity directions.
         stress_indices: The compile-time symmetric stress-index pairs.
 
     Args:
         f_neq: The non-equilibrium distribution vector.
+        directions: The discrete velocity directions.
 
     Returns:
         A `Vector` of length `n_stress` holding the second-order moments.
@@ -207,3 +208,5 @@ def get_strain_rate_tensor_norm_squared[
         else:
             s_norm_squared += ss[n]
     return s_norm_squared
+
+# last modified by: muse-spark-1.2 on 2026/09/01

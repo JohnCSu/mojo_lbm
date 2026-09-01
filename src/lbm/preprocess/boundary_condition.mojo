@@ -33,8 +33,8 @@ def _error_check[
     rho:Scalar[float_dtype],
     ) raises:
 
-    valid_strings:Set[String] = {'-X','+X','-Y','+Y','-Z','+Z'}
-    VALID_BOUNDARIES = materialize[config.INCLUDED_BCs]()
+    var valid_strings:Set[String] = {'-X','+X','-Y','+Y','-Z','+Z'}
+    var VALID_BOUNDARIES = materialize[config.INCLUDED_BCs]()
 
     if boundary_type not in VALID_BOUNDARIES:
         raise Error('Input Boundary Type was {} but valid boundary types are: {}'.format(boundary_type,VALID_BOUNDARIES))
@@ -45,7 +45,7 @@ def _error_check[
 
     # Checking combinations of u, rho and specified boundary condition
 
-    u_is_empty = (len(u) == 0)
+    var u_is_empty = (len(u) == 0)
 
     if u_is_empty and isnan(rho):
         raise Error('Either velocity or density or both have to be specified. Both cant be left as None')
@@ -62,7 +62,7 @@ def _error_check[
             raise Error('For Solid Type you must specify both u and rho')
 
         if not config.include_moving_boundary: # U is guranteed not empty
-            u_is_non_zero = any([ui != 0. for ui in u])
+            var u_is_non_zero = any([ui != 0. for ui in u])
             if u_is_non_zero: # If moving bc specified but config is not set for it
                 raise Error('include_moving_boundary in config was set to False but a non zero velocity was specified, Please set config.include_moving_boundary to True First')
 
@@ -129,11 +129,11 @@ def set_exterior_walls[
     comptime assert grid.float_dtype.is_floating_point()
     comptime assert FlagLayoutType.rank == 3 and BCLayoutType.rank == 4
     comptime lattice = grid.lattice
-    var weights = materialize[lattice.weights]()
-    var directions = materialize[lattice.directions]()
+    _ = materialize[lattice.weights]()
+    _ = materialize[lattice.directions]()
     comptime D = grid.D
     comptime Q = grid.Q
-    var grid_shape = materialize[grid.shape]()
+    _ = materialize[grid.shape]()
     comptime float_dtype = grid.float_dtype
     var nx = materialize[grid.shape]()[0]
     var ny = materialize[grid.shape]()[1]
@@ -141,27 +141,28 @@ def set_exterior_walls[
 
     _error_check[config](D,side,boundary_type,u,rho)
     
-    axes:Dict[String,Int] = {'X':0,
+    var axes:Dict[String,Int] = {'X':0,
                     'Y':1,
                     'Z':2,}
 
-    u_is_empty = (len(u) == 0)
-    velocity = [nan[float_dtype]() for _ in range(D)] if u_is_empty else u.copy()
-    density:Scalar[float_dtype] = rho
+    var u_is_empty = (len(u) == 0)
+    var velocity = [nan[float_dtype]() for _ in range(D)] if u_is_empty else u.copy()
+    var density:Scalar[float_dtype] = rho
 
-    axis = axes[String(side[byte = 1])]
-    end_values = materialize[grid.shape]()
+    var axis = axes[String(side[byte = 1])]
+    var end_values = materialize[grid.shape]()
     
     if unitSystem: # if not None then implies bc give are not in
         density *=unitSystem.value().density.C_phys_to_lat()
         velocity = [unitSystem.value().U.C_phys_to_lat()*u for u in velocity]
 
+    var fixed: Int
     if side[byte = 0] == '-':
         fixed = 0
     else:
         fixed = end_values[axis] - 1
     if axis == 0: # X-axis, fix x and loop
-        x = fixed
+        var x = fixed
         for y in range(ny):
             for z in range(nz):
                 flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
@@ -169,7 +170,7 @@ def set_exterior_walls[
                     bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i])
                 bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
     elif axis == 1:
-        y = fixed
+        var y = fixed
         for x in range(nx):
             for z in range(nz):
                 flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
@@ -177,7 +178,7 @@ def set_exterior_walls[
                     bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i])
                 bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
     else: # Loop Z-face
-        z = fixed
+        var z = fixed
         for x in range(nx):
             for y in range(ny):
                 flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
@@ -242,11 +243,11 @@ def set_exterior_walls_with_func[
     comptime assert grid.float_dtype.is_floating_point()
     comptime assert FlagLayoutType.rank == 3 and BCLayoutType.rank == 4
     comptime lattice = grid.lattice
-    var weights = materialize[lattice.weights]()
-    var directions = materialize[lattice.directions]()
+    _ = materialize[lattice.weights]()
+    _ = materialize[lattice.directions]()
     comptime D = grid.D
     comptime Q = grid.Q
-    var grid_shape = materialize[grid.shape]()
+    _ = materialize[grid.shape]()
     comptime float_dtype = grid.float_dtype
     var nx = materialize[grid.shape]()[0]
     var ny = materialize[grid.shape]()[1]
@@ -255,30 +256,32 @@ def set_exterior_walls_with_func[
     comptime u_func = u
    
 
-    axes:Dict[String,Int] = {'X':0,
+    var axes:Dict[String,Int] = {'X':0,
                     'Y':1,
                     'Z':2,}
 
 
-    fake_u:List[Scalar[float_dtype]] = [1. for _ in range(D)] # For Error Checking. Here we assume that u_func will return non zero velocities
+    var fake_u:List[Scalar[float_dtype]] = [1. for _ in range(D)] # For Error Checking. Here we assume that u_func will return non zero velocities
     _error_check[config](D,side,boundary_type,fake_u,rho)
 
-    density:Scalar[float_dtype] = rho
+    var density:Scalar[float_dtype] = rho
     if unitSystem: # if not None then implies bc give are not in
         density *=unitSystem.value().density.C_phys_to_lat()
         # velocity = [unitSystem.value().U.C_phys_to_lat()*u for u in velocity]
 
-    axis = axes[String(side[byte = 1])]
-    end_values = [nx,ny,nz]
-
+    var axis = axes[String(side[byte = 1])]
+    var end_values = [nx,ny,nz]
+    var fixed: Int
     if side[byte = 0] == '-':
         fixed = 0
     else:
         fixed = end_values[axis] - 1
 
-    conversion_factor = unitSystem.value().U.C_phys_to_lat() if unitSystem else 1.
+    var conversion_factor = unitSystem.value().U.C_phys_to_lat() if unitSystem else 1.
+    var velocity: InlineArray[Scalar[float_dtype], D]
+    var grid_coords: InlineArray[Scalar[float_dtype], 3]
     if axis == 0: # X-axis, fix x and loop
-        x = fixed
+        var x = fixed
         for y in range(ny):
             for z in range(nz):
                 flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
@@ -289,7 +292,7 @@ def set_exterior_walls_with_func[
                     bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
                 bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
     elif axis == 1:
-        y = fixed
+        var y = fixed
         for x in range(nx):
             for z in range(nz):
                 flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
@@ -300,7 +303,7 @@ def set_exterior_walls_with_func[
                     bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
                 bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
     else: # Loop Z-face
-        z = fixed
+        var z = fixed
         for x in range(nx):
             for y in range(ny):
                 flags.store(dyn_coord[DType.int32]((x,y,z)),flags.ElementType(boundary_type))
@@ -310,3 +313,5 @@ def set_exterior_walls_with_func[
                 comptime for i in range(D):
                     bc.store(dyn_coord[DType.int32]((x,y,z,i)),velocity[i]*(conversion_factor) )
                 bc.store(dyn_coord[DType.int32]((x,y,z,D)),density)
+
+# last modified by: muse-spark-1.2 on 2026/09/01

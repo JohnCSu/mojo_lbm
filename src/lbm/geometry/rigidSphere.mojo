@@ -43,6 +43,8 @@ def get_rigid_sphere[
         flag_origin: The origin of the `flags` tile tensor.
         FlagLayoutType: The compile-time layout of `flags`.
         grid: The `LBM_Grid` describing the domain.
+        lbm_method: The LBM streaming method.
+        config: The compile-time `LBM_Config` for the run.
 
     Args:
         ctx: The `DeviceContext` that owns the `BitmaskCSR` buffers.
@@ -74,8 +76,8 @@ def get_rigid_sphere[
     var bounding_box:List[List[Int]] = []
     for i in range(3):
         if i < D:
-            a_min,a_max = center[i] - radius, center[i] + radius
-            n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)-1), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1)+1)
+            var a_min,a_max = center[i] - radius, center[i] + radius
+            var n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)-1), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1)+1)
             bounding_box.append([n_min,n_max+1])
         else:
             bounding_box.append([0,1])
@@ -87,33 +89,33 @@ def get_rigid_sphere[
     def inside_boundary(coord_vec:vec3,center_vec:vec3,radius:float_scalar) -> Bool:
         return ((coord_vec - center_vec)**2).sum() <= radius**2
 
-    fluid_boundary_candidate:Set[Tuple[Int,Int,Int]] = {}
+    var fluid_boundary_candidate:Set[Tuple[Int,Int,Int]] = {}
     # Phase 1: mark SOLID nodes inside the sphere within the bounding box
     for nx in range(bounding_box[0][0],bounding_box[0][1]):
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
-                coord_vec = index_to_coord((nx,ny,nz),grid.dx,materialize[grid.origin]())
+                var coord_vec = index_to_coord((nx,ny,nz),grid.dx,materialize[grid.origin]())
                 if inside_boundary(coord_vec,center_vec,radius):
                     flags.store(dyn_coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
                 else:
                     fluid_boundary_candidate.add((nx,ny,nz))
 
-    unique_fluid_id:List[Scalar[grid.int_dtype]] = []
-    fluid_boundary_id:List[Scalar[grid.int_dtype]] =[]
-    lattice_direction:List[Scalar[grid.int_dtype]] =[]
-    q_dists:List[Scalar[grid.float_dtype]] = []
+    var unique_fluid_id:List[Scalar[grid.int_dtype]] = []
+    var fluid_boundary_id:List[Scalar[grid.int_dtype]] =[]
+    var lattice_direction:List[Scalar[grid.int_dtype]] =[]
+    var q_dists:List[Scalar[grid.float_dtype]] = []
 
     for (nx,ny,nz) in fluid_boundary_candidate:
-        crd = dyn_coord[int_dtype]((nx,ny,nz))
-        fluid_id = flags.layout[linear_idx_type = int_dtype](crd)
-        xf = vec3(grid.get_grid_coordinates(nx,ny,nz))
-        id_has_been_checked = False
+        var crd = dyn_coord[int_dtype]((nx,ny,nz))
+        var fluid_id = flags.layout[linear_idx_type = int_dtype](crd)
+        var xf = vec3(grid.get_grid_coordinates(nx,ny,nz))
+        var id_has_been_checked = False
 
         for q in range(Q):
-            test_direction:InlineArray[Int,3] = [nx,ny,nz]
+            var test_direction:InlineArray[Int,3] = [nx,ny,nz]
             comptime for i in range(D):
                 test_direction[i] += Int(latticeModel.directions[q][i])
-            coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,materialize[grid.origin]())
+            var coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,materialize[grid.origin]())
              
             if inside_boundary(coord_test,center_vec,radius):
                 if not id_has_been_checked :
@@ -123,10 +125,10 @@ def get_rigid_sphere[
                 fluid_boundary_id.append(Scalar[int_dtype](fluid_id))
                 lattice_direction.append(Scalar[int_dtype](q))
                 
-                xs = coord_test
+                var xs = coord_test
                 q_dists.append(get_q_for_sphere(xf,xs,center_vec,radius))
 
-    sphere = RigidStationaryObject[grid,lbm_method,config](ctx,unique_fluid_id^,fluid_boundary_id^,lattice_direction^,q_dists^)
+    var sphere = RigidStationaryObject[grid,lbm_method,config](ctx,unique_fluid_id^,fluid_boundary_id^,lattice_direction^,q_dists^)
     return sphere^
 
 
@@ -152,18 +154,18 @@ def get_q_for_sphere[
     Returns:
         The link-surface intersection parameter `t` in `[0, 1]`.
     """
-    fluid_to_cent = xf - center
-    solid_to_fluid = xs - xf
+    var fluid_to_cent = xf - center
+    var solid_to_fluid = xs - xf
 
-    a = solid_to_fluid.norm_squared()
-    b = fluid_to_cent.dot(solid_to_fluid)*2
-    c = fluid_to_cent.norm_squared() - radius*radius
+    var a = solid_to_fluid.norm_squared()
+    var b = fluid_to_cent.dot(solid_to_fluid)*2
+    var c = fluid_to_cent.norm_squared() - radius*radius
 
-    disc = b*b - 4*a*c
-    sqrt_disc = sqrt(disc)
+    var disc = b*b - 4*a*c
+    var sqrt_disc = sqrt(disc)
 
-    t1 = (-b + sqrt_disc) / (2*a)
-    t2 = (-b - sqrt_disc) / (2*a)
+    var t1 = (-b + sqrt_disc) / (2*a)
+    var t2 = (-b - sqrt_disc) / (2*a)
 
     # `t1` is the larger root (>= ~1), `t2` is the smaller (in (0, 1] for a
     # boundary fluid node with a solid neighbor inside the sphere). Pick

@@ -67,7 +67,9 @@ def calculate_vorticity[
     """
     comptime assert D == 2 or D == 3,'Vorticity only valid for 2D and 3D'
     comptime assert (N == 1 and D == 2) or (N == 3 and D == 3)
-
+    var dv_dx: Scalar[float_dtype]
+    var du_dy: Scalar[float_dtype]
+    var vorticity_vector: Vector[float_dtype, N]
     comptime if D == 2: # Lattice Units so dx is = 1
         dv_dx = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 0)
         du_dy = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 1)
@@ -75,11 +77,11 @@ def calculate_vorticity[
         vorticity_vector = Vector[float_dtype,N](dv_dx- du_dy)
     else:
         # ex
-        dw_dy = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 2,axis = 1)
-        dv_dz = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 2)
+        var dw_dy = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 2,axis = 1)
+        var dv_dz = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 2)
         # ey
-        du_dz = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 2)
-        dw_dx = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 2,axis = 0)
+        var du_dz = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 2)
+        var dw_dx = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 2,axis = 0)
         # ez
         dv_dx = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 1,axis = 0)
         du_dy = get_velocity_gradient(shared_u,flags,local_index,global_index,grid_shape,velocity_direction = 0,axis = 1)
@@ -194,8 +196,8 @@ def calculate_Q_criterion[
         shared_local_index[2] = thread_idx.z + shift_z
         # Calculate Voricity shared_u,flags,shared_local_index,index,grid_shape
         
-        vorticity_vector = calculate_vorticity[D](shared_u,flags,shared_local_index,index,grid_shape)
-        vort_norm_sq = vorticity_vector.norm_squared() # This is 2xRotation Tensor magnitude
+        var vorticity_vector = calculate_vorticity[D](shared_u,flags,shared_local_index,index,grid_shape)
+        var vort_norm_sq = vorticity_vector.norm_squared() # This is 2xRotation Tensor magnitude
       
         var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
         var f_vec = Vector[float_dtype,Q](uninitialized=True)
@@ -212,7 +214,7 @@ def calculate_Q_criterion[
         var second_moment_neq = get_non_eq_second_order_moment[stress_indices](f_neq, directions)
         var strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau)
 
-        ss_norm_sq = get_strain_rate_tensor_norm_squared[stress_indices](strain_rate)
+        var ss_norm_sq = get_strain_rate_tensor_norm_squared[stress_indices](strain_rate)
 
-        Q_crit = 0.25*vort_norm_sq - 0.5*ss_norm_sq
+        var Q_crit = 0.25*vort_norm_sq - 0.5*ss_norm_sq
         Q_tensor.store(coord_index,value= Q_crit)

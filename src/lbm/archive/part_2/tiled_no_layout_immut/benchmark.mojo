@@ -55,11 +55,11 @@ def benchmark_func_row_tile[
     comptime density_layout = row_major[nx,ny,nz]()
     comptime velocity_layout = row_major[D,nx,ny,nz]()
 
-    ctx = DeviceContext()
-    flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx,bc_layout)
-    f = ContextTileTensor[float_dtype](ctx,f_layout)
-    f_out = ContextTileTensor[float_dtype](ctx,f_layout)
+    var ctx = DeviceContext()
+    var flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx,bc_layout)
+    var f = ContextTileTensor[float_dtype](ctx,f_layout)
+    var f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
     # Set up
     f.fill(1./Scalar[float_dtype](Q))
@@ -79,7 +79,7 @@ def benchmark_func_row_tile[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
+    var LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
     ctx.synchronize()
     
     @always_inline
@@ -135,11 +135,11 @@ def benchmark_func_col_tile[
     comptime density_layout = row_major[nx,ny,nz]()
     comptime velocity_layout = row_major[D,nx,ny,nz]()
 
-    ctx = DeviceContext()
-    flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx,bc_layout)
-    f = ContextTileTensor[float_dtype](ctx,f_layout)
-    f_out = ContextTileTensor[float_dtype](ctx,f_layout)
+    var ctx = DeviceContext()
+    var flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx,bc_layout)
+    var f = ContextTileTensor[float_dtype](ctx,f_layout)
+    var f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
     # Set up
     f.fill(1./Scalar[float_dtype](Q))
@@ -159,7 +159,7 @@ def benchmark_func_col_tile[
 
     ctx.synchronize()
     #Compile Functions
-    LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
+    var LBM_func = ctx.compile_function[LBM_kernel[f_layout,bc_layout,flag_layout,grid]]()
     ctx.synchronize()
     
     @always_inline

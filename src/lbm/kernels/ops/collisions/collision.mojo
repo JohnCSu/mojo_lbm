@@ -31,8 +31,6 @@ def SRT[
         int_dtype: The integer `DType` for the velocity directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        directions: The compile-time discrete velocity directions.
-        weights: The lattice weights.
         DDF_shift: When `True`, shift the equilibrium by the weights for
             improved numerical stability.
 
@@ -41,12 +39,14 @@ def SRT[
         velocity: The fluid velocity at the node.
         rho: The fluid density at the node.
         tau: The relaxation time.
+        directions: The discrete velocity directions.
+        weights: The lattice weights.
     """
-    u_dot_u = velocity.dot(velocity)
-    inv_tau = 1./tau # This is faster by 0.4 ms on the 256^3 benchmark
+    var u_dot_u = velocity.dot(velocity)
+    var inv_tau = 1./tau # This is faster by 0.4 ms on the 256^3 benchmark
     comptime for q in range(Q):
-        direction = directions[q].cast_to[float_dtype]()
-        weight = weights[q]
+        var direction = directions[q].cast_to[float_dtype]()
+        var weight = weights[q]
         f_vec[q] -= inv_tau*(f_vec[q]- f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction))
 
 @always_inline
@@ -73,8 +73,6 @@ def TRT[
         int_dtype: The integer `DType` for the velocity directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        directions: The compile-time discrete velocity directions.
-        weights: The lattice weights.
         DDF_shift: When `True`, shift the equilibrium by the weights for
             improved numerical stability.
 
@@ -84,10 +82,12 @@ def TRT[
         rho: The fluid density at the node.
         tau_symm: The relaxation time for the symmetric part.
         tau_asymm: The relaxation time for the antisymmetric part.
+        directions: The discrete velocity directions.
+        weights: The lattice weights.
     """
-    inv_tau_symm = 1/tau_symm
-    inv_tau_asymm = 1/tau_asymm
-    u_dot_u = velocity.dot(velocity)
+    var inv_tau_symm = 1/tau_symm
+    var inv_tau_asymm = 1/tau_asymm
+    var u_dot_u = velocity.dot(velocity)
 
     # comptime assert opposite_indices_are_adjacent(directions), 'Opposite velocity directions should be adjacent to each other e.g. q+1 = opp_q'
     # comptime assert rest_direction_is_zero(directions), 'Rest direction e.g [0,0,0] should be the first element'
@@ -99,18 +99,18 @@ def TRT[
 
     comptime for q in range(1,Q,2):
         comptime opp_q = q+1
-        direction = directions[q].cast_to[float_dtype]()
-        weight = weights[q]
-        opp_direction = directions[opp_q].cast_to[float_dtype]()
+        var direction = directions[q].cast_to[float_dtype]()
+        var weight = weights[q]
+        var opp_direction = directions[opp_q].cast_to[float_dtype]()
         
-        f_symm = (f_vec[q] + f_vec[opp_q])*0.5 # We correct shift in feq
-        f_asymm = (f_vec[q] - f_vec[opp_q])*0.5 # No shift 
+        var f_symm = (f_vec[q] + f_vec[opp_q])*0.5 # We correct shift in feq
+        var f_asymm = (f_vec[q] - f_vec[opp_q])*0.5 # No shift 
                 
-        f_eq_q = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction, )
-        f_eq_oppq = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,opp_direction, )
+        var f_eq_q = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,direction, )
+        var f_eq_oppq = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,opp_direction, )
 
-        f_eq_symm = (f_eq_q + f_eq_oppq)*0.5
-        f_eq_asymm = (f_eq_q - f_eq_oppq)*0.5
+        var f_eq_symm = (f_eq_q + f_eq_oppq)*0.5
+        var f_eq_asymm = (f_eq_q - f_eq_oppq)*0.5
         
         f_vec[q] -=  (inv_tau_symm*(f_symm- f_eq_symm) + inv_tau_asymm*(f_asymm - f_eq_asymm))
         f_vec[opp_q] -= (inv_tau_symm*(f_symm- f_eq_symm) + inv_tau_asymm*( (-f_asymm) - (-f_eq_asymm)))
@@ -154,7 +154,7 @@ def get_kbc_Qiab[
         A vector of `n_stress` Hermite basis values evaluated at the
         direction.
     """
-    Q_i = Vector[float_dtype,n_stress](uninitialized=True)
+    var Q_i = Vector[float_dtype,n_stress](uninitialized=True)
     comptime assert n_stress == D*(D+1)//2
 
     comptime for n in range(n_stress):
@@ -194,8 +194,6 @@ def RLBM[
         D: The spatial dimension.
         Q: The number of discrete velocities.
         N: The number of independent stress components.
-        directions: The compile-time discrete velocity directions.
-        weights: The lattice weights.
         stress_indices: The compile-time index pairs for each
             independent stress component.
         DDF_shift: When `True`, shift the equilibrium by the weights for
@@ -209,6 +207,8 @@ def RLBM[
         rho: The fluid density at the node.
         velocity: The fluid velocity at the node.
         tau: The relaxation time.
+        directions: The discrete velocity directions.
+        weights: The lattice weights.
     """
     # var f_equil = Vector[float_dtype,Q](uninitialized = True)
     # var f_neq_reg = Vector[float_dtype,Q](uninitialized = True)
@@ -216,12 +216,12 @@ def RLBM[
     var u_dot_u = velocity.dot(velocity)
 
     comptime for q in range(Q):
-        weight = weights[q]
-        float_direction = directions[q].cast_to[float_dtype]()
-        weight_div_2cs4 = weights[q]/(2*cs_squared*cs_squared)
-        Q_q = get_kbc_Qiab[stress_indices](float_direction) # Can pre compute this!
-        f_neq_reg = weight_div_2cs4*Q_q.dot(stress_neq)
-        f_equil = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,float_direction)
+        var weight = weights[q]
+        var float_direction = directions[q].cast_to[float_dtype]()
+        var weight_div_2cs4 = weights[q]/(2*cs_squared*cs_squared)
+        var Q_q = get_kbc_Qiab[stress_indices](float_direction) # Can pre compute this!
+        var f_neq_reg = weight_div_2cs4*Q_q.dot(stress_neq)
+        var f_equil = f_eq[DDF_shift](weight,rho,velocity,u_dot_u,float_direction)
         f_vec[q] = f_equil + (1-inv_tau)*f_neq_reg
 
 # def central_polynomial_order_2[
@@ -235,3 +235,5 @@ def RLBM[
 
 
         
+
+# last modified by: muse-spark-1.2 on 2026/09/01

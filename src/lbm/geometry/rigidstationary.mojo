@@ -32,6 +32,8 @@ struct RigidStationaryObject[
 
     Parameters:
         grid: The compile-time `LBM_Grid` describing the domain.
+        lbm_method: The LBM streaming method.
+        config: The compile-time `LBM_Config` for the run.
     """
     comptime float_dtype = Self.grid.float_dtype
     comptime int_dtype = Self.grid.int_dtype
@@ -61,18 +63,19 @@ struct RigidStationaryObject[
         var units:Optional[UnitSystem[Self.float_dtype,Self.grid.D]] = None
         )
         raises:
-        """Constructs an `ImmersedObject` from pre-computed boundary indices.
+        """Constructs a `RigidStationaryObject` from pre-computed boundary indices.
 
         Args:
             deviceContext: The device context used for buffer allocation.
-            fluid_boundary_list: The list of linear fluid boundary indices
+            unique_fluid_ids: The list of unique fluid boundary indices
                 (ownership is transferred).
-            links_fluid_list: The list of fluid node indices for each link
+            fluid_boundaries_list: The list of fluid boundary indices for
+                each link (ownership is transferred).
+            lattice_links_list: The list of lattice direction indices for
+                each link (ownership is transferred).
+            link_distances_list: The list of wall distances for each link
                 (ownership is transferred).
-            links_direction_list: The list of direction indices for each link
-                (ownership is transferred).
-            links_q_dist: The list of quarter-way distances for each link
-                (ownership is transferred).
+            units: The optional unit system for force conversion.
         """
         self.unique_fluid_ids = unique_fluid_ids^
         self.deviceContext = deviceContext
@@ -87,7 +90,7 @@ struct RigidStationaryObject[
         self.fluid_boundaries = self.list_to_1D_ContextTileTensor(deviceContext,self.fluid_boundaries_list)
         self.lattice_links = self.list_to_1D_ContextTileTensor(deviceContext,self.lattice_links_list)
         self.link_distances = self.list_to_1D_ContextTileTensor(deviceContext,self.link_distances_list)
-        n = self.fluid_boundaries.size()
+        var n = self.fluid_boundaries.size()
         self.link_forces = self.create_NxM_ContextTileTensor[self.float_dtype](deviceContext,n,Self.grid.D)
 
     @staticmethod
@@ -98,9 +101,9 @@ struct RigidStationaryObject[
         ) raises
         -> ContextTileTensor[dtype,RuntimeColMajor1DType]
         :
-        N = Int(len(ls))
-        layout  = col_major1D(N)
-        out = ContextTileTensor[dtype](deviceContext,layout)
+        var N = Int(len(ls))
+        var layout  = col_major1D(N)
+        var out = ContextTileTensor[dtype](deviceContext,layout)
         out.cpu_buffer().enqueue_copy_from(src = Span(ls))
         return out^ # Must take ownership of ContextTileTensor
 
@@ -112,8 +115,8 @@ struct RigidStationaryObject[
         ) raises
         -> ContextTileTensor[dtype,RuntimeColMajor2DType]:
 
-        layout  = col_major2D(n,m)
-        out = ContextTileTensor[dtype](deviceContext,layout,fill = Scalar[dtype](0))
+        var layout  = col_major2D(n,m)
+        var out = ContextTileTensor[dtype](deviceContext,layout,fill = Scalar[dtype](0))
         return out^ # Must take ownership of ContextTileTensor
 
 
@@ -153,14 +156,14 @@ struct RigidStationaryObject[
             )
 
     def sum_force(mut self,*,in_lattice_units:Bool = True) raises -> InlineArray[Scalar[Self.float_dtype],Self.grid.D]:
-        summed_force = InlineArray[Scalar[Self.float_dtype],Self.grid.D](uninitialized = True)
+        var summed_force = InlineArray[Scalar[Self.float_dtype],Self.grid.D](uninitialized = True)
         comptime float = Scalar[Self.float_dtype]
-        np = Python.import_module('numpy')
+        var np = Python.import_module('numpy')
 
-        force_np = self.link_forces.buffer_to_numpy().reshape(self.num_links(),self.grid.D,order = 'F')
+        var force_np = self.link_forces.buffer_to_numpy().reshape(self.num_links(),self.grid.D,order = 'F')
         
         comptime for d in range(self.grid.D):
-            F_i = force_np.sum(axis=0)[d]
+            var F_i = force_np.sum(axis=0)[d]
             if in_lattice_units:
                 summed_force[d] = float(py=F_i)
             else:
@@ -182,3 +185,5 @@ struct RigidStationaryObject[
 
 
 
+
+# last modified by: muse-spark-1.2 on 2026/09/01

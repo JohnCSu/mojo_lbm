@@ -61,15 +61,15 @@ def calculate_drag_around_object[
     comptime lattice = grid.lattice
     comptime tile_shape = grid.tile_shape
     # Should be a 1D based kernel loop
-    tid = block_dim.x * block_idx.x + thread_idx.x
+    var tid = block_dim.x * block_idx.x + thread_idx.x
     if tid < fluid_boundary.layout.size():
-        crd = flags.layout.idx2crd[out_dtype = int_dtype](Int(fluid_boundary[tid])).flatten()
-        grid_index = InlineArray[Int,3](uninitialized = True)
+        var crd = flags.layout.idx2crd[out_dtype = int_dtype](Int(fluid_boundary[tid])).flatten()
+        var grid_index = InlineArray[Int,3](uninitialized = True)
 
         comptime if FlagLayoutType.rank*2 == FlagLayoutType.flat_rank:
             comptime for i in range(3):
-                loc_x = Int(crd[2*i].value()) # local
-                til_x = Int(crd[(2*i)+1].value())
+                var loc_x = Int(crd[2*i].value()) # local
+                var til_x = Int(crd[(2*i)+1].value())
                 grid_index[i] = tile_shape[i]*til_x + loc_x
         else:
             comptime assert FlagLayoutType.rank == FlagLayoutType.flat_rank
@@ -96,6 +96,7 @@ def calculate_drag_around_object[
                 comptime float_direction = lattice.directions[q].cast_to[float_dtype]()
                 if push_flags[q] == SOLID_NODE:
                     var f_local = load_f[float_dtype,config.use_float16c](f,grid_index,q)
+                    var f_link: Scalar[float_dtype]
                     comptime if config.DDF_shift:
                         comptime weight = lattice.weights[q]
                         f_link = f_local + weight

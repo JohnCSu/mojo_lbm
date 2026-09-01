@@ -77,11 +77,11 @@ def run_benchmark[
     comptime BLOCK_SHAPE: Tuple[Int, Int, Int] = grid.BLOCK_SHAPE
     comptime Float = Scalar[float_dtype]
     comptime f_dtype = config.f_dtype.value() if config.f_dtype else float_dtype
-    ctx = DeviceContext()
-    flags = ContextTileTensor[DType.uint8](ctx, flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx, bc_layout)
-    f = ContextTileTensor[f_dtype](ctx, f_layout)
-    f_out = ContextTileTensor[f_dtype](ctx, f_layout)
+    var ctx = DeviceContext()
+    var flags = ContextTileTensor[DType.uint8](ctx, flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx, bc_layout)
+    var f = ContextTileTensor[f_dtype](ctx, f_layout)
+    var f_out = ContextTileTensor[f_dtype](ctx, f_layout)
 
     # Set up
     initialize_fluid_at_rest[grid,config](f.cpu())
@@ -103,7 +103,7 @@ def run_benchmark[
     comptime LBM_kernel_ = double_buffer_kernel[
         type_of(f_layout), type_of(bc_layout), type_of(flag_layout), grid, config
     ]
-    LBM_func = ctx.compile_function[LBM_kernel_]()
+    var LBM_func = ctx.compile_function[LBM_kernel_]()
     ctx.synchronize()
 
     @always_inline

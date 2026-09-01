@@ -125,7 +125,7 @@ def entropic_inner_product[
     Returns:
         The entropic inner product as a scalar.
     """
-    out:Scalar[float_dtype] = 0.
+    var out:Scalar[float_dtype] = 0.
     comptime for q in range(Q):
         out += a[q]*b[q]/f_eq[q]
 
@@ -157,8 +157,8 @@ def get_shear_D2Q9[
     """
     comptime assert N == 3
     # xx - 0, xy - 1, yy - 2
-    s = Vector[float_dtype,Q](uninitialized = True)
-    N_xy = stress_neq[0] - stress_neq[2] # xx-yy
+    var s = Vector[float_dtype,Q](uninitialized = True)
+    var N_xy = stress_neq[0] - stress_neq[2] # xx-yy
     s[0] = 0 # (0,0,0)    
     s[1] = N_xy*0.25 # We should assert paired up correctly
     s[2] = N_xy*0.25 # 
@@ -206,8 +206,6 @@ def KBC[
         D: The spatial dimension.
         Q: The number of discrete velocities.
         N: The number of independent stress components.
-        directions: The compile-time discrete velocity directions.
-        weights: The lattice weights.
         DDF_shift: When `True`, shift the equilibrium by the weights.
 
     Args:
@@ -217,6 +215,8 @@ def KBC[
         rho: The fluid density at the node.
         u: The fluid velocity at the node.
         tau: The relaxation time.
+        directions: The discrete velocity directions.
+        weights: The lattice weights.
     """
     comptime assert (D==2 and Q == 9),'KBC only for D2Q9 atm'
     comptime _eps = 1e-32
@@ -225,15 +225,17 @@ def KBC[
     var f_equil = get_f_eq_vec[False](f_vec,rho,u, directions,weights)
 
     comptime if (D==2 and Q ==9):
-        ds = rebind[Vector[float_dtype,Q]](get_shear_D2Q9(stress_neq))
-        dh = f_neq - ds
+        var ds = rebind[Vector[float_dtype,Q]](get_shear_D2Q9(stress_neq))
+        var dh = f_neq - ds
         
-        sp1 = entropic_inner_product(ds,dh,f_equil)
-        sp2 = entropic_inner_product(dh,dh,f_equil)
+        var sp1 = entropic_inner_product(ds,dh,f_equil)
+        var sp2 = entropic_inner_product(dh,dh,f_equil)
 
-        gamma = inv_beta - (2 -inv_beta) * sp1/(sp2 + _eps)
+        var gamma = inv_beta - (2 -inv_beta) * sp1/(sp2 + _eps)
         # gamma = min(max(gamma, min_gamma), max_gamma)
         f_vec -= beta * (2*ds + gamma*dh)
     
 
     
+
+# last modified by: muse-spark-1.2 on 2026/09/01

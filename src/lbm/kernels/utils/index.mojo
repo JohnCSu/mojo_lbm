@@ -21,7 +21,7 @@ def is_index_out_of_bounds(index:InlineArray[Int,3],grid_shape:InlineArray[Int,3
     Returns:
         `True` when any axis is out of bounds, `False` otherwise.
     """
-    is_oob = False
+    var is_oob = False
     comptime for i in range(3):
         is_oob = True if (index[i] >= grid_shape[i] or index[i] < 0) else is_oob
     return is_oob
@@ -110,7 +110,7 @@ def index_to_coord[float_dtype:DType](
     Returns:
         The physical `(x, y, z)` coordinates of the node.
     """
-    out = Vector[float_dtype,3](fill =0)
+    var out = Vector[float_dtype,3](fill =0)
     comptime for i in range(3):
         out[i] = Scalar[float_dtype](grid_index[i])*grid_spacing + origin[i]
     return out

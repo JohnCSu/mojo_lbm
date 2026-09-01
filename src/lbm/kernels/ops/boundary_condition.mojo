@@ -41,15 +41,8 @@ def moving_wall_bc[
     Parameters:
         float_dtype: The floating-point `DType` for computation.
         int_dtype: The integer `DType` for the velocity directions.
-        f_dtype: The storage `DType` of the distribution function `f`.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        include_bounceback: When `True`, add the bounce-back
-            contribution from the opposite direction's distribution.
-        directions: The compile-time discrete velocity directions.
-        opposite_indices: The compile-time map from each direction to
-            its opposite.
-        weights: The lattice weights.
         use_float16c: When `True`, decode Float16C storage when
             loading.
         start_idx: The index of the first non-rest direction (defaults
@@ -60,23 +53,24 @@ def moving_wall_bc[
     Args:
         f_vec: The mutable distribution vector to update in place.
         pull_flags: The mutable flags gathered from pull neighbors.
-        f: The distribution function tile tensor.
-        flags: The `uint8` tile tensor labeling each node.
         bc: The boundary-condition tile tensor holding wall velocity
             and density.
         index: The `(x, y, z)` index of the current node.
         grid_shape: The `[nx, ny, nz]` shape of the grid.
+        directions: The discrete velocity directions.
+        opposite_indices: The map from each direction to its opposite.
+        weights: The lattice weights.
     """
 
     var velocity = Vector[float_dtype,D](uninitialized = True)
     var rho:Scalar[float_dtype]
 
     comptime for q in range(start_idx,Q):
-        direction = directions[q]
-        pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
+        var direction = directions[q]
+        var pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
         if Flags.is[Flags.SOLID](pull_flags[q]):
-            float_direction = directions[q].cast_to[float_dtype]()
-            weight = weights[q]
+            var float_direction = directions[q].cast_to[float_dtype]()
+            var weight = weights[q]
             comptime for ii in range(D):
                 velocity[ii] = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
             rho = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
@@ -110,8 +104,6 @@ def equilibrium_bc[
         int_dtype: The integer `DType` for the velocity directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        directions: The compile-time discrete velocity directions.
-        weights: The lattice weights.
         DDF_shift: When `True`, shift the equilibrium by the weights
             for improved numerical stability.
 
@@ -122,17 +114,20 @@ def equilibrium_bc[
             velocity and density.
         index: The `(x, y, z)` index of the current node.
         grid_shape: The `[nx, ny, nz]` shape of the grid.
+        directions: The discrete velocity directions.
+        float_directions: The float-valued discrete velocity directions.
+        weights: The lattice weights.
     """
-    current_flag = pull_flags[0] # comptime assert gurantees this is the flag for the current node
+    var current_flag = pull_flags[0] # comptime assert gurantees this is the flag for the current node
     if Flags.is[Flags.EQUILIBRIUM](current_flag):
         var velocity = Vector[float_dtype,D](uninitialized = True)
         comptime for ii in range(D):
             velocity[ii] = bc.load(dyn_coord[DType.uint32]((index[0],index[1],index[2],ii)))[0]
-        rho = bc.load(dyn_coord[DType.uint32]((index[0],index[1],index[2],D)))[0]
+        var rho = bc.load(dyn_coord[DType.uint32]((index[0],index[1],index[2],D)))[0]
         
-        rho_local,u_l = get_density_and_velocity_for_eq_BC[DDF_shift](f_vec,weights,index,grid_shape,directions,float_directions)
+        var rho_local,u_l = get_density_and_velocity_for_eq_BC[DDF_shift](f_vec,weights,index,grid_shape,directions,float_directions)
         
-        u_local = u_l if isnan(velocity[0]) else velocity # nan means the vel is free
+        var u_local = u_l if isnan(velocity[0]) else velocity # nan means the vel is free
         rho_local = rho_local if isnan(rho) else rho # Nan means density is free
 
         f_vec = get_f_eq_vec[DDF_shift](f_vec,rho_local,u_local, directions,weights)
@@ -165,7 +160,6 @@ def get_density_and_velocity_for_eq_BC[
         D: The spatial dimension.
         Q: The number of discrete velocities.
         int_dtype: The `DType` of the integer directions.
-        directions: The compile-time discrete velocity directions.
         DDF_shift: When `True`, use the DDF-shifted rest value
             (defaults to `False`).
 
@@ -174,6 +168,8 @@ def get_density_and_velocity_for_eq_BC[
         weights: The quadrature weights.
         index: The `(x, y, z)` index of the central node.
         grid_shape: The `[nx, ny, nz]` shape of the grid.
+        directions: The discrete velocity directions.
+        float_directions: The float-valued discrete velocity directions.
 
     Returns:
         A tuple of `(rho, velocity)` as a scalar and a `Vector`.
@@ -182,21 +178,22 @@ def get_density_and_velocity_for_eq_BC[
     var rho:Scalar[float_dtype] = 0
 
     comptime for q in range(Q):
+        var rest_f: Scalar[float_dtype]
         comptime if DDF_shift:
-            rest_f:Scalar[float_dtype] = 0.
+            rest_f = 0.
         else:
             rest_f = weights[q]
 
-        is_oob = False
-        pull_direction = -directions[q]
+        var is_oob = False
+        var pull_direction = -directions[q]
         comptime for i in range(3):
             comptime if i < D:
-                pull_i = Int(pull_direction[i])
-                pull_idx = index[i] + pull_i
+                var pull_i = Int(pull_direction[i])
+                var pull_idx = index[i] + pull_i
                 is_oob = (( (pull_idx < 0) or (pull_idx >= grid_shape[i]))  or is_oob)
 
         # We set unknown fs (i.e from out of bounds/wrapped around fs) to rest value
-        fq = rest_f if is_oob else f_vec[q]
+        var fq = rest_f if is_oob else f_vec[q]
         rho += fq
         velocity += fq*float_directions[q]
 
@@ -204,3 +201,5 @@ def get_density_and_velocity_for_eq_BC[
         rho += 1
     velocity /= rho
     return rho,velocity
+
+# last modified by: muse-spark-1.2 on 2026/09/01

@@ -4,7 +4,7 @@ The `Vector` struct stores its elements in an `InlineArray` and unrolls
 element-wise operations at compile time, so it is intended for short vectors
 (eight elements or fewer) where SIMD optimization is not worth the overhead.
 """
-from std.memory import UnsafePointer
+from std.memory import Pointer
 from std.math import sqrt
 from std.utils.coord import Coord, CoordLike
 
@@ -219,14 +219,14 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
         Returns:
             The scalar dot product.
         """
-        out = Scalar[Self.dtype](0)
+        var out = Scalar[Self.dtype](0)
         comptime for i in range(Self.size):
             out += self[i]*other[i]
         return out
     @always_inline
     def sum(self) -> Scalar[Self.dtype]:
         """Returns the sum of all elements."""
-        out = Scalar[Self.dtype](0)
+        var out = Scalar[Self.dtype](0)
         comptime for i in range(Self.size):
             out += self[i]
         return out
@@ -237,7 +237,7 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
         Note that the accumulator starts at 0, so an empty product still
         returns 0 rather than 1.
         """
-        out = Scalar[Self.dtype](0)
+        var out = Scalar[Self.dtype](0)
         comptime for i in range(Self.size):
             out *= self[i]
         return out
@@ -254,13 +254,13 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
 
 
     @always_inline
-    def unsafe_ptr(self) -> UnsafePointer[Scalar[Self.dtype],origin_of(self.data)]:
+    def unsafe_ptr(self) -> Pointer[Scalar[Self.dtype], origin_of(self.data)]:
         """Returns an unsafe pointer to the underlying element storage.
 
         Returns:
             A pointer to the first element of the inline array.
         """
-        x = self.data.unsafe_ptr()
+        var x = self.data.unsafe_ptr()
         return x
 
     @always_inline
@@ -403,7 +403,7 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
         Returns:
             A vector whose elements are `func(a[i], b[i])`.
         """
-        out = Self(uninitialized = True)
+        var out = Self(uninitialized = True)
         comptime for i in range(Self.size):
             out[i] = func(a[i],b[i])
         return out
@@ -424,7 +424,7 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
         Returns:
             A vector of `output_dtype` whose elements are `func(a[i], b[i])`.
         """
-        out = Vector[output_dtype,Self.size](uninitialized = True)
+        var out = Vector[output_dtype,Self.size](uninitialized = True)
         comptime for i in range(Self.size):
             out[i] = func(a[i],b[i])
         return out
@@ -447,7 +447,7 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
             A vector whose elements are `func(a[i], b)` (or `func(b, a[i])`
             when `reverse` is `True`).
         """
-        out = Self(uninitialized = True)
+        var out = Self(uninitialized = True)
         comptime for i in range(Self.size):
             comptime if reverse:
                 out[i] = func(b,a[i])

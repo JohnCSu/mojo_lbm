@@ -14,11 +14,12 @@ from std.collections import Set, Dict
 from src.utils import Vector, ContextTileTensor
 from std.utils.numerics import nan, isnan
 from .units import UnitSystem
+from .lattice import Lattice
 from std.utils import Variant
 from src.lbm import TiledLayouts
 
 
-trait GridLike(ImplicitlyCopyable & ImplicitlyDestructible):
+trait GridLike(ImplicitlyCopyable & Deinitable):
     """Declares the compile-time shape and lattice description of an LBM grid.
 
     Conforming types expose the float and integer dtypes, dimension `D`,
@@ -201,8 +202,8 @@ struct LBM_Grid[
         Returns:
             A `UnitSystem` configured for this grid's dimension and dtype.
         """
-        L_lattice = L_phys / self.dx
-        kinematic_viscosity = U_phys * L_phys / Re
+        var L_lattice = L_phys / self.dx
+        var kinematic_viscosity = U_phys * L_phys / Re
         return UnitSystem[Self.float_dtype, Self.D](
             U_phys, U_lattice, L_phys, L_lattice, density, kinematic_viscosity
         )
@@ -227,7 +228,7 @@ struct LBM_Grid[
         Returns:
             A `UnitSystem` configured for this grid's dimension and dtype.
         """
-        L_lattice = L_phys / self.dx
+        var L_lattice = L_phys / self.dx
         return UnitSystem[Self.float_dtype, Self.D](
             U_phys, U_lattice, L_phys, L_lattice, density, kinematic_viscosity
         )
@@ -245,7 +246,21 @@ struct LBM_Grid[
         min_u:Self.Float_Scalar = 0.001,
         max_u:Self.Float_Scalar = 0.1,
     ) raises -> UnitSystem[Self.float_dtype, Self.D]:
-        kinematic_viscosity = U_phys * L_phys / Re
+        """Builds a `UnitSystem` from a target relaxation time and Reynolds number.
+
+        Args:
+            U_phys: The physical velocity scale.
+            tau: The lattice relaxation time.
+            L_phys: The physical length scale.
+            density: The fluid density (defaults to 1).
+            Re: The target Reynolds number.
+            min_u: The minimum allowed lattice velocity (defaults to 0.001).
+            max_u: The maximum allowed lattice velocity (defaults to 0.1).
+
+        Returns:
+            A `UnitSystem` configured for this grid's dimension and dtype.
+        """
+        var kinematic_viscosity = U_phys * L_phys / Re
         return self.get_UnitSystem_with_tau(U_phys,tau,L_phys,kinematic_viscosity,density,min_u = min_u,max_u = max_u)
 
 
@@ -260,25 +275,27 @@ struct LBM_Grid[
         min_u:Self.Float_Scalar = 0.001,
         max_u:Self.Float_Scalar = 0.1,
     ) raises -> UnitSystem[Self.float_dtype, Self.D]:
-        """Builds a `UnitSystem` from a kinematic viscosity.
+        """Builds a `UnitSystem` from a target relaxation time and viscosity.
 
         Args:
             U_phys: The physical velocity scale.
-            U_lattice: The lattice velocity.
+            tau: The lattice relaxation time.
             L_phys: The physical length scale.
             kinematic_viscosity: The kinematic viscosity of the fluid.
             density: The fluid density (defaults to 1).
+            min_u: The minimum allowed lattice velocity (defaults to 0.001).
+            max_u: The maximum allowed lattice velocity (defaults to 0.1).
 
         Returns:
             A `UnitSystem` configured for this grid's dimension and dtype.
         """
-        L_lattice = L_phys / self.dx
+        var L_lattice = L_phys / self.dx
         # tau = v_lat / (1 / 3.0) + 0.5
-        v_lat = (tau - 0.5) * (1/3.0)
+        var v_lat = (tau - 0.5) * (1/3.0)
 
-        _Re = U_phys * L_phys/kinematic_viscosity
+        var _Re = U_phys * L_phys/kinematic_viscosity
 
-        U_lattice = v_lat*_Re/L_lattice
+        var U_lattice = v_lat*_Re/L_lattice
 
         if U_lattice < min_u or U_lattice > max_u:
             raise Error(
@@ -318,19 +335,22 @@ def set_block_shape_and_grid_dim[
         and (nz % tile_size == 0 or nz == 1)
     ), "Tile size must divide nx,ny and nz"
     comptime assert tile_size >= 1
+    var block_shape: Tuple[Int, Int, Int]
+    var grid_dim: Tuple[Int, Int, Int]
     comptime if tile_size > 1:
-        block_shape: Tuple[Int, Int, Int] = (
+        block_shape = (
             tile_size,
             tile_size if D >= 2 else 1,
             tile_size if D == 3 else 1,
         )
-        grid_dim: Tuple[Int, Int, Int] = (
+        grid_dim = (
             nx // tile_size,
             ny // tile_size if D >= 2 else 1,
             nz // tile_size if D == 3 else 1,
         )
 
     else:
+        var g_dim: Int
         if D == 1:
             g_dim = 256
         elif D == 2:
@@ -341,13 +361,13 @@ def set_block_shape_and_grid_dim[
         def calc_grid_dim(n: Int, g: Int) -> Int:
             return n // g if n % g == 0 else n // g + 1
 
-        block_shape: Tuple[Int, Int, Int] = (
+        block_shape = (
             g_dim,
             g_dim if D >= 2 else 1,
             g_dim if D == 3 else 1,
         )
 
-        grid_dim: Tuple[Int, Int, Int] = (
+        grid_dim = (
             calc_grid_dim(nx, block_shape[0]),
             calc_grid_dim(ny, block_shape[1]),
             calc_grid_dim(nz, block_shape[2]),
@@ -397,7 +417,7 @@ def set_tile_shape(x:Int_Or_Tuple_Of_Ints,D:Int) -> Tuple[Int,Int,Int]:
         A `(tx, ty, tz)` tile shape tuple.
     """
     if x.isa[Int]():
-        tile_size = x[Int]
+        var tile_size = x[Int]
         return (tile_size,tile_size if D >= 2 else 1, tile_size if D == 3 else 1)
     else:
         return x[Tuple[Int,Int,Int]]
@@ -453,3 +473,5 @@ def set_grid_dims[nx:Int,ny:Int,nz:Int,block_shape:Tuple[Int,Int,Int]]() -> Tupl
     
     return (nx//block_shape[0],ny//block_shape[1],nz//block_shape[2])
 
+
+# last modified by: muse-spark-1.2 on 2026/09/01

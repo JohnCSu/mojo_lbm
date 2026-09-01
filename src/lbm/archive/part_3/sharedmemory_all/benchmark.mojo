@@ -32,11 +32,11 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     comptime GRID_DIM:Tuple[Int,Int,Int] = grid.GRID_DIM
     comptime BLOCK_SHAPE:Tuple[Int,Int,Int] = grid.BLOCK_SHAPE
     comptime Float = Scalar[float_dtype]
-    ctx = DeviceContext()
-    flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx,bc_layout)
-    f = ContextTileTensor[float_dtype](ctx,f_layout)
-    f_out = ContextTileTensor[float_dtype](ctx,f_layout)
+    var ctx = DeviceContext()
+    var flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx,bc_layout)
+    var f = ContextTileTensor[float_dtype](ctx,f_layout)
+    var f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
     # Set up
     f.fill(1./Scalar[float_dtype](Q))
@@ -57,7 +57,7 @@ def run_benchmark[float_dtype:DType,D:Int,Q:Int,
     ctx.synchronize()
     #Compile Functions
     comptime LBM_kernel_ = LBM_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,simd_width]
-    LBM_func = ctx.compile_function[LBM_kernel_]()
+    var LBM_func = ctx.compile_function[LBM_kernel_]()
     ctx.synchronize()
     
     @always_inline

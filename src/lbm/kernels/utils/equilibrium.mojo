@@ -54,14 +54,14 @@ def get_f_eq_vec[float_dtype:DType,int_dtype:DType,D:Int,Q:Int,//,DDF_shift:Bool
         int_dtype: The `DType` of the integer directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        directions: The compile-time discrete velocity directions.
-        weights: The compile-time quadrature weights.
         DDF_shift: When `True`, use the DDF-shifted equilibrium form.
 
     Args:
         f_vec: Unused; present for API symmetry with `get_f_noneq_vec`.
         density: The lattice density `rho`.
         velocity: The lattice velocity vector `u`.
+        directions: The discrete velocity directions.
+        weights: The quadrature weights.
 
     Returns:
         A `Vector` of length `Q` holding the equilibrium populations.
@@ -96,17 +96,18 @@ def get_f_noneq_vec[
         int_dtype: The `DType` of the integer directions.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        post_collision: When `True`, scale by `tau / (tau - 1)` to recover
-            the pre-collision non-equilibrium from post-collision values.
-        directions: The compile-time discrete velocity directions.
-        weights: The compile-time quadrature weights.
         DDF_shift: When `True`, use the DDF-shifted equilibrium form.
+        post_collision: When `True`, scale by `tau / (tau - 1)` to recover
+            the pre-collision non-equilibrium from post-collision values
+            (defaults to `False`).
 
     Args:
         f_vec: The current distribution vector.
         density: The lattice density `rho`.
         velocity: The lattice velocity vector `u`.
         tau: The relaxation time, used only when `post_collision` is `True`.
+        directions: The discrete velocity directions.
+        weights: The quadrature weights.
 
     Returns:
         A `Vector` of length `Q` holding the non-equilibrium populations.
@@ -115,3 +116,5 @@ def get_f_noneq_vec[
     comptime if post_collision:
         f_neq *= (tau/(tau-1)) # Post collision term
     return f_neq^
+
+# last modified by: muse-spark-1.2 on 2026/09/01

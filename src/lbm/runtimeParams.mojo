@@ -47,7 +47,7 @@ struct RuntimeParams[float_dtype:DType](ImplicitlyCopyable):
    
     def _to_device_type(
         self, target: MutOpaquePointer[_]):
-        target.bitcast[Self.device_type]()[] = self.copy()
+        target.unsafe_bitcast[Self.device_type]()[] = self.copy()
 
     def tau_asymm(self,tau:Self.Float) -> Self.Float:
         """Returns the asymmetric TRT relaxation time for a given base `tau`.

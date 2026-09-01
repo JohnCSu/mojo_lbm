@@ -37,18 +37,18 @@ def get_global_index_for_shared_memory[D:Int,tile_shape:Tuple[Int,Int,Int]]
     """
 
     comptime shift_:InlineArray[Int,3] = [1,1 if D >= 2 else 0, 1 if D == 3 else 0]
-    shift = materialize[shift_]()
-    adj_local_index = InlineArray[Int,3](fill =0)
-    adj_block_index = InlineArray[Int,3](fill =0)
+    var shift = materialize[shift_]()
+    var adj_local_index = InlineArray[Int,3](fill =0)
+    var adj_block_index = InlineArray[Int,3](fill =0)
 
     comptime for d in range(D):
-        shifted_index = (local_index[d]-shift[d])
+        var shifted_index = (local_index[d]-shift[d])
         adj_local_index[d] = shifted_index % tile_shape[d]
-        sign = -1 if shifted_index < 0 else 1
-        next_block =  shifted_index < 0 or shifted_index >= tile_shape[d]
+        var sign = -1 if shifted_index < 0 else 1
+        var next_block =  shifted_index < 0 or shifted_index >= tile_shape[d]
         adj_block_index[d] = (block_index[d] + (sign if next_block else 0)) % tiler_shape[d]
 
-    global_index = InlineArray[Int,3](fill=0)
+    var global_index = InlineArray[Int,3](fill=0)
     comptime for d in range(D):
         global_index[d] = adj_local_index[d] + adj_block_index[d]*tile_shape[d]
 
@@ -113,7 +113,7 @@ def sync_load_rank4_tensor_to_shared_with_halo[
         shared_local_index[0] = i % SHARED_x
         shared_local_index[1] = (i % (SHARED_x*SHARED_y))//SHARED_x
         shared_local_index[2] = i // (SHARED_x * SHARED_y)
-        shared_global_index = get_global_index_for_shared_memory[D,tile_shape](shared_local_index,block_index,tiler_shape)
+        var shared_global_index = get_global_index_for_shared_memory[D,tile_shape](shared_local_index,block_index,tiler_shape)
         comptime for n in range(N):
-            val = src_tensor.load(dyn_coord[DType.int32]((shared_global_index[0],shared_global_index[1],shared_global_index[2],n)))[0]
+            var val = src_tensor.load(dyn_coord[DType.int32]((shared_global_index[0],shared_global_index[1],shared_global_index[2],n)))[0]
             shared_tile[shared_local_index[0],shared_local_index[1],shared_local_index[2],n] = val

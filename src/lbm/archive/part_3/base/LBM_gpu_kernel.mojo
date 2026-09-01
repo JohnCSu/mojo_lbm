@@ -49,19 +49,19 @@ def LBM_kernel[
     var opposite_index = materialize[lattice.opposite_indices]()
     var grid_shape:InlineArray[Int,3] = [nx,ny,nz]
     
-    block_x,block_dim_x = block_idx.x,block_dim.x
-    block_y,block_dim_y = block_idx.y,block_dim.y
-    block_z,block_dim_z = block_idx.z,block_dim.z
+    var block_x,block_dim_x = block_idx.x,block_dim.x
+    var block_y,block_dim_y = block_idx.y,block_dim.y
+    var block_z,block_dim_z = block_idx.z,block_dim.z
 
-    local_x = thread_idx.x
-    local_y = thread_idx.y
-    local_z = thread_idx.z
+    var local_x = thread_idx.x
+    var local_y = thread_idx.y
+    var local_z = thread_idx.z
     
-    x = block_x*block_dim_x + local_x
-    y = block_y*block_dim_y + local_y
-    z = block_z*block_dim_z + local_z
+    var x = block_x*block_dim_x + local_x
+    var y = block_y*block_dim_y + local_y
+    var z = block_z*block_dim_z + local_z
     
-    index:InlineArray[Int,3] = [x,y,z]    
+    var index:InlineArray[Int,3] = [x,y,z]    
 
     # Main Compute
     # print(index)
@@ -71,15 +71,15 @@ def LBM_kernel[
         var rho:Scalar[float_dtype] = 0
 
         comptime for q in range(Q):
-            direction = directions[q]
-            pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
-            pulled_f = f_in.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
-            pulled_flag = flags.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
+            var direction = directions[q]
+            var pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
+            var pulled_f = f_in.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
+            var pulled_flag = flags.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
             
             f_new[q] = pulled_f if pulled_flag == FLUID_NODE else f_new[q]
 
             if pulled_flag == SOLID_NODE:
-                f_opp = f_in.load(dyn_coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
+                var f_opp = f_in.load(dyn_coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
                 rho = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
@@ -94,16 +94,16 @@ def LBM_kernel[
 
         velocity /= rho
         # Collision Term
-        u_dot_u = velocity.dot(velocity)
+        var u_dot_u = velocity.dot(velocity)
 
         comptime for q in range(Q):
-            f_eq = SRT(weights[q],rho,velocity,u_dot_u,directions[q].cast_to[float_dtype]())            
+            var f_eq = SRT(weights[q],rho,velocity,u_dot_u,directions[q].cast_to[float_dtype]())            
             f_out.store(coord = dyn_coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
 
 @always_inline
 def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[int_dtype,D],) -> InlineArray[Int,3]:
     comptime assert D <= 3 
-    adj_index = InlineArray[Int,3](fill = 0 )
+    var adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
         adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
     return adj_index^
@@ -111,7 +111,7 @@ def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,
 @always_inline
 def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
-    ei_dot_u = velocity.dot(direction)
+    var ei_dot_u = velocity.dot(direction)
     return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u)
 
 

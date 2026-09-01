@@ -33,8 +33,8 @@ def get_shape_and_stride[
         or LayoutType.rank * 2 == LayoutType.flat_rank
     )
     comptime is_nested = LayoutType.rank * 2 == LayoutType.flat_rank
-    shape = IndexList[LayoutType.rank](fill=0)
-    stride = IndexList[LayoutType.rank](fill=0)
+    var shape = IndexList[LayoutType.rank](fill=0)
+    var stride = IndexList[LayoutType.rank](fill=0)
 
     comptime for i in range(LayoutType.rank):
         comptime if is_nested:
@@ -318,10 +318,10 @@ def contextTensor_to_numpy[
     Returns:
         A 1D NumPy array sharing memory with the host buffer.
     """
-    np = Python.import_module("numpy")
-    ctypes = Python.import_module("ctypes")
+    var np = Python.import_module("numpy")
+    var ctypes = Python.import_module("ctypes")
 
-    ctypes_dict = {
+    var ctypes_dict = {
         DType.bool: ctypes.c_bool,
         DType.int8: ctypes.c_int8,
         DType.int16: ctypes.c_int16,
@@ -335,15 +335,15 @@ def contextTensor_to_numpy[
         DType.float64: ctypes.c_double,
     }
 
-    c_dtype = ctypes_dict[dtype]
+    var c_dtype = ctypes_dict[dtype]
 
-    flag_ptr = contextTensor.cpu_buffer().unsafe_ptr()
+    var flag_ptr = contextTensor.cpu_buffer().unsafe_ptr()
     comptime if synchronize:
         contextTensor.synchronize()
-    address = Int(flag_ptr)  # Need to get the pointer address as Int type
-    p_int = ctypes.POINTER(c_dtype)  # Set Dtype
-    np_ptr = ctypes.cast(address, p_int)
-    np_arr = np.ctypeslib.as_array(
+    var address = Int(flag_ptr)  # Need to get the pointer address as Int type
+    var p_int = ctypes.POINTER(c_dtype)  # Set Dtype
+    var np_ptr = ctypes.cast(address, p_int)
+    var np_arr = np.ctypeslib.as_array(
         np_ptr, shape=Python.tuple(contextTensor.size())
     )
     return np_arr

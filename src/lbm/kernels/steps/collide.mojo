@@ -44,12 +44,12 @@ def collide[
 
     var weights = materialize[lattice.weights]()
     var directions = materialize[lattice.directions]()
-    var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
+    _ = materialize[grid.shape]()
     
     # Get Velocity and Density
-    rho = get_density[config.DDF_shift](f_vec)
-    velocity = get_velocity(f_vec,rho, directions)
-    tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
+    var rho = get_density[config.DDF_shift](f_vec)
+    var velocity = get_velocity(f_vec,rho, directions)
+    var tau_local = tau # Create a local variable if we need to modify tau with LES,KBC EELBM etc
 
     comptime if config.capture_density:
         comptime assert bc.mut,'BC tiletensor must be mutable if config.capture_velocity or capture_density is set'
@@ -64,12 +64,12 @@ def collide[
     
     # Non eq ops
     comptime if config.implies_f_noneq():
-        f_neq = get_f_noneq_vec[config.DDF_shift](f_vec,rho,velocity,tau_local, directions,weights)
-        second_moment_neq = get_non_eq_second_order_moment[stress_indices](f_neq, directions)
-        strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau_local)
+        var f_neq = get_f_noneq_vec[config.DDF_shift](f_vec,rho,velocity,tau_local, directions,weights)
+        var second_moment_neq = get_non_eq_second_order_moment[stress_indices](f_neq, directions)
+        var strain_rate = get_strain_rate_tensor(second_moment_neq,rho,tau_local)
         comptime if config.LES:
             comptime Cs = 0.1
-            tau_eddy = get_Smagorinsky_LES_tau[lattice.stress_indices](strain_rate,Cs)
+            var tau_eddy = get_Smagorinsky_LES_tau[lattice.stress_indices](strain_rate,Cs)
             tau_local += tau_eddy
 
         comptime if config.collision_op == Collisions.RLBM:
@@ -83,8 +83,10 @@ def collide[
         SRT[config.DDF_shift](f_vec,velocity,rho,tau_local, directions,weights)
     elif config.collision_op == Collisions.TRT:
         comptime TRT_magic_param = 3./16.
-        tau_asymm = 0.5 + TRT_magic_param/(tau_local-0.5)
+        var tau_asymm = 0.5 + TRT_magic_param/(tau_local-0.5)
         TRT[config.DDF_shift](f_vec,velocity,rho,tau_local,tau_asymm, directions,weights)
     else:
         comptime assert config.collision_op_is_valid() ,'Invalid Collision Operator specified'
 
+
+# last modified by: muse-spark-1.2 on 2026/09/01

@@ -165,10 +165,10 @@ struct Solver[grid_:LBM_Grid,config_:LBM_Config](SolverLike):
         """
 
         comptime if self.lbm_method == LBM_method.DOUBLE_BUFFER:
-            f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
+            var f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
             self.double_buffer_step(f_out,f_in,bc,flags,tau)
         else:
-            f_in,bc,flags = assembly.get_gpu_tensors_for_esoteric_pull()
+            var f_in, bc, flags = assembly.get_gpu_tensors_for_esoteric_pull()
             self.esoteric_pull_step[True](f_in,bc,flags,tau)
 
     @always_inline
@@ -180,8 +180,8 @@ struct Solver[grid_:LBM_Grid,config_:LBM_Config](SolverLike):
             tau: The SRT relaxation time.
         """
         comptime if self.lbm_method == LBM_method.DOUBLE_BUFFER:
-            f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
+            var f_in,f_out,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
             self.double_buffer_step(f_in,f_out,bc,flags,tau)
         else:
-            f_in,bc,flags = assembly.get_gpu_tensors_for_esoteric_pull()
+            var f_in, bc, flags = assembly.get_gpu_tensors_for_esoteric_pull()
             self.esoteric_pull_step[False](f_in,bc,flags,tau)

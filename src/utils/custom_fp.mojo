@@ -47,9 +47,9 @@ struct Float16C:
         """
         comptime assert dtype == uint16
         # Need to upscale first before doing the bitshifts (this is not clear in paper as upcasting is implicit and performed BEFORE the bitshift)
-        e = UInt32((val & 0x7800)) >> 11
-        m = UInt32((val & 0x07FF)) << 12
-        v = ((Float32(m)).to_bits[DType.uint32]()) >> 23  # Wtf?
+        var e = UInt32((val & 0x7800)) >> 11
+        var m = UInt32((val & 0x07FF)) << 12
+        var v = ((Float32(m)).to_bits[DType.uint32]()) >> 23  # Wtf?
 
         # sign = UInt32((val&0x8000)) << 16
         # normalized = UInt32(e != 0)*(( e+112 ) << 23 | m)
@@ -79,10 +79,10 @@ struct Float16C:
         Returns:
             The Float16C-encoded value as a `uint16`.
         """
-        b = val.to_bits[DType.uint32]() + 0x0000_0800
+        var b = val.to_bits[DType.uint32]() + 0x0000_0800
         # b = b  # Add 1 to 12th bit from left
-        e = (b & 0x7F80_0000) >> 23  # Exponent Bias 127
-        m = b & 0x007F_FFFF  # Get Mantissa
+        var e = (b & 0x7F80_0000) >> 23  # Exponent Bias 127
+        var m = b & 0x007F_FFFF  # Get Mantissa
 
         # sign = (b & 0x80000000 ) >> 16
         # norm =  UInt32(e > 112)* ((((e-112) << 11 ) & 0x7800) | m >> 12)

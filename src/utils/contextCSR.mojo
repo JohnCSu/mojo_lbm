@@ -57,7 +57,7 @@ struct ContextCSR[int_dtype: DType = DType.int32]():
         self.deviceContext = ctx
 
         self.shape = shape
-        n_rows, _ = shape
+        var n_rows, _ = shape
         self.nnz = len(indices)
 
         self.row_offsets = ContextTileTensor[Self.int_dtype](
@@ -75,9 +75,9 @@ struct ContextCSR[int_dtype: DType = DType.int32]():
 
         self.row_offsets.cpu()[0] = 0
 
-        current_row = 0
-        offset_count = 0
-        row_inc = 1
+        var current_row = 0
+        var offset_count = 0
+        var row_inc = 1
         for i, (row, col) in enumerate(indices):
             self.col_indices.cpu()[i] = Scalar[Self.int_dtype](col)
             offset_count += 1

@@ -83,9 +83,9 @@ def esoteric_pull_kernel[
     # comptime assert f_out.flat_rank == 8
     comptime assert not lattice.directions[0].all_true(), 'The first direction for the lattice model should be all 0s i.e directions[0]=[0,0,0]'
 
-    x = block_idx.x*block_dim.x + thread_idx.x
-    y = block_idx.y*block_dim.y + thread_idx.y
-    z = block_idx.z*block_dim.z + thread_idx.z
+    var x = block_idx.x*block_dim.x + thread_idx.x
+    var y = block_idx.y*block_dim.y + thread_idx.y
+    var z = block_idx.z*block_dim.z + thread_idx.z
 
     var index:InlineArray[Int,3] = [x,y,z]
 

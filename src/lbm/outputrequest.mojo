@@ -8,6 +8,7 @@ NumPy viewing, and provides methods to extract a frame from the GPU buffers.
 from layout.tile_layout import Layout,row_major,Coord,TensorLayout,col_major
 from src.lbm.constants import LBM_method,Collisions
 from src.lbm import LBM_Grid,LBM_Config,TiledLayouts,calculate_rho_and_velocity
+from .units import UnitSystem
 from src.lbm.output import calculate_rho_and_velocity,calculate_Q_criterion
 # from src.lbm.output.velocity import calculate_rho_and_velocity_temp
 # from src.lbm.output.Q_criterion import calculate_Q_criterion_temp
@@ -128,8 +129,8 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         block_dim:Optional[Tuple[Int,Int,Int]] = None,
         grid_dim:Optional[Tuple[Int,Int,Int]] = None,
         ) raises:
-        GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
-        BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
+        var GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
+        var BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
         deviceContext.enqueue_function[Self.output_density_and_velocity_func[after_odd_step = after_odd_step]](density,velocity,f.as_immut(),bc.as_immut(),flags.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
 
@@ -154,8 +155,8 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         block_dim:Optional[Tuple[Int,Int,Int]] = None,
         grid_dim:Optional[Tuple[Int,Int,Int]] = None,
         ) raises:
-        GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
-        BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
+        var GRID_DIM = grid_dim.value() if grid_dim else Self.grid.GRID_DIM
+        var BLOCK_SHAPE = block_dim.value() if block_dim else Self.grid.BLOCK_SHAPE
         deviceContext.enqueue_function[Self.output_Q_criterion_func[after_odd_step = after_odd_step]](Q,f.as_immut(),bc.as_immut(),flags.as_immut(),velocity.as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
 
 
@@ -174,14 +175,14 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
             assembly: The `Assembly` providing the GPU buffers.
         """
         comptime if self.lbm_method == LBM_method.DOUBLE_BUFFER:
-            f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
+            var f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
             comptime if after_odd_step:
                 self.get_rho_and_velocity[after_odd_step](self.deviceContext,self.density.value().gpu(),self.velocity.value().gpu(),f1,bc,flags)
             else:
                 self.get_rho_and_velocity[after_odd_step](self.deviceContext,self.density.value().gpu(),self.velocity.value().gpu(),f2,bc,flags)
                 
         elif self.lbm_method == LBM_method.ESOTERIC_PULL:
-            f1,bc,flags = assembly.get_gpu_tensors_for_esoteric_pull()
+            var f1, bc, flags = assembly.get_gpu_tensors_for_esoteric_pull()
             self.get_rho_and_velocity[after_odd_step](self.deviceContext,self.density.value().gpu(),self.velocity.value().gpu(),f1,bc,flags)
 
         else:
@@ -206,14 +207,14 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         """
 
         comptime if self.lbm_method == LBM_method.DOUBLE_BUFFER:
-            f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
+            var f1,f2,bc,flags = assembly.get_gpu_tensors_for_double_buffer()
             comptime if after_odd_step:
                 self.get_Q_criterion[after_odd_step](self.deviceContext,self.Q_criterion.value().gpu(),f1,bc,flags,self.velocity.value().gpu())
             else:
                 self.get_Q_criterion[after_odd_step](self.deviceContext,self.Q_criterion.value().gpu(),f2,bc,flags,self.velocity.value().gpu())
 
         elif self.lbm_method == LBM_method.ESOTERIC_PULL:
-            f1,bc,flags = assembly.get_gpu_tensors_for_esoteric_pull()
+            var f1, bc, flags = assembly.get_gpu_tensors_for_esoteric_pull()
             self.get_Q_criterion[after_odd_step](self.deviceContext,self.Q_criterion.value().gpu(),f1,bc,flags,self.velocity.value().gpu())
 
         else:
@@ -246,7 +247,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         var grid_shape = materialize[Self.grid.shape]()
         var shape = Python.tuple(grid_shape[0],grid_shape[1],grid_shape[2])
 
-        velocity_buffer = ((self.velocity.value()).buffer_to_numpy()).reshape(shape,order = 'F')
+        var velocity_buffer = ((self.velocity.value()).buffer_to_numpy()).reshape(shape,order = 'F')
 
         if convert_from_lattice_units:
             velocity_buffer *= self.unitSystem.U.C_lat_to_phys()
@@ -278,7 +279,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
         var shape = Python.tuple(grid_shape[0],grid_shape[1],grid_shape[2])
         # shape.append(Self.grid.D)
 
-        Q_criterion_np = ((self.Q_criterion.value()).buffer_to_numpy()).reshape(shape,order = 'F')
+        var Q_criterion_np = ((self.Q_criterion.value()).buffer_to_numpy()).reshape(shape,order = 'F')
         
         if convert_from_lattice_units:
             Q_criterion_np *= (self.unitSystem.U.C_lat_to_phys()/self.unitSystem.L.C_lat_to_phys())

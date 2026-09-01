@@ -48,14 +48,18 @@ def LBM_kernel[
     comptime bc_as_lt = LayoutTensor[float_dtype,BClayout.to_layout(),MutAnyOrigin]
     comptime assert f_as_lt.element_size == 1 and flag_as_lt.element_size == 1 and bc_as_lt.element_size == 1
     
-    f_in_lt = f_as_lt(f_in.ptr)
-    f_out_lt = f_as_lt(f_out.ptr)
-    flags_lt = flag_as_lt(flags.ptr)
-    bc_lt = bc_as_lt(bc.ptr)
+    var f_in_lt = f_as_lt(f_in.ptr)
+    var f_out_lt = f_as_lt(f_out.ptr)
+    var flags_lt = flag_as_lt(flags.ptr)
+    var bc_lt = bc_as_lt(bc.ptr)
+    var x: Int
+    var y: Int
+    var z: Int
     comptime if reorder_threads:
         comptime if D==1: # Indexing based on Dimension of Grid
             x = block_dim.x * block_idx.x + thread_idx.x
-            y,z = 0,0
+            y = 0
+            z = 0
         elif D == 2:
             x = block_dim.y * block_idx.y + thread_idx.y
             y = block_dim.x * block_idx.x + thread_idx.x
@@ -69,19 +73,20 @@ def LBM_kernel[
         y = block_dim.y * block_idx.y + thread_idx.y
         z = block_dim.z * block_idx.z + thread_idx.z
         
-    index = Vector[DType.int32,3](Int32(x),Int32(y),Int32(z))
+    var index = Vector[DType.int32,3](Int32(x),Int32(y),Int32(z))
 
     # Main Compute
+    var rho: Scalar[float_dtype]
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
         var f_new = Vector[float_dtype,Q](fill = 0.)
         var velocity = Vector[float_dtype,D](uninitialized = True)
         for q in range(Q):
-            f_opp = f_in_lt.load_scalar(opposite_index[q],x,y,z) # Need this as  Element Type is a Simd Vec of size 1
-            direction = directions[q]
+            var f_opp = f_in_lt.load_scalar(opposite_index[q],x,y,z) # Need this as  Element Type is a Simd Vec of size 1
+            var direction = directions[q]
             
-            pull_index = get_adjacent_idx[-1](index,grid_shape,direction) # Pulling Scheme
-            pulled_f = f_in_lt.load_scalar(q,pull_index[0],pull_index[1],pull_index[2])            
-            pulled_flag = flags_lt.load_scalar(pull_index[0],pull_index[1],pull_index[2])
+            var pull_index = get_adjacent_idx[-1](index,grid_shape,direction) # Pulling Scheme
+            var pulled_f = f_in_lt.load_scalar(q,pull_index[0],pull_index[1],pull_index[2])            
+            var pulled_flag = flags_lt.load_scalar(pull_index[0],pull_index[1],pull_index[2])
 
             if pulled_flag == FLUID_NODE: # Stream
                 f_new[q] = pulled_f
@@ -99,7 +104,7 @@ def LBM_kernel[
         velocity /= rho
         # Collision Term
         for q in range(Q):
-            f_eq = SRT(weights[q],rho,velocity,directions[q].cast_to[float_dtype]())            
+            var f_eq = SRT(weights[q],rho,velocity,directions[q].cast_to[float_dtype]())            
             f_out_lt[q,x,y,z] = f_new[q] -  inv_tau*(f_new[q]- f_eq)
 
 
@@ -115,6 +120,8 @@ def get_adjacent_idx[int_dtype:DType,D:Int,//,shift:Scalar[DType.int32] = 1](ind
 @always_inline
 def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],direction:Vector[dtype,D]) -> Scalar[dtype]:
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
-    ei_dot_u = velocity.dot(direction)
+    var ei_dot_u = velocity.dot(direction)
     return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*velocity.dot(velocity))
 
+
+# last modified by: muse-spark-1.2 on 2026/09/01

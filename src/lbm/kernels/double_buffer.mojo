@@ -74,14 +74,14 @@ def double_buffer_kernel[
     comptime assert config.lbm_method == LBM_method.DOUBLE_BUFFER
     
     var grid_shape:InlineArray[Int,3] = materialize[grid.shape]()
-    x = block_idx.x*block_dim.x + thread_idx.x
-    y = block_idx.y*block_dim.y + thread_idx.y
-    z = block_idx.z*block_dim.z + thread_idx.z
+    var x = block_idx.x*block_dim.x + thread_idx.x
+    var y = block_idx.y*block_dim.y + thread_idx.y
+    var z = block_idx.z*block_dim.z + thread_idx.z
 
     var index:InlineArray[Int,3] = [x,y,z]
 
     # Main Compute
-    coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
+    var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
     var flag = flags.load(coord_index)[0]
 
     if is_valid_thread(index,grid_shape,flag):

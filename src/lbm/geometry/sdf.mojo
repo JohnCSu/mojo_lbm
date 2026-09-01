@@ -9,9 +9,12 @@ trait SDF(Copyable):
         ...
 
     def bounding_box(self) -> Tuple[Array[Scalar[Self.float_dtype],3],Array[Scalar[Self.float_dtype],3]]:
-        '''
-        Return the min_point and max point AABB of the sdf
-        '''
+        """Returns the AABB of the signed distance field.
+
+        Returns:
+            A tuple of `(min_point, max_point)` defining the axis-aligned
+            bounding box.
+        """
         ...
 
     def is_inside(self,point:Array[Scalar[Self.float_dtype],3]) -> Bool:
@@ -133,3 +136,5 @@ struct Cylinder[float_dtype_:DType,axis:Int = 2](SDF):
             min_point[i] -= extent
             max_point[i] += extent
         return min_point^,max_point^
+
+# last modified by: muse-spark-1.2 on 2026/09/01

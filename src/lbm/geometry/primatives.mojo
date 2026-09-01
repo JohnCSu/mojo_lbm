@@ -62,8 +62,8 @@ def get_sphere_boundary_indices[
 
     for i in range(3):
         if i < D:
-            a_min,a_max = center[i] - radius, center[i] + radius
-            n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
+            var a_min,a_max = center[i] - radius, center[i] + radius
+            var n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
             bounding_box.append([n_min,n_max+1])
         else:
             bounding_box.append([0,1])
@@ -75,27 +75,27 @@ def get_sphere_boundary_indices[
     def inside_boundary(coord_vec:vec3,center_vec:vec3,radius:float) -> Bool:
         return ((coord_vec - center_vec)**2).sum() <= radius**2
 
-    candidate_indices:Set[Tuple[Int,Int,Int]] = {}
+    var candidate_indices:Set[Tuple[Int,Int,Int]] = {}
     for nx in range(bounding_box[0][0],bounding_box[0][1]):
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
-                coord_vec = index_to_coord((nx,ny,nz),grid.dx,materialize[grid.origin]())
+                var coord_vec = index_to_coord((nx,ny,nz),grid.dx,materialize[grid.origin]())
                 if inside_boundary(coord_vec,center_vec,radius):
                     flags.store(dyn_coord[DType.int32]((nx,ny,nz)),value = Flags.SOLID)
                 else:
                     candidate_indices.add((nx,ny,nz))
 
-    indices =  List[Scalar[int_dtype]](length = len(candidate_indices),fill = (-1))
+    var indices =  List[Scalar[int_dtype]](length = len(candidate_indices),fill = (-1))
 
-    num_boundary_indices = 0
+    var num_boundary_indices = 0
     for idx in candidate_indices:
-        x,y,z = idx
-        crd = dyn_coord[int_dtype]((x,y,z))
+        var x,y,z = idx
+        var crd = dyn_coord[int_dtype]((x,y,z))
         for q in range(Q):
-            test_direction:InlineArray[Int,3] = [x,y,z]
+            var test_direction:InlineArray[Int,3] = [x,y,z]
             comptime for i in range(D):
                 test_direction[i] += Int(directions[q][i])
-            coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,materialize[grid.origin]())
+            var coord_test = index_to_coord((test_direction[0],test_direction[1],test_direction[2]),grid.dx,materialize[grid.origin]())
             if inside_boundary(coord_test,center_vec,radius):
                 indices[num_boundary_indices] = flags.layout[linear_idx_type = int_dtype](crd)
                 num_boundary_indices += 1
@@ -140,8 +140,8 @@ def add_sphere[
 
     for i in range(3):
         if i < D:
-            a_min,a_max = center[i] - radius, center[i] + radius
-            n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
+            var a_min,a_max = center[i] - radius, center[i] + radius
+            var n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
             bounding_box.append([n_min,n_max])
         else:
             bounding_box.append([0,1])
@@ -154,7 +154,7 @@ def add_sphere[
     for nx in range(bounding_box[0][0],bounding_box[0][1]):
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
-                dx,dy,dz = (float(nx)*grid.dx,float(ny)*grid.dx,float(nz)*grid.dx)
+                var dx,dy,dz = (float(nx)*grid.dx,float(ny)*grid.dx,float(nz)*grid.dx)
                 coord_vec[0] = dx + materialize[grid.origin]()[0]
                 coord_vec[1] = dy + materialize[grid.origin]()[1]
                 coord_vec[2] = dz + materialize[grid.origin]()[2]
@@ -221,8 +221,8 @@ def add_box[
 
     for i in range(3):
         if i < D:
-            a_min,a_max = center[i] - box_radius[i], center[i] + box_radius[i]
-            n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
+            var a_min,a_max = center[i] - box_radius[i], center[i] + box_radius[i]
+            var n_min,n_max = max(0,Int((a_min-materialize[grid.origin]()[i])//grid.dx)), min(materialize[grid.shape]()[i],Int((a_max-materialize[grid.origin]()[i])//grid.dx + 1))
             bounding_box.append([n_min,n_max])
         else:
             bounding_box.append([0,1])
@@ -236,7 +236,7 @@ def add_box[
     for nx in range(bounding_box[0][0],bounding_box[0][1]):
         for ny in range(bounding_box[1][0],bounding_box[1][1]):
             for nz in range(bounding_box[2][0],bounding_box[2][1]):
-                dx,dy,dz = (float(nx)*grid.dx,float(ny)*grid.dx,float(nz)*grid.dx)
+                var dx,dy,dz = (float(nx)*grid.dx,float(ny)*grid.dx,float(nz)*grid.dx)
                 coord_vec[0] = dx + materialize[grid.origin]()[0]
                 coord_vec[1] = dy + materialize[grid.origin]()[1]
                 coord_vec[2] = dz + materialize[grid.origin]()[2]

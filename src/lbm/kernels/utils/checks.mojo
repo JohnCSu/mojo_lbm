@@ -25,8 +25,8 @@ def opposite_indices_are_adjacent[int_dtype:DType,D:Int,Q:Int,//](directions:Inl
         at `q + 1`, `False` otherwise.
     """
     comptime for q in range(1,Q-1,2):
-        dir_q = directions[q]
-        opp_dir_q = directions[q+1]
+        var dir_q = directions[q]
+        var opp_dir_q = directions[q+1]
         # print(q,q+1,dir_q,opp_dir_q)
         if (dir_q + opp_dir_q).sum() != 0: # If not equal to zero then the adjacent direction is not the opposite direction
             return False
@@ -54,8 +54,8 @@ def rest_direction_is_zero[int_dtype:DType,D:Int,Q:Int,//](directions:InlineArra
 
 @always_inline
 def is_valid_thread(index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],flag:UInt8) -> Bool:
-    valid_index = (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2])
+    var valid_index = (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2])
 
-    node_to_be_excluded = Flags.is[Flags.SOLID](flag) or Flags.has[Flags.EXCLUDE](flag) 
+    var node_to_be_excluded = Flags.is[Flags.SOLID](flag) or Flags.has[Flags.EXCLUDE](flag) 
 
     return  valid_index and not node_to_be_excluded

@@ -34,14 +34,13 @@ def get_velocity_gradient[
     differences. When the neighbor on a side is solid, the effective `dx` is
     doubled so the difference skips the wall. Periodicity is not handled;
     one-sided differences are used at the domain boundary.
-    
+
     TODO: Check for periodicity (Assume one sided finite difference at boundary currently)
-    
+
     Parameters:
         float_dtype: The `DType` of the computation.
-        sharedType: The compile-time layout of `shared_u`; must be flat-rank 4.
-        flagType: The compile-time layout of `flags`; must be rank 3.
-        dx: The lattice spacing.
+        sharedType: The compile-time `Layout` of the `shared_u`; must be flat-rank 4.
+        flagType: The compile-time `Layout` of the `flags`; must be rank 3.
 
     Args:
         shared_u: The shared-memory tile tensor holding the velocity field.
@@ -51,6 +50,7 @@ def get_velocity_gradient[
         grid_shape: The `[nx, ny, nz]` shape of the grid.
         velocity_direction: The velocity component index to differentiate.
         axis: The spatial axis along which to differentiate.
+        dx: The lattice spacing (defaults to 1).
 
     Returns:
         The weighted velocity gradient `du/d(axis)`.
@@ -84,14 +84,14 @@ def get_velocity_gradient[
 
     var adj_is_valid_right = is_index_valid(adj_global_index,grid_shape)
     if adj_is_valid_right:
-        u3 = shared_u[adj_index[0],adj_index[1],adj_index[2],velocity_direction]
-        f3 = flags.load(dyn_coord[DType.int32]((adj_global_index[0],adj_global_index[1],adj_global_index[2])))[0]
+        var u3 = shared_u[adj_index[0],adj_index[1],adj_index[2],velocity_direction]
+        var f3 = flags.load(dyn_coord[DType.int32]((adj_global_index[0],adj_global_index[1],adj_global_index[2])))[0]
         right_grad,right_dx = get_adj_finite_difference[float_dtype, 'right'](adj_index,adj_global_index,f3,u3,u2,grid_shape, dx)
 
-    total_dx = left_dx + right_dx
+    var total_dx = left_dx + right_dx
 
-    left_weight = 1 - left_dx/total_dx
-    right_weight = (1 - left_weight)
+    var left_weight = 1 - left_dx/total_dx
+    var right_weight = (1 - left_weight)
 
     return right_grad*right_weight + left_grad*left_weight if adj_is_valid_left or adj_is_valid_right else 0.
 
@@ -118,7 +118,6 @@ def get_adj_finite_difference[
 
     Parameters:
         float_dtype: The `DType` of the computation.
-        dx: The lattice spacing.
         side: `'left'` or `'right'`, selecting the difference direction
             (defaults to `'right'`).
 
@@ -129,12 +128,14 @@ def get_adj_finite_difference[
         adj_u: The velocity at the adjacent node.
         u: The velocity at the central node.
         grid_shape: The `[nx, ny, nz]` shape of the grid.
+        dx: The lattice spacing.
 
     Returns:
         A tuple of `(gradient, effective_dx)`.
     """
     comptime assert side in {'right','left'}
-    grad_dx = 0.5*dx if adj_flag == SOLID_NODE else dx
+    var grad_dx = 0.5*dx if adj_flag == SOLID_NODE else dx
+    var grad: Scalar[float_dtype]
     comptime if side == 'left': # u_cur - u_1
         grad = forward_difference(u,adj_u,1/grad_dx)
     else: # u_adj - u_cur
@@ -164,3 +165,5 @@ def forward_difference[
         The forward difference `(u2 - u1) * inv_dx`.
     """
     return (u2-u1)*inv_dx
+
+# last modified by: muse-spark-1.2 on 2026/09/01

@@ -22,10 +22,10 @@ def pyvista_viewer_import() raises -> PythonObject:
     Returns:
         The imported `pyvista_viewer` Python module object.
     """
-    src = source_location()
-    src_path = dirname(src.file_name())
+    var src = source_location()
+    var src_path = dirname(src.file_name())
     Python.add_to_path(src_path)  # Is this local to this file or to runtime?
-    pyvista_viewer = Python.import_module("pyvista_viewer")
+    var pyvista_viewer = Python.import_module("pyvista_viewer")
     return pyvista_viewer
 
 
@@ -47,12 +47,12 @@ def grid_viewer[
     Raises:
         Error: If either subplot dimension is less than 1.
     """
-    pv_view = pyvista_viewer_import()
+    var pv_view = pyvista_viewer_import()
 
     if subplot_shape[0] < 1 or subplot_shape[1] < 1:
         raise Error("subplot shapes must be positive integers")
 
-    visualizer = pv_view.Pyvista_Visualizer(
+    var visualizer = pv_view.Pyvista_Visualizer(
         grid.D,
         Python.tuple(materialize[grid.origin]()[0], materialize[grid.origin]()[1], materialize[grid.origin]()[2]),
         Python.tuple(

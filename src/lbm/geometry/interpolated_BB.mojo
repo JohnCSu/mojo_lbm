@@ -30,12 +30,12 @@ def idx_to_ijk[
     tile_shape:Tuple[Int,Int,Int],
     ) -> InlineArray[Int,3]:
 
-    index = InlineArray[Int,3](uninitialized = True)
-    crd = flags.layout.idx2crd[out_dtype = int_dtype](Int(fluid_idx)).flatten()
+    var index = InlineArray[Int,3](uninitialized = True)
+    var crd = flags.layout.idx2crd[out_dtype = int_dtype](Int(fluid_idx)).flatten()
     comptime if FlagLayoutType.rank*2 == FlagLayoutType.flat_rank:
         comptime for i in range(3):
-            loc_x = Int(crd[2*i].value()) # local
-            til_x = Int(crd[(2*i)+1].value())
+            var loc_x = Int(crd[2*i].value()) # local
+            var til_x = Int(crd[(2*i)+1].value())
             index[i] = tile_shape[i]*til_x + loc_x
     else:
         comptime assert FlagLayoutType.rank == FlagLayoutType.flat_rank
@@ -72,18 +72,22 @@ def linkwise_bounceback_kernel[
     written into `force_tensor[tid, i]` for each dimension `i`.
 
     Parameters:
-        FLayout: The compile-time `Layout` of the distribution function `f`.
-        FlagLayout: The compile-time `Layout` of the `uint8` flag tensor.
+        bounceback_method: The bounce-back method.
+        FLayoutType: The compile-time layout of the distribution function.
+        FlagLayoutType: The compile-time layout of the flag tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
-        config: The `LBM_Config` used to select storage options.
-        f_dtype: The storage `DType` for `f` (defaults to the config's
-            `f_dtype` or `float_dtype`).
+        config: The compile-time `LBM_Config` for the run.
 
     Args:
-        f: The input distribution function tile tensor (rank 4).
-        flags: The `uint8` tile tensor labeling each node (rank 3).
-        fluid_boundary: The 1D tile tensor of linear fluid boundary indices.
+        f_in: The input distribution function tile tensor.
         force_tensor: The 2D output tile tensor of per-node force vectors.
+        flags: The `uint8` tile tensor labeling each node.
+        fluid_boundaries: The 1D tile tensor of linear fluid boundary
+            indices.
+        lattice_links: The 1D tile tensor of lattice link indices.
+        link_distances: The 1D tile tensor of wall distances.
+        compute_force: Whether to compute the force.
+        q_clamp: The minimum wall distance.
     """
     comptime D = grid.D
     comptime Q = grid.Q
@@ -101,33 +105,34 @@ def linkwise_bounceback_kernel[
     # Should be a 1D based kernel loop
 
     # Each thread updates their corresponding link and write to f_in in-place
-    tid = block_dim.x * block_idx.x + thread_idx.x
+    var tid = block_dim.x * block_idx.x + thread_idx.x
     if tid < fluid_boundaries.layout.size():
             
-        fluid_idx = fluid_boundaries[tid]
+        var fluid_idx = fluid_boundaries[tid]
         
-        index = idx_to_ijk(fluid_idx,flags,tile_shape)
+        var index = idx_to_ijk(fluid_idx,flags,tile_shape)
         
         if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
             
-            i = Int(lattice_links[tid])
-            opp_i = Int(opposite_index[i])
+            var i = Int(lattice_links[tid])
+            var opp_i = Int(opposite_index[i])
 
-            direction = directions[i]
-            q_dist = link_distances[tid]
+            var direction = directions[i]
+            var q_dist = link_distances[tid]
             q_dist = max(q_dist,q_clamp)
             
-            f_into_wall = load_f[float_dtype,config.use_float16c](f_in,index,i) # About to be bounced back value
+            var f_into_wall = load_f[float_dtype,config.use_float16c](f_in,index,i) # About to be bounced back value
 
+            var f_bb: Scalar[float_dtype]
             comptime if bounceback_method == Bounceback_method.BOUZIDI:
                 if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
-                    f_out_of_wall =  load_f[float_dtype,config.use_float16c](f_in,index,opp_i)
+                    var f_out_of_wall =  load_f[float_dtype,config.use_float16c](f_in,index,opp_i)
                     f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
                 else:
                     # we go double pull
                     # f_into_wall = load_f[float_dtype,config.DDF_shift](f_in,index,opp_i)
-                    xff_index = get_adjacent_idx[-1](index,grid_shape,direction) # xff is in opp direction to i direction
-                    f_at_xff = load_f[float_dtype,config.use_float16c](f_in,xff_index,opp_i)
+                    var xff_index = get_adjacent_idx[-1](index,grid_shape,direction) # xff is in opp direction to i direction
+                    var f_at_xff = load_f[float_dtype,config.use_float16c](f_in,xff_index,opp_i)
                     f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
 
                 store_f[config.use_float16c](f_in,f_bb,index,i)
@@ -136,6 +141,8 @@ def linkwise_bounceback_kernel[
                 f_bb = f_into_wall
 
             if compute_force:
-                link_force = float_directions[i]*(f_into_wall + f_bb)
+                var link_force = float_directions[i]*(f_into_wall + f_bb)
                 comptime for d in range(D):
                     force_tensor[tid,d] = link_force[d]
+
+# last modified by: muse-spark-1.2 on 2026/09/01

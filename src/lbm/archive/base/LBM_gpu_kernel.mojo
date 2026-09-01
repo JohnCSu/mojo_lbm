@@ -46,23 +46,24 @@ def LBM_kernel[
     var opposite_index = materialize[lattice.opposite_indices]()
     var grid_shape = Vector[DType.int32,3](Int32(nx),Int32(ny),Int32(nz))
 
-    x = block_dim.x * block_idx.x + thread_idx.x
-    z = block_dim.z * block_idx.z + thread_idx.z
-    y = block_dim.y * block_idx.y + thread_idx.y
+    var x = block_dim.x * block_idx.x + thread_idx.x
+    var z = block_dim.z * block_idx.z + thread_idx.z
+    var y = block_dim.y * block_idx.y + thread_idx.y
     
-    index = Vector[DType.int32,3](Int32(x),Int32(y),Int32(z))
+    var index = Vector[DType.int32,3](Int32(x),Int32(y),Int32(z))
 
     # Main Compute
+    var rho: Scalar[float_dtype]
     if (index[0] < grid_shape[0]) and (index[1] < grid_shape[1]) and (index[2] < grid_shape[2]): # Basic Guard
         var f_new = Vector[float_dtype,Q](fill = 0.)
         var velocity = Vector[float_dtype,D](uninitialized = True)
         for q in range(Q):
-            f_opp = f_in[opposite_index[q],x,y,z]
-            direction = directions[q]
+            var f_opp = f_in[opposite_index[q],x,y,z]
+            var direction = directions[q]
             
-            pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
-            pulled_f = f_in[q,pull_index[0],pull_index[1],pull_index[2]]            
-            pulled_flag = flags[pull_index[0],pull_index[1],pull_index[2]]
+            var pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
+            var pulled_f = f_in[q,pull_index[0],pull_index[1],pull_index[2]]            
+            var pulled_flag = flags[pull_index[0],pull_index[1],pull_index[2]]
 
             if pulled_flag == FLUID_NODE: # Stream
                 f_new[q] = pulled_f
@@ -80,14 +81,14 @@ def LBM_kernel[
         velocity /= rho
         # Collision Term
         for q in range(Q):
-            f_eq = SRT(weights[q],rho,velocity,directions[q].cast_to[float_dtype]())            
+            var f_eq = SRT(weights[q],rho,velocity,directions[q].cast_to[float_dtype]())            
             f_out[q,x,y,z] = f_new[q] -  inv_tau*(f_new[q]- f_eq)
 
 
 
 def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int32 = 1](index:Vector[DType.int32,3],grid_shape:Vector[DType.int32,3],direction:Vector[int_dtype,D],) -> Vector[DType.int32,3]:
     comptime assert D <= 3 
-    adj_index = Vector[DType.int32,3](uninitialized = True)
+    var adj_index = Vector[DType.int32,3](uninitialized = True)
     comptime for d in range(D):
         adj_index[d] = (index[d] + shift*Int32(direction[d])) % grid_shape[d]
     return adj_index^
@@ -95,5 +96,7 @@ def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int32 = 1](index:Vector[DType.i
 
 def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],direction:Vector[dtype,D]) -> Scalar[dtype]:
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
-    ei_dot_u = velocity.dot(direction)
+    var ei_dot_u = velocity.dot(direction)
     return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*velocity.dot(velocity))
+
+# last modified by: muse-spark-1.2 on 2026/09/01

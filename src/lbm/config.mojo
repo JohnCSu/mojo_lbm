@@ -116,7 +116,11 @@ struct LBM_Config[lbm_method:LBM_method = LBM_method.DOUBLE_BUFFER](ConfigLike):
                 (defaults to `False`).
             f_dtype: Optional override `DType` for `f` (defaults to `None`).
             include_moving_boundary: Whether to include moving boundary
-                handling (defaults to `False`).
+                handling (defaults to `True`).
+            capture_density: Whether to capture density in bounce-back
+                (defaults to `False`).
+            capture_velocity: Whether to capture velocity in bounce-back
+                (defaults to `False`).
         """
         
         self.capture_density = capture_density
@@ -141,7 +145,7 @@ struct LBM_Config[lbm_method:LBM_method = LBM_method.DOUBLE_BUFFER](ConfigLike):
         if len(BCs) == 0:
             self.INCLUDED_BCs = {Flags.FLUID, Flags.SOLID}
         else:
-            __valid_bcs = materialize[_FlagSet]()
+            var __valid_bcs = materialize[_FlagSet]()
             if not BCs.issubset(__valid_bcs):
                 print(
                     "Warning: Some Specified BC types are not standard: {}"
@@ -188,3 +192,5 @@ struct LBM_Config[lbm_method:LBM_method = LBM_method.DOUBLE_BUFFER](ConfigLike):
             `False` otherwise.
         """
         return self.collision_op in materialize[Collisions.valid_set]()
+
+# last modified by: muse-spark-1.2 on 2026/09/01

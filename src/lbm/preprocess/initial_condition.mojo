@@ -40,8 +40,8 @@ def _do_nothing[
         Returns:
             A list of two zero vectors representing `du` and `dv`.
         """
-        du =Vector[float_dtype,D](fill=0)
-        dv =Vector[float_dtype,D](fill=0)
+        var du =Vector[float_dtype,D](fill=0)
+        var dv =Vector[float_dtype,D](fill=0)
         return [du,dv]
 
 
@@ -149,22 +149,22 @@ def initialize_f_from_func[
     for i in range(grid_shape[0]):
         for j in range(grid_shape[1]):
             for k in range(grid_shape[2]):
-                grid_indices =  grid.get_grid_coordinates(i,j,k)
-                velocity = Vector[float_dtype,D](fill = 0.)
+                var grid_indices =  grid.get_grid_coordinates(i,j,k)
+                var velocity = Vector[float_dtype,D](fill = 0.)
                 u(grid_indices[0],grid_indices[1],grid_indices[2],velocity)
                 velocity*= unitSystem.value().U.C_phys_to_lat() if unitSystem else 1.
 
-                index:InlineArray[Int,3] = [i,j,k]
-                u_dot_u = velocity.dot(velocity)
+                var index:InlineArray[Int,3] = [i,j,k]
+                var u_dot_u = velocity.dot(velocity)
 
                 # comptime assert D == 2,'adding neq only works for 2D for now'
-                f_vec = Vector[float_dtype,Q](uninitialized = True)
+                var f_vec = Vector[float_dtype,Q](uninitialized = True)
                 comptime for q in range(Q):
-                    float_direction = float_directions[q].cast_to[float_dtype]()
-                    f_i = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_direction)
+                    var float_direction = float_directions[q].cast_to[float_dtype]()
+                    var f_i = f_eq[config.DDF_shift](weights[q],rho,velocity,u_dot_u,float_direction)
                     comptime if deriv_u:
                         comptime u_func = deriv_u.value()
-                        grad = u_func(grid_indices[0],grid_indices[1],grid_indices[2],velocity.copy())
+                        var grad = u_func(grid_indices[0],grid_indices[1],grid_indices[2],velocity.copy())
                         if unitSystem:
                             comptime for d in range(D): # Scale Gradient to lattice units
                                 grad[d] *= unitSystem.value().U.C_phys_to_lat()/unitSystem.value().L.C_phys_to_lat()
@@ -206,7 +206,6 @@ def fi_neq[
         float_dtype: The `DType` of the computation.
         D: The spatial dimension.
         Q: The number of discrete velocities.
-        directions: The compile-time discrete velocity directions.
 
     Args:
         i: The discrete velocity index.
@@ -214,17 +213,18 @@ def fi_neq[
         rho: The lattice density.
         tau: The relaxation time.
         grad: The velocity gradient `[du, dv]` as a list of `Vector`s.
+        directions: The discrete velocity directions.
 
     Returns:
         The non-equilibrium correction `f_i^{neq}`.
     """
-    fi_neq: Scalar[float_dtype] = 0.
-    direction = directions[i]
+    var fi_neq: Scalar[float_dtype] = 0.
+    var direction = directions[i]
 
     comptime for alpha in range(D):
         comptime for beta in range(D):
-            Sab = calculate_Sab(grad,alpha,beta)
-            Qiab = direction[alpha]*direction[beta]
+            var Sab = calculate_Sab(grad,alpha,beta)
+            var Qiab = direction[alpha]*direction[beta]
             comptime if alpha == beta:
                 Qiab -= cs_squared
             fi_neq += Qiab*Sab
@@ -250,6 +250,8 @@ def calculate_Sab[float_dtype:DType,D:Int](grad:List[Vector[float_dtype,D]],a:In
     Returns:
         The symmetric strain `0.5 * (grad[a][b] + grad[b][a])`.
     """
-    du_a_d = grad[a]
-    du_b_d = grad[b]
+    var du_a_d = grad[a]
+    var du_b_d = grad[b]
     return 0.5*(du_a_d[b] + du_b_d[a])
+
+# last modified by: muse-spark-1.2 on 2026/09/01

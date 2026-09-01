@@ -31,12 +31,12 @@ def idx_to_ijk[
     tile_shape:Tuple[Int,Int,Int],
     ) -> InlineArray[Int,3]:
 
-    index = InlineArray[Int,3](uninitialized = True)
-    crd = flags.layout.idx2crd[out_dtype = int_dtype](Int(fluid_idx)).flatten()
+    var index = InlineArray[Int,3](uninitialized = True)
+    var crd = flags.layout.idx2crd[out_dtype = int_dtype](Int(fluid_idx)).flatten()
     comptime if FlagLayoutType.rank*2 == FlagLayoutType.flat_rank and (FlagLayoutType.rank == 3):
         comptime for i in range(3):
-            loc_x = Int(crd[2*i].value()) # local
-            til_x = Int(crd[(2*i)+1].value())
+            var loc_x = Int(crd[2*i].value()) # local
+            var til_x = Int(crd[(2*i)+1].value())
             index[i] = tile_shape[i]*til_x + loc_x
     else:
         comptime assert FlagLayoutType.rank == FlagLayoutType.flat_rank
@@ -83,18 +83,29 @@ def nodewise_bounceback_kernel[
     written into `force_tensor[tid, i]` for each dimension `i`.
 
     Parameters:
-        FLayout: The compile-time `Layout` of the distribution function `f`.
-        FlagLayout: The compile-time `Layout` of the `uint8` flag tensor.
+        bounceback_method: The bounce-back method.
+        FLayoutType: The compile-time layout of the distribution function.
+        FlagLayoutType: The compile-time layout of the flag tensor.
+        BClayoutType: The compile-time layout of the boundary-condition
+            tensor.
         grid: The compile-time `LBM_Grid` describing the domain.
-        config: The `LBM_Config` used to select storage options.
-        f_dtype: The storage `DType` for `f` (defaults to the config's
-            `f_dtype` or `float_dtype`).
+        config: The compile-time `LBM_Config` for the run.
+        is_even_time_step: Whether this is an even time step.
 
     Args:
-        f: The input distribution function tile tensor (rank 4).
-        flags: The `uint8` tile tensor labeling each node (rank 3).
-        fluid_boundary: The 1D tile tensor of linear fluid boundary indices.
+        f_out: The output distribution function tile tensor.
         force_tensor: The 2D output tile tensor of per-node force vectors.
+        f_in: The input distribution function tile tensor.
+        flags: The `uint8` tile tensor labeling each node.
+        bc: The boundary-condition tile tensor.
+        tau: The relaxation time.
+        fluid_boundary_ids: The 1D tile tensor of linear fluid boundary
+            indices.
+        lattice_links: The 1D tile tensor of lattice link bitmasks.
+        fluid_rowoffsets: The row offsets for the fluid boundary links.
+        link_distances: The 1D tile tensor of wall distances.
+        compute_force: Whether to compute the force.
+        q_clamp: The minimum wall distance.
     """
     comptime D = grid.D
     comptime Q = grid.Q
@@ -112,23 +123,23 @@ def nodewise_bounceback_kernel[
     # Should be a 1D based kernel loop
 
     # Each thread updates their corresponding link and write to f_in in-place
-    tid = block_dim.x * block_idx.x + thread_idx.x
+    var tid = block_dim.x * block_idx.x + thread_idx.x
     if tid < fluid_boundary_ids.layout.size():
             
-        fluid_idx = fluid_boundary_ids[tid]
+        var fluid_idx = fluid_boundary_ids[tid]
         
-        index = idx_to_ijk(fluid_idx,flags,tile_shape)
+        var index = idx_to_ijk(fluid_idx,flags,tile_shape)
         
         if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
             
             var q_vec = Vector[float_dtype,Q](uninitialized=True)
-            lattice_link_bitmask = lattice_links[tid]
+            var lattice_link_bitmask = lattice_links[tid]
             
-            row_start = fluid_rowoffsets[tid]
-            row_end = fluid_rowoffsets[tid+1]
-            n_links = row_end - row_start
+            var row_start = fluid_rowoffsets[tid]
+            var row_end = fluid_rowoffsets[tid+1]
+            var n_links = row_end - row_start
 
-            coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
+            var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
             
             var flag = flags.load(coord_index)[0]
             var f_vec = Vector[float_dtype,Q](fill = 0)
@@ -137,8 +148,8 @@ def nodewise_bounceback_kernel[
             # We load 
             stream[grid,config](f_vec,pull_flags,f_in,flags,flag,index)
             
-            rho = get_density[config.DDF_shift](f_vec)
-            u = get_velocity(f_vec,rho, directions)
+            var rho = get_density[config.DDF_shift](f_vec)
+            var u = get_velocity(f_vec,rho, directions)
 
             var ith_valid_link:type_of(row_start) = 0
             var force_vec = Vector[float_dtype,D](fill = 0)
@@ -148,26 +159,27 @@ def nodewise_bounceback_kernel[
             # comptime if bounceback_method != Bounceback_method.MID_GRID:
             comptime for q in range(1,Q):
                 if (lattice_link_bitmask & UInt32(1 << q)) != 0: # Check each bit
-                    i = ith_valid_link + row_start
-                    q_dist = link_distances[i]
+                    var i = ith_valid_link + row_start
+                    var q_dist = link_distances[i]
                     q_dist = max(q_dist,q_clamp)
                     # Do bouceback here
-                    opp_q = Int(opposite_index[q])
+                    var opp_q = Int(opposite_index[q])
                     comptime if bounceback_method == Bounceback_method.BOUZIDI:
                         # We need the prestreamed values but we have the streamed values with midgrid Bounceback
-                        f_into_wall = f_vec[opp_q] # This value has been bounced back
-                        if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
-                            f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_q)
+                        var f_into_wall = f_vec[opp_q] # This value has been bounced back
+                        var f_bb: Scalar[float_dtype]
+                        if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i
+                            var f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_q)
                             # f_out_of_wall =  load_single_f[grid,config](f_in,index,opp_q)
                             f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
                         else:
                             # This value has been streamed to the current node
-                            f_at_xff = f_vec[q]
+                            var f_at_xff = f_vec[q]
                             f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
                         
                         f_vec[opp_q] = f_bb + moving_wall_term
 
-                        link_force = float_directions[q]*(f_into_wall + f_bb)
+                        var link_force = float_directions[q]*(f_into_wall + f_bb)
                         force_vec += link_force
                         dm += f_bb - f_into_wall # Measure the change in mass due to interpolation
 
@@ -185,3 +197,5 @@ def nodewise_bounceback_kernel[
         
             # Save here
             store_f_vec_to_global[grid,config,is_even_time_step = is_even_time_step](f_out,f_vec,index)
+
+# last modified by: muse-spark-1.2 on 2026/09/01

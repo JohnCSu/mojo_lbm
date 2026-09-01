@@ -56,11 +56,11 @@ def benchmark_func[
     comptime density_layout = row_major[nx,ny,nz]()
     comptime velocity_layout = row_major[D,nx,ny,nz]()
 
-    ctx = DeviceContext()
-    flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx,bc_layout)
-    f = ContextTileTensor[float_dtype](ctx,f_layout)
-    f_out = ContextTileTensor[float_dtype](ctx,f_layout)
+    var ctx = DeviceContext()
+    var flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx,bc_layout)
+    var f = ContextTileTensor[float_dtype](ctx,f_layout)
+    var f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
     # Set up
     f.fill(1./Scalar[float_dtype](Q))
@@ -81,7 +81,7 @@ def benchmark_func[
     ctx.synchronize()
     #Compile Functions
     comptime LBM_kernel_ref_2951 = LBM_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,reorder_threads = reorder_threads]
-    LBM_func = ctx.compile_function[LBM_kernel_ref_2951]()
+    var LBM_func = ctx.compile_function[LBM_kernel_ref_2951]()
     ctx.synchronize()
     
     @always_inline

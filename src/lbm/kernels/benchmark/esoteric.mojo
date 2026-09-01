@@ -82,10 +82,10 @@ def run_benchmark[
     # print('Kernel dims: ',GRID_DIM,BLOCK_SHAPE)
     comptime Float = Scalar[float_dtype]
     comptime f_dtype = config.f_dtype.value() if config.f_dtype else float_dtype
-    ctx = DeviceContext()
-    flags = ContextTileTensor[DType.uint8](ctx, flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx, bc_layout)
-    f = ContextTileTensor[f_dtype](ctx, f_layout)
+    var ctx = DeviceContext()
+    var flags = ContextTileTensor[DType.uint8](ctx, flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx, bc_layout)
+    var f = ContextTileTensor[f_dtype](ctx, f_layout)
 
     initialize_fluid_at_rest[grid,config](f.cpu())
 
@@ -102,8 +102,8 @@ def run_benchmark[
     #Compile Functions
     comptime LBM_Even = esoteric_pull_kernel[True,type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
     comptime LBM_Odd = esoteric_pull_kernel[False,type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
-    LBM_even_step = ctx.compile_function[LBM_Even]()
-    LBM_odd_step = ctx.compile_function[LBM_Odd]()
+    var LBM_even_step = ctx.compile_function[LBM_Even]()
+    var LBM_odd_step = ctx.compile_function[LBM_Odd]()
 
     ctx.synchronize()
 

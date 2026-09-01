@@ -55,20 +55,20 @@ def LBM_kernel[
     
     # comptime assert tile_size >= 5 if D == 2 else tile_size >= 8
 
-    block_x,block_dim_x = block_idx.x,block_dim.x
-    block_y,block_dim_y = block_idx.y,block_dim.y
-    block_z,block_dim_z = block_idx.z,block_dim.z
+    var block_x,block_dim_x = block_idx.x,block_dim.x
+    var block_y,block_dim_y = block_idx.y,block_dim.y
+    var block_z,block_dim_z = block_idx.z,block_dim.z
 
-    local_x = thread_idx.x
-    local_y = thread_idx.y
-    local_z = thread_idx.z
+    var local_x = thread_idx.x
+    var local_y = thread_idx.y
+    var local_z = thread_idx.z
     
-    x = block_x*block_dim_x + local_x
-    y = block_y*block_dim_y + local_y
-    z = block_z*block_dim_z + local_z
+    var x = block_x*block_dim_x + local_x
+    var y = block_y*block_dim_y + local_y
+    var z = block_z*block_dim_z + local_z
     
-    index:InlineArray[Int,3] = [x,y,z]    
-    tid = thread_idx.z * block_dim.x * block_dim.y 
+    var index:InlineArray[Int,3] = [x,y,z]    
+    var tid = thread_idx.z * block_dim.x * block_dim.y 
         + thread_idx.y * block_dim.x 
         + thread_idx.x
 
@@ -76,10 +76,10 @@ def LBM_kernel[
     comptime shared_x_dim = tile_size if nx > 1 else 1
     comptime shared_y_dim = tile_size if ny > 1 else 1
     comptime shared_z_dim = tile_size if nz > 1 else 1
-    local_index:InlineArray[Int,3] = [local_x,local_y,local_z]
+    var local_index:InlineArray[Int,3] = [local_x,local_y,local_z]
     
-    pull_local:InlineArray[Int,3] = [local_x,local_y,local_z]
-    shared_flags = stack_allocation[DType.uint8,address_space=AddressSpace.SHARED](col_major[shared_x_dim,shared_y_dim,shared_z_dim]())
+    var pull_local:InlineArray[Int,3] = [local_x,local_y,local_z]
+    var shared_flags = stack_allocation[DType.uint8,address_space=AddressSpace.SHARED](col_major[shared_x_dim,shared_y_dim,shared_z_dim]())
     shared_flags[local_x,local_y,local_z] = flags.load(dyn_coord[DType.uint32]((x,y,z))) # Assume tile_size == block dims
     barrier()
     # Main Compute
@@ -90,10 +90,11 @@ def LBM_kernel[
 
         comptime for q in range(Q):
             # Streaming Step (Pull f and flags from direction)
-            direction = directions[q]
-            pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
-            pulled_f = f_in.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
+            var direction = directions[q]
+            var pull_index = get_adjacent_idx[_,D,-1](index,grid_shape,direction) # Pulling Scheme
+            var pulled_f = f_in.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],q)))[0]
             # Pull Flags from shared mem or global
+            var pulled_flag: UInt8
             if at_block_boundary[_,D,tile_size,-1](local_index,direction): # if at Boundary of block so we just pull from global
                 pulled_flag = flags.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
             else: # Else pull from shared mem
@@ -105,7 +106,7 @@ def LBM_kernel[
             # Apply Boundary Conditions
             f_new[q] = pulled_f if pulled_flag == FLUID_NODE else f_new[q]
             if pulled_flag == SOLID_NODE:
-                f_opp = f_in.load(dyn_coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
+                var f_opp = f_in.load(dyn_coord[DType.uint32]((x,y,z,Int(opposite_index[q]))))[0] # Need this as  Element Type is a Simd Vec of size 1
                 comptime for ii in range(D):
                     velocity[ii] = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],ii)))[0]
                 rho = bc.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2],D)))[0]
@@ -120,10 +121,10 @@ def LBM_kernel[
 
         velocity /= rho
         # Collision Term
-        u_dot_u = velocity.dot(velocity)
+        var u_dot_u = velocity.dot(velocity)
 
         comptime for q in range(Q):
-            f_eq = SRT(weights[q],rho,velocity,u_dot_u,directions[q].cast_to[float_dtype]())            
+            var f_eq = SRT(weights[q],rho,velocity,u_dot_u,directions[q].cast_to[float_dtype]())            
             f_out.store(coord = dyn_coord[DType.uint32]((x,y,z,q)),value = f_new[q] -  inv_tau*(f_new[q]- f_eq))
 
 
@@ -134,8 +135,8 @@ def at_block_boundary[int_dtype:DType,D:Int,tile_size:Int,shift:Int = 1](
                     ) -> Bool:
     _ = False
     comptime for d in range(D):
-        direction_d = shift*Int(direction[d])
-        current_pull_index = local_index[d] + direction_d
+        var direction_d = shift*Int(direction[d])
+        var current_pull_index = local_index[d] + direction_d
         if (current_pull_index < 0 or current_pull_index >= tile_size):
             return True
         # is_adj =  if not is_adj else is_adj
@@ -151,13 +152,13 @@ def get_global_xyz_from_block_and_local_idx[D:Int,flag_layout:Layout[...],tile_s
     comptime assert flag_layout.flat_rank == 6 or flag_layout.flat_rank == 3
     comptime is_nested = flag_layout.flat_rank == 6
     
-    adj_local_index = InlineArray[Int,3](fill =0)
-    adj_block_index = InlineArray[Int,3](fill =0)
+    var adj_local_index = InlineArray[Int,3](fill =0)
+    var adj_block_index = InlineArray[Int,3](fill =0)
     
     comptime for d in range(D):
         adj_local_index[d] = local_index[d] % tile_size # Modulo as we flip back
-        sign = -1 if local_index[d] < 0 else 1
-        next_block =  local_index[d] < 0 or local_index[d] >= tile_size
+        var sign = -1 if local_index[d] < 0 else 1
+        var next_block =  local_index[d] < 0 or local_index[d] >= tile_size
         adj_block_index[d] = (block_index[d] + sign if next_block else 0) % flag_layout.static_shape[1+2*d if is_nested else d]
     return adj_local_index^, adj_block_index^
 
@@ -167,7 +168,7 @@ def get_global_xyz_from_block_and_local_idx[D:Int,flag_layout:Layout[...],tile_s
 @always_inline
 def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,3],grid_shape:InlineArray[Int,3],direction:Vector[int_dtype,D],) -> InlineArray[Int,3]:
     comptime assert D <= 3 
-    adj_index = InlineArray[Int,3](fill = 0 )
+    var adj_index = InlineArray[Int,3](fill = 0 )
     comptime for d in range(D):
         adj_index[d] = (index[d] + shift*Int(direction[d])) % grid_shape[d]
     return adj_index^
@@ -175,8 +176,10 @@ def get_adjacent_idx[int_dtype:DType,D:Int,shift:Int = 1](index:InlineArray[Int,
 @always_inline
 def SRT[dtype:DType,D:Int,//](weight:Scalar[dtype],density:Scalar[dtype],velocity:Vector[dtype,D],u_dot_u:Scalar[dtype],direction:Vector[dtype,D]) -> Scalar[dtype]:
     comptime assert dtype.is_floating_point(), 'DType to BGK_collision term should be Float point like' # Weied using where statement cause compile error?
-    ei_dot_u = velocity.dot(direction)
+    var ei_dot_u = velocity.dot(direction)
     return weight*density*(1 + 3.*ei_dot_u + 4.5*ei_dot_u*ei_dot_u - 1.5*u_dot_u)
 
 
     
+
+# last modified by: muse-spark-1.2 on 2026/09/01

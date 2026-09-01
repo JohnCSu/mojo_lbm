@@ -68,7 +68,9 @@ def calculate_rho_and_velocity[
         grid: The compile-time `LBM_Grid` describing the domain.
         config: The `LBM_Config` used to select storage options.
         after_odd_step: When `True`, load from the positive half in the
-            esoteric-pull scheme (defaults to `None`). Must not be None if used for esoteric step
+            esoteric-pull scheme (defaults to `None`).
+
+
 
     Args:
         density: The output density tile tensor (rank 3).
@@ -98,13 +100,14 @@ def calculate_rho_and_velocity[
     var z = block_dim.z * block_idx.z + thread_idx.z
     var index:InlineArray[Int,3] = [x,y,z]
     var f_vec = Vector[float_dtype,Q](fill = 0)
-    coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
+    var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
 
     var flag = flags.load(coord_index)[0]
 
     var u = Vector[float_dtype,D](fill=0)
     if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]: # Basic Guard
 
+        var rho: Scalar[float_dtype]
         if flag != SOLID_NODE:
             var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
             comptime is_even_time_step = after_odd_step # after_odd_step implies is_even_time_step
@@ -126,3 +129,5 @@ def calculate_rho_and_velocity[
                 velocity.store(dyn_coord[DType.int32]((index[0],index[1],index[2],d)), value = u[d])
             else:
                 velocity.store(dyn_coord[DType.int32]((d,index[0],index[1],index[2])), value = u[d])
+
+# last modified by: muse-spark-1.2 on 2026/09/01

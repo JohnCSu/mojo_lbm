@@ -42,7 +42,6 @@ def esoteric_pull_load_f_vec[
         f_layout: The compile-time `Layout` of the distribution
             function.
         float_dtype: The compute `DType` for the returned vector.
-        directions: The compile-time discrete velocity directions.
         is_even_time_step: When `True`, use the even-step loading
             pattern.
         use_float16c: When `True`, decode Float16C storage.
@@ -53,6 +52,7 @@ def esoteric_pull_load_f_vec[
         f: The distribution function tile tensor.
         index: The `(x, y, z)` index of the current node.
         grid_shape: The `[nx, ny, nz]` shape of the grid.
+        directions: The discrete velocity directions.
 
     Returns:
         The loaded distribution vector of length `Q`.
@@ -62,15 +62,15 @@ def esoteric_pull_load_f_vec[
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
     # comptime load_f_from_xyzq = load_f[f_dtype,non_temporal = non_temporal] # We load raw values regardles of dtype
     # f_vec = Vector[f_dtype,Q](uninitialized = True)
-    f_vec = Vector[float_dtype,Q](uninitialized = True)
+    var f_vec = Vector[float_dtype,Q](uninitialized = True)
     f_vec[0] = load_f_from_xyzq(f,index,0)
 
     comptime if is_even_time_step:
     #     # Pull Positive from current node and pull negatives using standard pull scheme
         comptime for pos_q in range(1,Q-1,2):
             comptime neg_q = pos_q + 1
-            direction = directions[neg_q]
-            pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
+            var direction = directions[neg_q]
+            var pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
             f_vec[pos_q] = load_f_from_xyzq(f,index,pos_q)
             f_vec[neg_q] =  load_f_from_xyzq(f,pull_index,neg_q)
 
@@ -78,8 +78,8 @@ def esoteric_pull_load_f_vec[
         comptime for pos_q in range(1,Q-1,2):
             comptime neg_q = pos_q + 1
             # Using Push Scheme along positive directions and store in negative dir. For pos_q we get the value at current index in neg_q
-            direction = directions[pos_q]
-            push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction) # Pulling Scheme
+            var direction = directions[pos_q]
+            var push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction) # Pulling Scheme
 
             f_vec[pos_q] = load_f_from_xyzq(f,index,neg_q)
             f_vec[neg_q] = load_f_from_xyzq(f,push_index,pos_q)
@@ -123,7 +123,6 @@ def esoteric_pull_store_f_vec[
         float_dtype: The compute `DType` of the distribution vector.
         f_origin: The mutable origin of the distribution function
             tensor.
-        directions: The compile-time discrete velocity directions.
         is_even_time_step: When `True`, use the even-step storage
             pattern.
         use_float16c: When `True`, encode to Float16C storage.
@@ -135,6 +134,7 @@ def esoteric_pull_store_f_vec[
         f_vec: The distribution vector to store.
         index: The `(x, y, z)` index of the current node.
         grid_shape: The `[nx, ny, nz]` shape of the grid.
+        directions: The discrete velocity directions.
     """
     store_f[use_float16c,non_temporal](f,f_vec[0],index,0)
     # comptime assert opposite_indices_are_adjacent(directions),'For esoteric pull methods, opposite indices must be adjacent and positive directions are assumed to be odd indices'
@@ -143,8 +143,8 @@ def esoteric_pull_store_f_vec[
         #  WE stroe the negative directions in to the positve current index
         comptime for neg_q in range(2,Q,2):
             comptime pos_q = neg_q -1
-            direction = directions[neg_q]
-            pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Get the original index
+            var direction = directions[neg_q]
+            var pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Get the original index
             store_f[use_float16c,non_temporal](f,f_vec[pos_q],pull_index,neg_q) # We store it in the pull direction place
             store_f[use_float16c,non_temporal](f,f_vec[neg_q],index,pos_q)
             
@@ -153,8 +153,8 @@ def esoteric_pull_store_f_vec[
         comptime for neg_q in range(2,Q,2):
             comptime pos_q = neg_q -1
             # We store Positives in their push directions
-            direction = directions[pos_q]
-            push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction) # Get the original index
+            var direction = directions[pos_q]
+            var push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction) # Get the original index
             
             store_f[use_float16c,non_temporal](f,f_vec[pos_q],push_index,pos_q) # We store it in the pull direction place
             store_f[use_float16c,non_temporal](f,f_vec[neg_q],index,neg_q)
@@ -193,15 +193,17 @@ def double_buffer_pull_load_f_vec[
         D: The spatial dimension.
         Q: The number of discrete velocities.
         float_dtype: The compute `DType` for the returned vector.
-        directions: The compile-time discrete velocity directions.
         use_float16c: When `True`, decode Float16C storage.
         non_temporal: When `True`, issue non-temporal loads (defaults
             to `False`).
 
     Args:
         f: The distribution function tile tensor.
+        pull_flags: The flags gathered from pull neighbors.
         index: The `(x, y, z)` index of the current node.
         grid_shape: The `[nx, ny, nz]` shape of the grid.
+        directions: The discrete velocity directions.
+        opposite_indices: The opposite-index map.
 
     Returns:
         The loaded distribution vector of length `Q`.
@@ -209,9 +211,9 @@ def double_buffer_pull_load_f_vec[
     var f_vec = Vector[float_dtype,Q](uninitialized = True)
     comptime load_f_from_xyzq = load_f[float_dtype,use_float16c,non_temporal]
     comptime for q in range(Q):
-        direction = directions[q]
-        opp_q = Int(opposite_indices[q])
-        pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
+        var direction = directions[q]
+        var opp_q = Int(opposite_indices[q])
+        var pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Pulling Scheme
         f_vec[q] =  load_f_from_xyzq(f,pull_index,q)
 
         if pull_flags[q] == Flags.SOLID:
@@ -248,22 +250,22 @@ def esoteric_pull_load_single_f[
     if q == 0:
         return load_f_val(f,index,0)
 
-    is_pos_q = ((q % 2) == 1) # Odd indices are positive, Even Indices are negative
+    var is_pos_q = ((q % 2) == 1) # Odd indices are positive, Even Indices are negative
     # ref index_to_load:InlineArray[Int,3]
     # ref q_to_load:Int
     comptime if is_even_time_step:
-        neg_q = q+1 if is_pos_q else q
-        direction = directions[neg_q]
-        pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Case if q is neg
+        var neg_q = q+1 if is_pos_q else q
+        var direction = directions[neg_q]
+        var pull_index = get_adjacent_idx[shift = -1](index,grid_shape,direction) # Case if q is neg
         ref index_to_load = index if is_pos_q else pull_index
-        q_to_load = q
+        var q_to_load = q
         return load_f_val(f,index_to_load,q_to_load)
     else:
-        pos_q = q if is_pos_q else q-1
-        direction = directions[pos_q]
-        push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction)
+        var pos_q = q if is_pos_q else q-1
+        var direction = directions[pos_q]
+        var push_index = get_adjacent_idx[shift = 1](index,grid_shape,direction)
         ref index_to_load = index if is_pos_q else push_index
-        q_to_load = q+1 if is_pos_q else q-1
+        var q_to_load = q+1 if is_pos_q else q-1
 
         return load_f_val(f,index_to_load,q_to_load)
 
@@ -288,7 +290,9 @@ def set_adjacent_flags[
     directions:InlineArray[Vector[int_dtype, D], Q],
     ):
     comptime for q in range(start_idx,end_idx):
-        direction = directions[q]
-        pull_index = get_adjacent_idx[shift](index,grid_shape,direction) # Pulling Scheme
+        var direction = directions[q]
+        var pull_index = get_adjacent_idx[shift](index,grid_shape,direction) # Pulling Scheme
         pull_flags[q] = flags.load(dyn_coord[DType.uint32]((pull_index[0],pull_index[1],pull_index[2])))[0]
     
+
+# last modified by: muse-spark-1.2 on 2026/09/01
