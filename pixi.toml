@@ -22,10 +22,11 @@ max = ">=26.5.0,<27"
 mojo_lbm = { path = ".", editable = true }
 
 [tasks]
-lbm = "python buildLBM.py"
-compiletest = "python compiletest.py"
+lbm = "python ./dev_tools/buildLBM.py"
+compiletest = "python ./dev_tools/compiletest.py"
+capture_precompile = "python ./dev_tools/capture_precompile_stdout.py"
 precompile_test = "mojo precompile src -o src.mojoc --disable-warnings"
-replace = "source ./replace.sh"
+replace = "source ./dev_tools/replace.sh"
 
 [feature.dev.dependencies]
 nodejs = "*" # Node, npm, and npx live here
