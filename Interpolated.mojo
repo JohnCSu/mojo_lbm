@@ -59,7 +59,7 @@ from src.visualization import pyvista_viewer_import,grid_viewer
 
 from src.lbm import Assembly,Solver,OutputRequest
 from src.lbm.geometry.rigidSphere import get_rigid_sphere
-from src.lbm.geometry.interpolated_BB import object_bounceback_kernel
+# from src.lbm.geometry.interpolated_BB import linkwise_bounceback_kernel
 
 comptime float_dtype = DType.float32
 comptime int_dtype = DType.int32
