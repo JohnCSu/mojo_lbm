@@ -17,3 +17,10 @@ This is a guideline not a strict rule. Theses shouldn't be changed but recorded 
 - use the prefix set for small functions that mutate an input e.g. set_adjacent_flags
 - functions and method calls use "_" between words and lowercase (unless word is an acronym) e.g get_density
 - Structs and traits Prefer the use of CamelCase
+
+
+# Documentation
+- When updating documentation, at the bottom add the line
+last modified by: <model name> on <YYYY/MM/DD>
+
+where <model name> is the ai's name.
