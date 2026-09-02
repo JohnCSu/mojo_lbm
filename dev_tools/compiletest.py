@@ -6,7 +6,7 @@ from pathlib import Path
 
 def main():
     project_root = Path.cwd().resolve()
-    compiletest_dir = project_root / "compiletest"
+    compiletest_dir = project_root / "tests" / "compiletest"
     src_dir = project_root / "src"
     output_package = compiletest_dir / "src.mojopkg"
 

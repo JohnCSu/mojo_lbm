@@ -9,7 +9,6 @@ debug_fill.mojo
 *__pycache__
 test*.mojo
 debug*.mojo
-tests
 documentationMojoStyle.md
 EsotericPullLDC.mojo
 ncu_cmds.md
