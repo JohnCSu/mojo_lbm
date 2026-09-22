@@ -191,14 +191,13 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
         comptime for i in range(Self.size):
             self.data[i] = Scalar[Self.dtype](list[i])
 
+    @always_inline
     def cast_to[target_dtype:DType](self) -> Vector[target_dtype,Self.size]:
         var out = Vector[target_dtype,Self.size](uninitialized = True)
         comptime for i in range(Self.size):
             out[i] = Scalar[target_dtype](self[i])
         return out 
         
-
-
     @always_inline
     def fill(mut self,value:Scalar[Self.dtype]):
         """Broadcasts a scalar to every element of the vector.
@@ -208,6 +207,21 @@ struct Vector[dtype:DType, size: Int](ImplicitlyCopyable & Sized & Writable):
         """
         comptime for i in range(Self.size):
             self.data[i] = value
+
+    @always_inline
+    def as_array(self) -> ref[self.data] type_of(self.data):
+        '''
+        Return a reference of the vector as an mojo builtin array.
+        '''
+        return self.data
+    
+    @always_inline
+    def to_array(self) -> type_of(self.data):
+        '''
+        Return a copy of the vector as an mojo builtin array.
+        '''
+        return self.data.copy()
+
 
     @always_inline
     def dot(self,other:Self) -> Scalar[Self.dtype]:
