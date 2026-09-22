@@ -63,9 +63,11 @@ def nodewise_bounceback_kernel[
         bc:TileTensor[grid.float_dtype,BClayoutType,MutAnyOrigin if config.implies_bc_is_mutable() else ImmutAnyOrigin],
         tau:Scalar[grid.float_dtype],
         
-        fluid_boundary_ids:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
-        lattice_links:TileTensor[DType.uint32,RuntimeColMajor1DType,ImmutAnyOrigin],
-        fluid_rowoffsets:TileTensor[grid.float_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
+        
+        # fluid_boundary_ids:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
+        # CSR Inputs (uncompressed, we can also do this as fluid ids and compress lattiice links into a single uint32)
+        fluid_id_row_offsets:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin], # Row Offsets
+        lattice_links:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin], # Col Indices
         link_distances:TileTensor[grid.float_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
         compute_force:Scalar[DType.bool],
         q_clamp:Scalar[grid.float_dtype],
@@ -123,79 +125,71 @@ def nodewise_bounceback_kernel[
     # Should be a 1D based kernel loop
 
     # Each thread updates their corresponding link and write to f_in in-place
-    var tid = block_dim.x * block_idx.x + thread_idx.x
-    if tid < fluid_boundary_ids.layout.size():
+    var fluid_id = block_dim.x * block_idx.x + thread_idx.x
             
-        var fluid_idx = fluid_boundary_ids[tid]
+    # var fluid_idx = fluid_boundary_ids[tid]
+    
+    var index = idx_to_ijk(fluid_id,flags,tile_shape)
+    
+    if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
         
-        var index = idx_to_ijk(fluid_idx,flags,tile_shape)
+        var q_vec = Vector[float_dtype,Q](uninitialized=True)
+
+        var row_start = fluid_id_row_offsets[fluid_id]
+        var row_end = fluid_id_row_offsets[fluid_id+1]
+
+        var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
+        var flag = flags.load(coord_index)[0]
+        var f_vec = Vector[float_dtype,Q](fill = 0)
+        var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
         
-        if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
-            
-            var q_vec = Vector[float_dtype,Q](uninitialized=True)
-            var lattice_link_bitmask = lattice_links[tid]
-            
-            var row_start = fluid_rowoffsets[tid]
-            var row_end = fluid_rowoffsets[tid+1]
-            var n_links = row_end - row_start
-
-            var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
-            
-            var flag = flags.load(coord_index)[0]
-            var f_vec = Vector[float_dtype,Q](fill = 0)
-            var pull_flags = InlineArray[UInt8,Q](uninitialized=True)
-            
-            # We load 
-            stream[grid,config](f_vec,pull_flags,f_in,flags,flag,index)
-            
-            var rho = get_density[config.DDF_shift](f_vec)
-            var u = get_velocity(f_vec,rho, directions)
-
-            var ith_valid_link:type_of(row_start) = 0
-            var force_vec = Vector[float_dtype,D](fill = 0)
-            var dm:Scalar[float_dtype] =0
-
-            var moving_wall_term:Scalar[float_dtype] = 0.
-            # comptime if bounceback_method != Bounceback_method.MID_GRID:
-            comptime for q in range(1,Q):
-                if (lattice_link_bitmask & UInt32(1 << q)) != 0: # Check each bit
-                    var i = ith_valid_link + row_start
-                    var q_dist = link_distances[i]
-                    q_dist = max(q_dist,q_clamp)
-                    # Do bouceback here
-                    var opp_q = Int(opposite_index[q])
-                    comptime if bounceback_method == Bounceback_method.BOUZIDI:
-                        # We need the prestreamed values but we have the streamed values with midgrid Bounceback
-                        var f_into_wall = f_vec[opp_q] # This value has been bounced back
-                        var f_bb: Scalar[float_dtype]
-                        if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i
-                            var f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_q)
-                            # f_out_of_wall =  load_single_f[grid,config](f_in,index,opp_q)
-                            f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
-                        else:
-                            # This value has been streamed to the current node
-                            var f_at_xff = f_vec[q]
-                            f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
-                        
-                        f_vec[opp_q] = f_bb + moving_wall_term
-
-                        var link_force = float_directions[q]*(f_into_wall + f_bb)
-                        force_vec += link_force
-                        dm += f_bb - f_into_wall # Measure the change in mass due to interpolation
-
-                    ith_valid_link += 1
-
-            if compute_force:
-                comptime for d in range(D):
-                    force_tensor[tid,d] = force_vec[d]
-            # Conserve Mass
-            f_vec[0] += dm
-
-            # comptime assert 
-            apply_boundary_conditions[grid,config,exclude_moving_wall = True](f_vec,f_in,bc,flags,pull_flags,index,tau)
-            collide[grid,config](f_vec,f_in,bc,flags,pull_flags,index,tau)
+        # We load all streamed values
+        stream[grid,config](f_vec,pull_flags,f_in,flags,flag,index)
         
-            # Save here
-            store_f_vec_to_global[grid,config,is_even_time_step = is_even_time_step](f_out,f_vec,index)
+        var rho = get_density[config.DDF_shift](f_vec)
+        var u = get_velocity(f_vec,rho, directions)
+
+        var force_vec = Vector[float_dtype,D](fill = 0)
+        var dm:Scalar[float_dtype] =0
+
+        var moving_wall_term:Scalar[float_dtype] = 0.
+
+        for i in range(row_start,row_end):
+            var q = Int(lattice_links[i])
+            var q_dist = link_distances[i]
+            q_dist = max(q_dist,q_clamp)
+            # Do bouceback here
+            var opp_q = Int(opposite_index[q])
+            comptime if bounceback_method == Bounceback_method.BOUZIDI:
+                # We need the prestreamed values but we have the streamed values with midgrid Bounceback
+                var f_into_wall = f_vec[opp_q] # This value has been bounced back
+                var f_bb: Scalar[float_dtype]
+                if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i
+                    var f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_q)
+                    # f_out_of_wall =  load_single_f[grid,config](f_in,index,opp_q)
+                    f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
+                else:
+                    # This value has been streamed to the current node
+                    var f_at_xff = f_vec[q]
+                    f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
+                
+                f_vec[opp_q] = f_bb + moving_wall_term
+
+                var link_force = float_directions[q]*(f_into_wall + f_bb)
+                force_vec += link_force
+                dm += (f_bb - f_into_wall) # Measure the change in mass due to interpolation
+
+        if compute_force:
+            comptime for d in range(D):
+                force_tensor[fluid_id,d] = force_vec[d]
+        # Conserve Mass
+        f_vec[0] += dm
+
+        # comptime assert 
+        apply_boundary_conditions[grid,config,exclude_moving_wall = True](f_vec,f_in,bc,flags,pull_flags,index,tau)
+        collide[grid,config](f_vec,f_in,bc,flags,pull_flags,index,tau)
+    
+        # Save here
+        store_f_vec_to_global[grid,config,is_even_time_step = is_even_time_step](f_out,f_vec,index)
 
 # last modified by: muse-spark-1.2 on 2026/09/01

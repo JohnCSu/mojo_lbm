@@ -105,15 +105,16 @@ def linkwise_bounceback_kernel[
     # Should be a 1D based kernel loop
 
     # Each thread updates their corresponding link and write to f_in in-place
+    
     var tid = block_dim.x * block_idx.x + thread_idx.x
     if tid < fluid_boundaries.layout.size():
-            
+
         var fluid_idx = fluid_boundaries[tid]
-        
+
         var index = idx_to_ijk(fluid_idx,flags,tile_shape)
         
         if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
-            
+
             var i = Int(lattice_links[tid])
             var opp_i = Int(opposite_index[i])
 

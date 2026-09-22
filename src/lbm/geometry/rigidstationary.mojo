@@ -17,6 +17,8 @@ from src.utils.runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType
 from .interpolated_BB import linkwise_bounceback_kernel
 from src.lbm.constants import Bounceback_method,LBM_method
 from std.python import Python, PythonObject
+from .CSR import CSR
+
 
 struct RigidStationaryObject[
     grid: LBM_Grid,
@@ -172,16 +174,30 @@ struct RigidStationaryObject[
         return summed_force^
 
 
+    def to_CSR(self, shape: Optional[Tuple[Int, Int]] = None) raises -> CSR[Self.int_dtype, Self.float_dtype]:
+        """Exports the boundary links as a `CSR` sparse matrix.
 
+        Rows are the fluid boundary node indices, columns are the lattice
+        direction indices, and the wall distances are stored as the value
+        under key `link_distances` (reordered to match the CSR's sorted
+        layout). Shape defaults to `(num_boundary_nodes, lattice.Q)`.
 
+        Args:
+            shape: Optional `(n_rows, n_cols)` shape override.
+        """
+        var resolved_shape: Tuple[Int, Int]
+        if shape is None:
+            resolved_shape = Tuple(len(self.unique_fluid_ids), Self.grid.Q)
+        else:
+            resolved_shape = shape.value()
 
+        var rows = Span(self.fluid_boundaries_list.copy())
+        var cols = self.lattice_links_list.copy()
+        var dists = self.link_distances_list.copy()
 
-
-
-
-
-
-
+        var csr = CSR[Self.int_dtype, Self.float_dtype](resolved_shape, (rows), Span(cols))
+        csr.add_value("link_distances", Span(dists))
+        return csr^
 
 
 
