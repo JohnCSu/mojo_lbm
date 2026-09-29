@@ -52,7 +52,7 @@ def get_shape_and_stride[
     return (shape, stride)
 
 
-struct ContextTileTensor[dtype: DType, LayoutType: TensorLayout](Movable):
+struct ContextTileTensor[dtype: DType, LayoutType: TensorLayout](Copyable & Sized):
     """Manages paired host and device buffers tied to a `DeviceContext`.
 
     Holds a `HostBuffer` and a `DeviceBuffer` for the same logical tensor and
