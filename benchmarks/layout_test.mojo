@@ -2,6 +2,8 @@ from max.gpu.host import DeviceContext
 from layout import TileTensor
 from layout.tile_layout import (row_major,col_major,TensorLayout,blocked_product)
 from std.python import Python, PythonObject
+from std.sys import argv
+from std.sys.defines import get_defined_int
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 from std.collections import InlineArray
@@ -17,7 +19,7 @@ import std.sys as sys
 comptime float_dtype = DType.float32
 comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
-comptime N = 256
+comptime N = get_defined_int["N", 256]()
 comptime L = 1.
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,N)
@@ -41,7 +43,7 @@ comptime U:float_scalar = 0.05
 comptime viscosity:float_scalar = 1/100.
 comptime dt = dx*U/U_phs 
 comptime Re = 1/viscosity
-comptime L_lat:float_scalar = N
+comptime L_lat:float_scalar = float_scalar(N)
 comptime v_lat = U*L_lat/Re
 comptime tau = v_lat/(1/3.) +0.5
 
@@ -54,9 +56,27 @@ comptime benchmark_4 = base.benchmark_func_row_tile_col_tiler[tiled_grid,U,tau]
 comptime benchmark_5 = base.benchmark_func_col_tile_col_tiler[tiled_grid,U,tau]
 comptime benchmark_6 = base.benchmark_func_row_tile_row_tiler[tiled_grid,U,tau]
 
+def get_iters(default: Int) raises -> Int:
+    var iters = default
+    var args = argv()
+    var i = 1
+    while i < len(args):
+        var parts = String(args[i]).split('--iters=')
+        if len(parts) == 2:
+            iters = atol(parts[1])
+        elif String(args[i]) == '--iters':
+            if i + 1 < len(args):
+                iters = atol(args[i + 1])
+                i += 1
+            else:
+                raise Error('--iters requires a value')
+        i += 1
+    return iters
+
+
 def main() raises:
-    ctx = DeviceContext()
-    total_bytes =  Q*num_points*2*4 + num_points*(D+1)*4 + num_points # 4btes per Q (fp32) , 4 byters per bc (fp32) , 1 byte per flag (fp) 
+    var ctx = DeviceContext()
+    var total_bytes =  Q*num_points*2*4 + num_points*(D+1)*4 + num_points # 4btes per Q (fp32) , 4 byters per bc (fp32) , 1 byte per flag (fp) 
     print('{}^3 LDC Cube at Re=100 Benchmark for fp32/fp32 D{}Q{} LBM'.format(N,D,Q))
     print('Running On GPU Device: {}'.format(ctx.name()))
     print("Mojo Version: {}.{}.{}".format(sys.defines.MojoVersion().major, sys.defines.MojoVersion().minor,sys.defines.MojoVersion().patch))
@@ -69,7 +89,7 @@ def main() raises:
 
     print('Each Iteration contains 2 lbm steps on the GPU to represent even and odd time steps.')
 
-    var bench_config = BenchConfig(max_iters=10, num_warmup_iters=1)
+    var bench_config = BenchConfig(max_iters=get_iters(10), num_warmup_iters=1)
     var bench = Bench(bench_config.copy())
     bench.bench_function[benchmark_1](BenchId('1. Base Row Major AoS'))
     bench.bench_function[benchmark_2](BenchId('2. Base Col Major SoA'))

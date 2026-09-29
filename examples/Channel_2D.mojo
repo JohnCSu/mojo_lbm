@@ -2,6 +2,8 @@ from max.gpu.host import DeviceContext
 from layout import TileTensor,coord
 from layout.tile_layout import Layout,row_major,TensorLayout,blocked_product,col_major
 from std.python import Python, PythonObject
+from std.sys import argv
+from std.sys.defines import get_defined_int
 from std.gpu import block_dim, block_idx, thread_idx
 from std.math import ceildiv
 
@@ -21,7 +23,7 @@ comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D2Q9 = get_D2Q9()
 comptime D,Q = (2,9)
-comptime N = 128
+comptime N = get_defined_int["N", 128]()
 comptime L = 1.
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (2*N,N,1)
@@ -55,6 +57,41 @@ comptime velocity_layout = row_major[D,nx,ny,nz]()
 
 comptime all_slice = slice(None,None,None)
 
+def get_iters(default: Int) raises -> Int:
+    var iters = default
+    var args = argv()
+    var i = 1
+    while i < len(args):
+        var parts = String(args[i]).split('--iters=')
+        if len(parts) == 2:
+            iters = atol(parts[1])
+        elif String(args[i]) == '--iters':
+            if i + 1 < len(args):
+                iters = atol(args[i + 1])
+                i += 1
+            else:
+                raise Error('--iters requires a value')
+        i += 1
+    return iters
+
+
+def get_plot(default: Bool) raises -> Bool:
+    var plot = default
+    var args = argv()
+    var i = 1
+    while i < len(args):
+        var parts = String(args[i]).split('--plot=')
+        if len(parts) == 2:
+            var v = String(parts[1])
+            plot = v == '1' or v == 'true' or v == 'True' or v == 'on' or v == 'ON'
+        elif String(args[i]) == '--plot':
+            plot = True
+        elif String(args[i]) == '--no-plot':
+            plot = False
+        i += 1
+    return plot
+
+
 def main() raises:
     comptime assert N % tile_size == 0 , 'tile_size must divide N'
     print(grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z)
@@ -63,25 +100,25 @@ def main() raises:
     assert N % tile_size == 0, 'Tile Size must Divide N' 
     print(grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid.layouts.n_tiles_z)
 
-    U_phs:float_scalar = 1.
-    U:float_scalar = 0.1
-    viscosity:float_scalar = 1/10.
-    dt = dx*U/U_phs 
-    Re = 1/viscosity
-    L_lat:float_scalar = N
-    v_lat = U*L_lat/Re
-    tau = v_lat/(1/3.) +0.5
+    var U_phs:float_scalar = 1.
+    var U:float_scalar = 0.1
+    var viscosity:float_scalar = 1/10.
+    _ = dx*U/U_phs
+    var Re = 1/viscosity
+    var L_lat:float_scalar = float_scalar(N)
+    var v_lat = U*L_lat/Re
+    var tau = v_lat/(1/3.) +0.5
     print('Tau {}'.format(tau))
 
-    ctx = DeviceContext()
+    var ctx = DeviceContext()
     
-    flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx,bc_layout)
-    f = ContextTileTensor[float_dtype](ctx,f_layout)
-    f_out = ContextTileTensor[float_dtype](ctx,f_layout)
+    var flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx,bc_layout)
+    var f = ContextTileTensor[float_dtype](ctx,f_layout)
+    var f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
-    u = ContextTileTensor[float_dtype](ctx,velocity_layout)
-    rho = ContextTileTensor[float_dtype](ctx,density_layout)
+    var u = ContextTileTensor[float_dtype](ctx,velocity_layout)
+    var rho = ContextTileTensor[float_dtype](ctx,density_layout)
 
     # Set up
     comptime if not config.DDF_shift:
@@ -107,86 +144,58 @@ def main() raises:
     ctx.synchronize()
     #Compile Functions
     comptime LBM_ = double_buffer_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
-    LBM_func = ctx.compile_function[LBM_]()
+    var LBM_func = ctx.compile_function[LBM_]()
 
     comptime get_u_and_rho = calculate_rho_and_velocity[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),type_of(density_layout),type_of(velocity_layout),grid,config]
-    calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho]()
+    var calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho]()
  
     ctx.synchronize()
-    comptime MAX_ITERS = 10_000
+    var MAX_ITERS = get_iters(10_000)
     # Run Simulation
     for t in range(MAX_ITERS):
         ctx.enqueue_function[LBM_](f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),1/tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         ctx.enqueue_function[LBM_](f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),1/tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
-        if (t % (MAX_ITERS//10)) == 0 :
+        if (t % max((MAX_ITERS//10),1)) == 0 :
             # pass
             ctx.synchronize()
             ctx.enqueue_function[get_u_and_rho](rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
             ctx.synchronize()
-            u_np = u.buffer_to_numpy()/U
+            var u_np = u.buffer_to_numpy()/U
             print('step = {} max ={} avg = {}'.format(t,u_np.max(),u_np.mean()))
     ctx.synchronize()
     # Get Final U and rho
     ctx.enqueue_function[get_u_and_rho](rho.gpu(),u.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
     ctx.synchronize()
-    # return None
-    np = Python.import_module('numpy')
-    pd = Python.import_module('pandas')
-    pv = Python.import_module('pyvista')
-    plt = Python.import_module('matplotlib.pyplot')
-    ctypes = Python.import_module("ctypes")
 
-    u_np = (u.buffer_to_numpy()/U).reshape(D,nx,ny,nz)
+    var u_np = (u.buffer_to_numpy()/U).reshape(D,nx,ny,nz)
     print('step = {} max ={} avg = {}'.format(0,u_np.max(),u_np.mean()) )
 
-    x = np.linspace(0, grid.domain_size[0], nx)
-    y = np.linspace(0, grid.domain_size[1], ny)
-    m = np.meshgrid(x, y,indexing = 'ij')
-    xx,yy = m[0],m[1]
-    pv_mesh = pv.StructuredGrid(xx, yy, np.zeros_like(xx))
-    print(pv_mesh)
-    
+    var plot = get_plot(True)
+    if plot:
+        var np = Python.import_module('numpy')
+        var pv = Python.import_module('pyvista')
 
-    u_plot = u_np[0,all_slice,all_slice,all_slice].T
-    v_plot = u_np[1,all_slice,all_slice,all_slice].T
+        var x = np.linspace(0, grid.domain_size[0], nx)
+        var y = np.linspace(0, grid.domain_size[1], ny)
+        var m = np.meshgrid(x, y,indexing = 'ij')
+        var xx,yy = m[0],m[1]
+        var pv_mesh = pv.StructuredGrid(xx, yy, np.zeros_like(xx))
+        print(pv_mesh)
 
-    u_mag = np.sqrt(u_plot**2 + v_plot**2)
-    pv_mesh.point_data['U_mag'] = u_mag.ravel()
-    pv_mesh.point_data['U velocity'] = u_plot.ravel()
-    pv_mesh.point_data['V velocity'] = v_plot.ravel()
-    
-    plotter = pv.Plotter()
-    plotter.add_mesh(pv_mesh,scalars ='U_mag',show_edges = False, cmap= 'jet',clim = [0,1],nan_color='white',)
-    plotter.view_xy()
-    plotter.show_axes()
-    plotter.show() # screenshot = 'LDC_Re100.png'
-   
-    return None 
-    # import pandas as pd
-    v_benchmark = pd.read_csv('v_velocity_results.csv',sep = ',')
-    u_benchmark = pd.read_csv('u_velocity_results.txt',sep= '\t')
-    
-    
-    horizontal_line = pv_mesh.sample_over_line( Python.tuple(0,L/2,0),Python.tuple(L,L/2,0),resolution= nx)
-    v_05 = horizontal_line.point_data['V velocity']
-    
-    plt.plot(v_benchmark['%x'],v_benchmark['100'],'o',label = 'Ghia et al')
-    plt.plot(horizontal_line.points[all_slice,0],v_05,label ='lbm Results')
-    plt.xlabel('x')
-    plt.ylabel('v velocity')
-    plt.legend()
-    plt.show()
-    
-    
-    vertical_line = pv_mesh.sample_over_line(Python.tuple(L/2,0,0),Python.tuple(L/2,L,0),resolution= ny)
-    u_05 = vertical_line.point_data['U velocity']
-    
-    plt.plot(u_benchmark['%y'],u_benchmark['100'],'o',label = 'Ghia et al')
-    plt.plot(vertical_line.points[all_slice,1],u_05,label ='lbm Results')
-    plt.xlabel('y')
-    plt.ylabel('u velocity')
-    plt.legend()
-    plt.show()
+
+        var u_plot = u_np[0,all_slice,all_slice,all_slice].T
+        var v_plot = u_np[1,all_slice,all_slice,all_slice].T
+
+        var u_mag = np.sqrt(u_plot**2 + v_plot**2)
+        pv_mesh.point_data['U_mag'] = u_mag.ravel()
+        pv_mesh.point_data['U velocity'] = u_plot.ravel()
+        pv_mesh.point_data['V velocity'] = v_plot.ravel()
+
+        var plotter = pv.Plotter()
+        plotter.add_mesh(pv_mesh,scalars ='U_mag',show_edges = False, cmap= 'jet',clim = [0,1],nan_color='white',)
+        plotter.view_xy()
+        plotter.show_axes()
+        plotter.show() # screenshot = 'LDC_Re100.png'
         
     
     # print(b_np.reshape(nx,ny,D+1)[slice(None,None,None),slice(None,None,None),0])

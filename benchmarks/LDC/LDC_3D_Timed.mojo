@@ -2,6 +2,8 @@ from max.gpu.host import DeviceContext
 from layout import TileTensor,coord
 from layout.tile_layout import Layout,row_major,TensorLayout,blocked_product,col_major
 from std.python import Python, PythonObject
+from std.sys import argv
+from std.sys.defines import get_defined_int
 from std.collections import InlineArray
 from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
@@ -23,7 +25,7 @@ comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D3Q19 = get_D3Q19[DType.float32,DType.int32]()
 comptime D,Q = (D3Q19.D,D3Q19.Q)
-comptime N = 256+64
+comptime N = get_defined_int["N", 320]()
 comptime L = 1.
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,N)
@@ -49,6 +51,24 @@ comptime bc_tiler = col_major[grid.layouts.n_tiles_x,grid.layouts.n_tiles_y,grid
 comptime flag_layout = blocked_product(flag_tile,flag_tiler)
 comptime f_layout = blocked_product(f_tile,f_tiler)
 comptime bc_layout = blocked_product(bc_tile,bc_tiler)
+
+def get_iters(default: Int) raises -> Int:
+    var iters = default
+    var args = argv()
+    var i = 1
+    while i < len(args):
+        var parts = String(args[i]).split('--iters=')
+        if len(parts) == 2:
+            iters = atol(parts[1])
+        elif String(args[i]) == '--iters':
+            if i + 1 < len(args):
+                iters = atol(args[i + 1])
+                i += 1
+            else:
+                raise Error('--iters requires a value')
+        i += 1
+    return iters
+
 
 def main() raises:
     comptime assert N % tile_size == 0 , 'tile_size must divide N'
@@ -105,7 +125,7 @@ def main() raises:
 
     ctx.synchronize()
     
-    comptime MAX_ITERS = 1_000
+    var MAX_ITERS = get_iters(1_000)
     total_iters = MAX_ITERS*2
     # Run Simulation
     print('{}^3 LDC Cube at Re=100 Benchmark for fp32/fp32 D{}Q{} LBM'.format(N,D,Q))

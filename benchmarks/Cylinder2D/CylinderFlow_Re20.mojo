@@ -2,6 +2,8 @@ from max.gpu.host import DeviceContext
 from layout import TileTensor,coord
 from layout.tile_layout import Layout,row_major,TensorLayout,blocked_product,col_major
 from std.python import Python, PythonObject
+from std.sys import argv
+from std.sys.defines import get_defined_int
 from std.collections import InlineArray
 from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
@@ -26,7 +28,7 @@ comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D2Q9 = get_D2Q9()
 comptime D,Q = (2,9)
-comptime N = 512
+comptime N = get_defined_int["N", 512]()
 comptime L = 0.41
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (5*N,N,1)
@@ -48,6 +50,41 @@ comptime velocity_layout = row_major[D,nx,ny,nz]()
 
 
 comptime all_slice = slice(None,None,None)
+
+
+def get_iters(default: Int) raises -> Int:
+    var iters = default
+    var args = argv()
+    var i = 1
+    while i < len(args):
+        var parts = String(args[i]).split('--iters=')
+        if len(parts) == 2:
+            iters = atol(parts[1])
+        elif String(args[i]) == '--iters':
+            if i + 1 < len(args):
+                iters = atol(args[i + 1])
+                i += 1
+            else:
+                raise Error('--iters requires a value')
+        i += 1
+    return iters
+
+
+def get_plot(default: Bool) raises -> Bool:
+    var plot = default
+    var args = argv()
+    var i = 1
+    while i < len(args):
+        var parts = String(args[i]).split('--plot=')
+        if len(parts) == 2:
+            var v = String(parts[1])
+            plot = v == '1' or v == 'true' or v == 'True' or v == 'on' or v == 'ON'
+        elif String(args[i]) == '--plot':
+            plot = True
+        elif String(args[i]) == '--no-plot':
+            plot = False
+        i += 1
+    return plot
 
 
 def main() raises:    
@@ -105,21 +142,23 @@ def main() raises:
     comptime Cd:float_scalar = 5.57953523384
     comptime Cl:float_scalar = 0.010618948146
     # units = UnitSystem(U_phs,U,radius,radius/dx,1.,Re = 100.)
-    units = grid.get_UnitSystem_with_Re(U_phs,U,radius*2,Re=20.)
-    tau = units.tau
-    dt = units.dt
+    var units = grid.get_UnitSystem_with_Re(U_phs,U,radius*2,Re=20.)
+    var tau = units.tau
+    var dt = units.dt
     print(units.tau,units.Re, units.kinematic_viscosity)
 
-    ctx = DeviceContext()
+    var ctx = DeviceContext()
     
-    flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx,bc_layout)
-    f = ContextTileTensor[float_dtype](ctx,f_layout)
-    f_out = ContextTileTensor[float_dtype](ctx,f_layout)
+    var flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx,bc_layout)
+    var f = ContextTileTensor[float_dtype](ctx,f_layout)
+    var f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
-    u = ContextTileTensor[float_dtype](ctx,velocity_layout)
-    rho = ContextTileTensor[float_dtype](ctx,density_layout)
-    pv_view = pyvista_viewer_import()
+    var u = ContextTileTensor[float_dtype](ctx,velocity_layout)
+    var rho = ContextTileTensor[float_dtype](ctx,density_layout)
+    var plot = get_plot(True)
+    if plot:
+        _ = pyvista_viewer_import()
 
     # Set up
     comptime if not config.DDF_shift:
@@ -129,17 +168,17 @@ def main() raises:
         f.fill(0.)
         f_out.fill(0.)
 
-    params = RuntimeParams[float_dtype]()
+    _ = RuntimeParams[float_dtype]()
     # Boundary Conditions----------------------------
 
-    cen = 0.2//grid.dx # Ensure the center is adjustto be at a node
+    var cen = 0.2//grid.dx # Ensure the center is adjustto be at a node
     print('Centre: ',[cen*grid.dx,cen*grid.dx,0.])
-    cyl = get_rigid_sphere[grid,LBM_method.DOUBLE_BUFFER,config](ctx,flags.cpu(),center = [cen*grid.dx,cen*grid.dx,0.],radius = radius)
-    n_unique = Int(len(cyl.unique_fluid_ids))
-    cyl_ids = ContextTileTensor[grid.int_dtype](ctx,col_major1D(n_unique))
+    var cyl = get_rigid_sphere[grid,LBM_method.DOUBLE_BUFFER,config](ctx,flags.cpu(),center = [cen*grid.dx,cen*grid.dx,0.],radius = radius)
+    var n_unique = Int(len(cyl.unique_fluid_ids))
+    var cyl_ids = ContextTileTensor[grid.int_dtype](ctx,col_major1D(n_unique))
     cyl_ids.cpu_buffer().enqueue_copy_from(src = Span(cyl.unique_fluid_ids))
 
-    force_tensor = ContextTileTensor[float_dtype](ctx,col_major2D(n_unique,D),fill = Scalar[float_dtype](0))
+    var force_tensor = ContextTileTensor[float_dtype](ctx,col_major2D(n_unique,D),fill = Scalar[float_dtype](0))
 
     def inlet[float_dtype:DType,D:Int](x:Scalar[float_dtype],y:Scalar[float_dtype],z:Scalar[float_dtype],mut vel:InlineArray[Scalar[float_dtype],D]) capturing:
         comptime Um = 1.5*U_phs
@@ -162,35 +201,35 @@ def main() raises:
 
     #Compile Functions
     comptime LBM_ = double_buffer_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
-    LBM_func = ctx.compile_function[LBM_]()
+    var LBM_func = ctx.compile_function[LBM_]()
 
     comptime calculate_drag_ = calculate_drag_around_object[type_of(f_layout),type_of(flag_layout),grid,config]
-    calculate_drag = ctx.compile_function[calculate_drag_]()
+    var calculate_drag = ctx.compile_function[calculate_drag_]()
 
     comptime get_u_and_rho = calculate_rho_and_velocity[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),type_of(density_layout),type_of(velocity_layout),grid,config]
-    calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho]()
+    var calc_rho_and_u_gpu = ctx.compile_function[get_u_and_rho]()
 
     ctx.synchronize()
     # Animation Code
-    u_lat_to_phys = units.U.C_lat_to_phys()
+    var u_lat_to_phys = units.U.C_lat_to_phys()
 
-    np = Python.import_module('numpy')
-    u_np = (u.buffer_to_numpy()*u_lat_to_phys).reshape(D,nx,ny,nz)
-    pv_mesh = grid_viewer[grid](subplot_shape= (1,1))
+    var np = Python.import_module('numpy')
+    var u_np = (u.buffer_to_numpy()*u_lat_to_phys).reshape(D,nx,ny,nz)
+    if plot:
+        var pv_mesh = grid_viewer[grid](subplot_shape= (1,1))
+        var u_plot = u_np[0,all_slice,all_slice,all_slice].T
+        var v_plot = u_np[1,all_slice,all_slice,all_slice].T
+        var u_mag = np.sqrt(u_plot**2 + v_plot**2)
+        pv_mesh.point_data['U_mag'] = u_mag.ravel()
+        pv_mesh.point_data['U velocity'] = u_plot.ravel()
+        pv_mesh.point_data['V velocity'] = v_plot.ravel()
 
-    u_plot = u_np[0,all_slice,all_slice,all_slice].T
-    v_plot = u_np[1,all_slice,all_slice,all_slice].T
-    u_mag = np.sqrt(u_plot**2 + v_plot**2)
-    pv_mesh.point_data['U_mag'] = u_mag.ravel()
-    pv_mesh.point_data['U velocity'] = u_plot.ravel()
-    pv_mesh.point_data['V velocity'] = v_plot.ravel()
+        pv_mesh.set_mesh_display('U_mag',clim = [0,U_phs*1.5],cmap ='jet')
 
-    pv_mesh.set_mesh_display('U_mag',clim = [0,U_phs*1.5],cmap ='jet')
+        # pv_mesh.set_animation('Cylinder.gif')
+        # pv_mesh.show()
 
-    # pv_mesh.set_animation('Cylinder.gif')
-    # pv_mesh.show()
-
-    comptime MAX_ITERS = 400_000
+    var MAX_ITERS = get_iters(400_000)
     # Run Simulation
     for t in range(MAX_ITERS):
         ctx.enqueue_function[LBM_](f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
@@ -202,10 +241,10 @@ def main() raises:
             ctx.synchronize()
             u_np = (u.buffer_to_numpy()*u_lat_to_phys).reshape(D,nx,ny,nz)
             print('step = {}, time = {} max ={} avg = {}'.format(2*t,2.*Scalar[float_dtype](t)*dt,u_np.max(),u_np.mean()))
-            force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
-            sum_force_np = force_np.sum(axis=0)
-            Cx = 2*units.force.C_lat_to_phys()*float_scalar(py=sum_force_np[0])/(U_phs**2*(2*radius))
-            Cy = 2*units.force.C_lat_to_phys()*float_scalar(py=sum_force_np[1])/(U_phs**2*(2*radius))
+            var force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
+            var sum_force_np = force_np.sum(axis=0)
+            var Cx = 2*units.force.C_lat_to_phys()*float_scalar(py=sum_force_np[0])/(U_phs**2*(2*radius))
+            var Cy = 2*units.force.C_lat_to_phys()*float_scalar(py=sum_force_np[1])/(U_phs**2*(2*radius))
 
             print('Drag Force: {}, Target: {} Abs Error: {} Rel Error {}%'.format(Cx,Cd,abs(Cx-Cd),abs(Cd-Cx)/Cd*100) )
             print('Lift Force: {}, Target: {} Abs Error: {} Rel Error: {}%'.format(Cy,Cl,abs(Cy-Cl),abs(Cl-Cy)/Cl*100))
@@ -215,12 +254,12 @@ def main() raises:
     # Get Final U and rho
     ctx.enqueue_function[calculate_drag_](f.gpu().as_immut(),flags.gpu().as_immut(),cyl_ids.gpu(),force_tensor.gpu(),grid_dim = cyl_ids.size()//256+1, block_dim = 256)
     ctx.synchronize()
-    force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
-    sum_force_np = force_np.sum(axis=0)
-    Cx = 2*units.force.C_lat_to_phys()*float_scalar(py=sum_force_np[0])/(U_phs**2*(2*radius))
-    Cy = 2*units.force.C_lat_to_phys()*float_scalar(py=sum_force_np[1])/(U_phs**2*(2*radius))
+    var force_np = force_tensor.buffer_to_numpy().reshape(cyl_ids.size(),D)
+    var sum_force_np = force_np.sum(axis=0)
+    var Cx = 2*units.force.C_lat_to_phys()*float_scalar(py=sum_force_np[0])/(U_phs**2*(2*radius))
+    var Cy = 2*units.force.C_lat_to_phys()*float_scalar(py=sum_force_np[1])/(U_phs**2*(2*radius))
 
-    t = MAX_ITERS
+    var t = MAX_ITERS
     print('step = {}, time = {} max ={} avg = {}'.format(2*t,2.*Scalar[float_dtype](t)*dt,u_np.max(),u_np.mean()))
     print('Drag Force: {}, Target: {} Abs Error: {} Rel Error: {}%'.format(Cx,Cd,abs(Cx-Cd),abs(Cd-Cx)/Cd*100))
     print('Lift Force: {}, Target: {} Abs Error: {} Rel Error: {}%'.format(Cy,Cl,abs(Cy-Cl),abs(Cl-Cy)/Cl*100))

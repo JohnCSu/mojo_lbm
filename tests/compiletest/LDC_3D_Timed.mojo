@@ -2,6 +2,8 @@ from max.gpu.host import DeviceContext
 from layout import TileTensor,coord
 from layout.tile_layout import Layout,row_major,TensorLayout,blocked_product,col_major
 from std.python import Python, PythonObject
+from std.sys import argv
+from std.sys.defines import get_defined_int
 from std.collections import InlineArray
 from src.lbm import (
                     Flags,SOLID_NODE,FLUID_NODE,
@@ -22,7 +24,7 @@ comptime int_dtype = DType.int32
 comptime float_scalar = Scalar[float_dtype]
 comptime D3Q19 = get_D3Q19[DType.float32,DType.int32]()
 comptime D,Q = (D3Q19.D,D3Q19.Q)
-comptime N = 32
+comptime N = get_defined_int["N", 32]()
 comptime L = 1.
 comptime dx = L/float_scalar(N-1)
 comptime (nx,ny,nz) = (N,N,N)
@@ -49,33 +51,51 @@ comptime flag_layout = blocked_product(flag_tile,flag_tiler)
 comptime f_layout = blocked_product(f_tile,f_tiler)
 comptime bc_layout = blocked_product(bc_tile,bc_tiler)
 
+def get_iters(default: Int) raises -> Int:
+    var iters = default
+    var args = argv()
+    var i = 1
+    while i < len(args):
+        var parts = String(args[i]).split('--iters=')
+        if len(parts) == 2:
+            iters = atol(parts[1])
+        elif String(args[i]) == '--iters':
+            if i + 1 < len(args):
+                iters = atol(args[i + 1])
+                i += 1
+            else:
+                raise Error('--iters requires a value')
+        i += 1
+    return iters
+
+
 def main() raises:
     comptime assert N % tile_size == 0 , 'tile_size must divide N'
     
     assert N % tile_size == 0, 'Tile Size must Divide N' 
 
-    U_phs:float_scalar = 1.
-    U:float_scalar = 0.1
-    L_phys:float_scalar = 1.
-    Re:float_scalar = 100
+    var U_phs:float_scalar = 1.
+    var U:float_scalar = 0.1
+    var L_phys:float_scalar = 1.
+    var Re:float_scalar = 100
 
-    valid_Re:Set[Int] = {100,400,1000,3200,5000,7500,10000}
+    var valid_Re:Set[Int] = {100,400,1000,3200,5000,7500,10000}
 
-    Re_=Int(Re)
+    var Re_=Int(Re)
     if Re_ not in valid_Re:
         raise Error('Re for LDC must be the following {}. Got Re = {} instead'.format(valid_Re,Re_))
 
     
-    units = grid.get_UnitSystem_with_Re(U_phs,U,L_phys,Re=Re)
-    tau = units.tau
-    dt = units.dt
+    var units = grid.get_UnitSystem_with_Re(U_phs,U,L_phys,Re=Re)
+    var tau = units.tau
+    _ = units.dt
 
-    ctx = DeviceContext()
+    var ctx = DeviceContext()
     
-    flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
-    bc = ContextTileTensor[float_dtype](ctx,bc_layout)
-    f = ContextTileTensor[float_dtype](ctx,f_layout)
-    f_out = ContextTileTensor[float_dtype](ctx,f_layout)
+    var flags = ContextTileTensor[DType.uint8](ctx,flag_layout)
+    var bc = ContextTileTensor[float_dtype](ctx,bc_layout)
+    var f = ContextTileTensor[float_dtype](ctx,f_layout)
+    var f_out = ContextTileTensor[float_dtype](ctx,f_layout)
 
     # Set up
     print('Setting Initial Conditions')
@@ -98,12 +118,12 @@ def main() raises:
 
     #Compile Functions
     comptime LBM_ = double_buffer_kernel[type_of(f_layout),type_of(bc_layout),type_of(flag_layout),grid,config]
-    LBM_func = ctx.compile_function[LBM_]()
+    var LBM_func = ctx.compile_function[LBM_]()
 
     ctx.synchronize()
     
-    comptime MAX_ITERS = 5
-    total_iters = MAX_ITERS*2
+    var MAX_ITERS = get_iters(5)
+    var total_iters = MAX_ITERS*2
     # Run Simulation
     print('{}^3 LDC Cube at Re=100 Benchmark for fp32/fp32 D{}Q{} LBM'.format(N,D,Q))
     print('Running On GPU Device: {}'.format(ctx.name()))
@@ -115,18 +135,18 @@ def main() raises:
     print('Grid Dim: ',GRID_DIM)
     print('BLOCK_SHAPE: ', BLOCK_SHAPE)
 
-    time_start = perf_counter()
-    for t in range(MAX_ITERS):
+    var time_start = perf_counter()
+    for _ in range(MAX_ITERS):
         ctx.enqueue_function[LBM_](f_out.gpu(),f.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
         ctx.enqueue_function[LBM_](f.gpu(),f_out.gpu().as_immut(),bc.gpu().as_immut(),flags.gpu().as_immut(),tau,grid_dim = GRID_DIM,block_dim = BLOCK_SHAPE)
     ctx.synchronize()
-    time_end = perf_counter()
+    var time_end = perf_counter()
     
 
-    Wall_clock = (time_end-time_start) # Convert from ns to s
-    num_points = grid.num_points
+    var Wall_clock = (time_end-time_start) # Convert from ns to s
+    var num_points = grid.num_points
 
-    MLUPs = Float64(num_points*total_iters)/(Wall_clock*1e6) # MLUPs = Millions of Lattice Point Updates per second
+    var MLUPs = Float64(num_points*total_iters)/(Wall_clock*1e6) # MLUPs = Millions of Lattice Point Updates per second
     
     print('Wallclock Time: ',Wall_clock)
     print('MLUPs averaged over {} iterations: {}'.format(total_iters,MLUPs))
