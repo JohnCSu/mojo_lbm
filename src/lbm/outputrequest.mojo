@@ -245,7 +245,7 @@ struct OutputRequest[grid_:LBM_Grid,config_:LBM_Config](Movable):
 
         # Weshould use reflection to consoldate this
         var grid_shape = materialize[Self.grid.shape]()
-        var shape = Python.tuple(grid_shape[0],grid_shape[1],grid_shape[2])
+        var shape = Python.tuple(grid_shape[0],grid_shape[1],grid_shape[2],Self.grid.D)
 
         var velocity_buffer = ((self.velocity.value()).buffer_to_numpy()).reshape(shape,order = 'F')
 
