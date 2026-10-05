@@ -107,9 +107,7 @@ struct ContextTileTensor[dtype: DType, LayoutType: TensorLayout](Copyable & Size
     var _size: Int
     var last_device_used: Optional[String]
     """Tracks the most recently accessed device (`'cpu'` or `'gpu'`)."""
-
-    var _extra_row_host_buffer: Optional[HostBuffer[Self.dtype]]
-
+    # var _extra_row_host_buffer: Optional[HostBuffer[Self.dtype]]
     def __init__(
         out self,
         deviceContext: DeviceContext,
@@ -152,10 +150,12 @@ struct ContextTileTensor[dtype: DType, LayoutType: TensorLayout](Copyable & Size
         self.copy_on_switch = copy_on_switch
         self.synchronize_on_copy = synchronize_on_copy
 
-        self._extra_row_host_buffer = None
+        # self._extra_row_host_buffer = None
 
         if fill:
             self.fill(fill.value())
+
+
 
     def __len__(self) -> Int:
         """Returns the number of elements in the tensor."""
@@ -165,6 +165,21 @@ struct ContextTileTensor[dtype: DType, LayoutType: TensorLayout](Copyable & Size
     def size(self) -> Int:
         """Returns the number of elements in the tensor."""
         return self._size
+
+    def fill[origin:Origin,//]
+        (mut self,
+        src: Span[Scalar[Self.dtype],origin],
+        ) raises:
+
+        if len(src) != len(self):
+            raise Error('Input Source and layout provided must match the number of elements')
+
+        # var src_ = rebind[Span[Scalar[Self.dtype],origin]](src) 
+        self.deviceContext.enqueue_copy(
+            dst_buf=self.cpu_buffer(), src = src)
+
+        self.synchronize()
+
 
     @always_inline
     def fill(mut self, value: Scalar[Self.dtype]) raises:
@@ -264,18 +279,6 @@ struct ContextTileTensor[dtype: DType, LayoutType: TensorLayout](Copyable & Size
         """
         return contextTensor_to_numpy(self)
 
-    # def copy_to_row_major(mut self) raises -> TileTensor[Self.dtype,type_of(Self.row_major_layout),origin_of(self._extra_row_host_buffer.value())]:
-    #     '''
-    #     copy cpu buffer to a row_major equivalent layout
-    #     '''
-    # Worilk
-    #     # This keeps track
-    # if self._extra_row_host_buffer is None:
-    # self._extra_row_host_buffer = self.deviceContext.enqueue_create_host_buffer[Self.dtype](self._size)
-
-    # row_tensor = TileTensor(self._extra_row_host_buffer.value(),Self.row_major_layout)
-    # row_tensor.copy_from(self.cpu())
-    # return row_tensor
 
     def _check_last_used_device(mut self, currentDevice: String) raises:
         if currentDevice not in Set[String]("cpu", "gpu"):
