@@ -25,3 +25,5 @@ skills-lock.json
 .vscode
 transition.md
 mojo_warnings.txt
+# unit tests live in tests/unit/ and mirror src/ (see AGENTS.md)
+!tests/unit/**/test_*.mojo

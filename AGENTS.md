@@ -13,6 +13,12 @@ pixi run precompile_test              # mojo precompile src -o src.mojoc --disab
 pixi run capture_precompile_stdout    # collect all precompile warnings/errors into mojo_warnings.txt (gitignored) + /tmp/mojo_full_output.txt
 ```
 
+Extra args for `pixi run lbm` (after the script path):
+- `-D NAME=VALUE` — compile-time defines. Examples/benchmarks read the grid size as `comptime N = get_defined_int["N", <default>]()`, so `-D N=32` overrides it (must still satisfy `N % tile_size == 0`).
+- `--iters N` / `--iters=N` — max iterations, a runtime value read from `sys.argv` via a per-script `get_iters` helper (defaults to the script's current value).
+- `--plot` / `--no-plot` — plotting scripts (`get_plot` helper) default to plotting on; `--no-plot` skips viewer creation and frame updates.
+- Any other arg is forwarded to the script's `sys.argv`.
+
 - There are no unit tests yet (`tests/unit/` is empty). Verification = `pixi run compiletest` (each script is a full GPU simulation) and clean precompile via `capture_precompile_stdout`. Compiletests require a GPU.
 - Unit tests (when added) live in `tests/unit/` and must mirror the `src/` tree: `src/lbm/kernels/utils/index.mojo` -> `tests/unit/lbm/kernels/utils/test_index.mojo` (test files prefixed `test_`). Since modules can move, re-check `src/` and restructure `tests/unit/` to match before adding tests; `tests/unit/__init__.mojo` files mirror `src/` so imports like `from src.lbm...` resolve identically.
 - Scratch files are gitignored: `test*.mojo`, `debug*.mojo`, `*.mojoc`, `*.mojopkg`, `mojo_warnings.txt`. Put experiments in files with these names, not in `src/`.
@@ -53,3 +59,7 @@ Strict layering: `utils/ -> ops/ -> steps/` (steps are what the kernel calls).
 - All indexing is `(x, y, z, q)` regardless of underlying layout; kernels must stay layout-independent (row/col major, tiled).
 - `ContextTileTensor` (src/utils) syncs host/device buffers lazily — `.cpu()`/`.gpu()` copies only when switching devices.
 - Git commit messages are short lowercase one-liners (see `git log`).
+
+
+## Testing and analysiing code
+- Changes can be made by user duging a session. If analysis and runtime need to be made then always make a copy of said code and test in isolation where possible
