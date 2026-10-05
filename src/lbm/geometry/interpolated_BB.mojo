@@ -114,7 +114,6 @@ def linkwise_bounceback_kernel[
         var index = idx_to_ijk(fluid_idx,flags,tile_shape)
         
         if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
-
             var i = Int(lattice_links[tid])
             var opp_i = Int(opposite_index[i])
 
@@ -123,8 +122,8 @@ def linkwise_bounceback_kernel[
             q_dist = max(q_dist,q_clamp)
             
             var f_into_wall = load_f[float_dtype,config.use_float16c](f_in,index,i) # About to be bounced back value
-
             var f_bb: Scalar[float_dtype]
+
             comptime if bounceback_method == Bounceback_method.BOUZIDI:
                 if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i       
                     var f_out_of_wall =  load_f[float_dtype,config.use_float16c](f_in,index,opp_i)

@@ -67,6 +67,7 @@ def nodewise_bounceback_kernel[
         # fluid_boundary_ids:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
         # CSR Inputs (uncompressed, we can also do this as fluid ids and compress lattiice links into a single uint32)
         fluid_id_row_offsets:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin], # Row Offsets
+        fluid_ids:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin], # Row ID
         lattice_links:TileTensor[grid.int_dtype,RuntimeColMajor1DType,ImmutAnyOrigin], # Col Indices
         link_distances:TileTensor[grid.float_dtype,RuntimeColMajor1DType,ImmutAnyOrigin],
         compute_force:Scalar[DType.bool],
@@ -125,18 +126,16 @@ def nodewise_bounceback_kernel[
     # Should be a 1D based kernel loop
 
     # Each thread updates their corresponding link and write to f_in in-place
-    var fluid_id = block_dim.x * block_idx.x + thread_idx.x
-            
-    # var fluid_idx = fluid_boundary_ids[tid]
-    
+    var tid = block_dim.x * block_idx.x + thread_idx.x
+    var fluid_id = fluid_ids[tid]
     var index = idx_to_ijk(fluid_id,flags,tile_shape)
     
-    if index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]:
+    if (index[0] < grid_shape[0] and index[1] < grid_shape[1] and index[2] < grid_shape[2]) and (tid < (fluid_ids.layout.size())) :
         
         var q_vec = Vector[float_dtype,Q](uninitialized=True)
 
-        var row_start = fluid_id_row_offsets[fluid_id]
-        var row_end = fluid_id_row_offsets[fluid_id+1]
+        var row_start = fluid_id_row_offsets[tid]
+        var row_end = fluid_id_row_offsets[tid+1]
 
         var coord_index = dyn_coord[DType.int32]((index[0],index[1],index[2]))
         var flag = flags.load(coord_index)[0]
@@ -155,41 +154,74 @@ def nodewise_bounceback_kernel[
         var moving_wall_term:Scalar[float_dtype] = 0.
 
         for i in range(row_start,row_end):
-            var q = Int(lattice_links[i])
             var q_dist = link_distances[i]
             q_dist = max(q_dist,q_clamp)
-            # Do bouceback here
-            var opp_q = Int(opposite_index[q])
-            comptime if bounceback_method == Bounceback_method.BOUZIDI:
-                # We need the prestreamed values but we have the streamed values with midgrid Bounceback
-                var f_into_wall = f_vec[opp_q] # This value has been bounced back
-                var f_bb: Scalar[float_dtype]
-                if q_dist > 0.5: # We need the f at the boundary leaving the wall and opposite direction i
-                    var f_out_of_wall =  load_f[float_dtype,config.DDF_shift](f_in,index,opp_q)
-                    # f_out_of_wall =  load_single_f[grid,config](f_in,index,opp_q)
-                    f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
-                else:
-                    # This value has been streamed to the current node
-                    var f_at_xff = f_vec[q]
-                    f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
-                
-                f_vec[opp_q] = f_bb + moving_wall_term
 
-                var link_force = float_directions[q]*(f_into_wall + f_bb)
-                force_vec += link_force
-                dm += (f_bb - f_into_wall) # Measure the change in mass due to interpolation
+            var q_into_wall = Int(lattice_links[i])
+            var q_leaving_wall = Int(opposite_index[q_into_wall])
+            
+            #Bounceback Part
+            comptime if bounceback_method == Bounceback_method.BOUZIDI:
+                bouzidi_bounceback[config.DDF_shift,config.use_float16c](
+                    f_vec,force_vec,dm, # Mutable Args
+                    f_in,
+                    q_into_wall,q_leaving_wall,q_dist,
+                    pull_flags,
+                    index,grid_shape,directions,float_directions,weights)
+
+            else:# MidGrid Default or should raise error?
+                var f_bb = f_vec[q_leaving_wall]
+                force_vec += float_directions[q_into_wall]*(2*f_bb) 
+
+            # Add Moving Wall term here. It is boundary independent
+
 
         if compute_force:
             comptime for d in range(D):
-                force_tensor[fluid_id,d] = force_vec[d]
+                force_tensor[tid,d] = force_vec[d]
         # Conserve Mass
         f_vec[0] += dm
 
-        # comptime assert 
+        # Continue as before
         apply_boundary_conditions[grid,config,exclude_moving_wall = True](f_vec,f_in,bc,flags,pull_flags,index,tau)
         collide[grid,config](f_vec,f_in,bc,flags,pull_flags,index,tau)
-    
-        # Save here
+
         store_f_vec_to_global[grid,config,is_even_time_step = is_even_time_step](f_out,f_vec,index)
 
-# last modified by: muse-spark-1.2 on 2026/09/01
+
+
+
+def bouzidi_bounceback[
+    float_dtype:DType,int_dtype:DType,f_dtype:DType,D:Int,Q:Int,
+    //,
+    DDF_shift:Bool,
+    use_float16c:Bool,
+    ]
+    (
+    mut f_vec:Vector[float_dtype,Q], # Already Streamed
+    mut force_vec:Vector[float_dtype,D],
+    mut dm:Scalar[float_dtype],
+    f_in:TileTensor[f_dtype,...],
+    q_into_wall: Int,
+    q_leaving_wall:Int,
+    q_dist:Scalar[float_dtype],
+    pull_flags:InlineArray[UInt8,Q],
+    index:InlineArray[Int,3],
+    grid_shape:InlineArray[Int,3],
+    directions:InlineArray[Vector[int_dtype, D], Q],
+    float_directions:InlineArray[Vector[float_dtype, D], Q],
+    weights:Vector[float_dtype,Q],
+    ): 
+    var f_into_wall = f_vec[q_leaving_wall] # This value has been bounced back as f_vec is already streamed
+    var f_bb: Scalar[float_dtype]
+    # We need the prestreamed values but we have the streamed values with midgrid Bounceback
+    if q_dist > 0.5: # We need the post streamed f at the boundary leaving the wall and opposite direction i
+        var f_out_of_wall =  load_f[float_dtype,DDF_shift](f_in,index,q_leaving_wall)
+        f_bb = 0.5/q_dist*f_into_wall + (2*q_dist-1)/(2*q_dist)*f_out_of_wall
+    else:
+        var xff_index = get_adjacent_idx[-1](index,grid_shape,directions[q_into_wall]) # xff is in opp direction to i direction
+        var f_at_xff = load_f[float_dtype,use_float16c](f_in,xff_index,q_leaving_wall)
+        f_bb = 2*q_dist*f_into_wall + (1-2*q_dist)*f_at_xff
+                
+    f_vec[q_leaving_wall] = f_bb
+    force_vec += float_directions[q_into_wall]*(f_into_wall + f_bb)
