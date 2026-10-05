@@ -157,7 +157,7 @@ struct RigidStationaryObject[
             block_dim = 256,
             )
 
-    def sum_force(mut self,*,in_lattice_units:Bool = True) raises -> InlineArray[Scalar[Self.float_dtype],Self.grid.D]:
+    def sum_force(mut self,*,in_lattice_units:Bool = True) raises -> Array[Scalar[Self.float_dtype],Self.grid.D]:
         var summed_force = InlineArray[Scalar[Self.float_dtype],Self.grid.D](uninitialized = True)
         comptime float = Scalar[Self.float_dtype]
         var np = Python.import_module('numpy')
@@ -174,7 +174,7 @@ struct RigidStationaryObject[
         return summed_force^
 
 
-    def to_CSR(self, shape: Optional[Tuple[Int, Int]] = None) raises -> CSR[Self.int_dtype, Self.float_dtype]:
+    def to_csr(self, shape: Optional[Tuple[Int, Int]] = None) raises -> CSR[Self.int_dtype, Self.float_dtype]:
         """Exports the boundary links as a `CSR` sparse matrix.
 
         Rows are the fluid boundary node indices, columns are the lattice
@@ -191,11 +191,11 @@ struct RigidStationaryObject[
         else:
             resolved_shape = shape.value()
 
-        var rows = Span(self.fluid_boundaries_list.copy())
-        var cols = self.lattice_links_list.copy()
-        var dists = self.link_distances_list.copy()
+        var rows = Span(self.fluid_boundaries_list)
+        var cols = Span(self.lattice_links_list.copy())
+        var dists = Span(self.link_distances_list)
 
-        var csr = CSR[Self.int_dtype, Self.float_dtype](resolved_shape, (rows), Span(cols))
+        var csr = CSR[Self.int_dtype, Self.float_dtype](resolved_shape, (rows), (cols))
         csr.add_value("link_distances", Span(dists))
         return csr^
 
