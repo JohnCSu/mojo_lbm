@@ -6,3 +6,4 @@ keep their CPU and GPU views in sync.
 """
 from .contextTileTensor import ContextTileTensor
 from .vector import Vector
+from .runtimeLayouts import RuntimeColMajor1DType,RuntimeColMajor2DType,col_major1D,col_major2D
